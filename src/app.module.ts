@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { CommonModule } from './common/common.module';
+import { StablecoinsModule } from './api/stablecoins/stablecoins.module';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [CommonModule, StablecoinsModule],
 })
 export class AppModule {}
