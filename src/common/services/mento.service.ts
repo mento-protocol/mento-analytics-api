@@ -12,12 +12,13 @@ export class MentoService implements OnModuleInit {
   async onModuleInit() {
     const rpcUrl = this.configService.get<string>('RPC_URL');
     if (!rpcUrl) {
-      throw new Error(
-        'RPC_URL is not defined. Verify it is set in environment variables.',
-      );
+      throw new Error('RPC_URL is not defined. Verify it is set in environment variables.');
     }
 
     const provider = new JsonRpcProvider(rpcUrl);
+
+    await provider.ready;
+
     this.mento = await Mento.create({
       provider,
     });
