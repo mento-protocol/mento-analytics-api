@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MentoService } from './services/mento.service';
+import { ExchangeRatesService } from './services/exchange-rates.service';
 
 @Global()
 @Module({
@@ -9,7 +10,7 @@ import { MentoService } from './services/mento.service';
       isGlobal: true,
     }),
   ],
-  providers: [MentoService],
-  exports: [MentoService],
+  providers: [MentoService, ExchangeRatesService],
+  exports: [MentoService, ExchangeRatesService],
 })
 export class CommonModule {}

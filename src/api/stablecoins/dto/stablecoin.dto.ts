@@ -19,6 +19,12 @@ export class StablecoinDto {
   @ApiProperty()
   supply: SupplyDto;
 
+  @ApiProperty({ example: 18 })
+  decimals: number;
+
+  @ApiProperty({ example: 'USD' })
+  fiat_symbol: string;
+
   @ApiProperty({
     example:
       'https://raw.githubusercontent.com/mento-protocol/reserve-site/refs/heads/main/public/assets/tokens/cUSD.svg',

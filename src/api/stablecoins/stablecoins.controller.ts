@@ -16,6 +16,7 @@ export class StablecoinsController {
     type: StablecoinsResponseDto,
   })
   async getStablecoins(): Promise<StablecoinsResponseDto> {
-    return await this.stablecoinsService.getStablecoins();
+    const response = await this.stablecoinsService.getStablecoins();
+    return response;
   }
 }
