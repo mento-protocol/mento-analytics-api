@@ -23,6 +23,8 @@ export class ReserveService {
     ]);
   }
 
+  // TODO: Add a log or sentry alert for when a resserve address contains assets with little or no value
+
   /**
    * Get the balances of all reserve holdings
    * @returns The balances of all reserve holdings
@@ -32,10 +34,10 @@ export class ReserveService {
 
     // Fetch balances for each reserve address category
     await Promise.all([
-      // this.fetchMentoReserveCeloBalances(),
+      this.fetchMentoReserveCeloBalances(),
       // this.fetchMentoReserveEthereumBalances(),
       // this.fetchCurvePoolBalances(),
-      this.fetchBitcoinBalances(),
+      // this.fetchBitcoinBalances(),
     ]).then((results) => results.flat().forEach((balance) => holdings.push(balance)));
 
     return holdings;
@@ -46,76 +48,97 @@ export class ReserveService {
    * @returns The balances of the mento reserve addresses on Celo
    */
   private async fetchMentoReserveCeloBalances(): Promise<AssetBalance[]> {
-    // Gets the Celo Mento Reserve address
-    const mentoReserveCelo = RESERVE_ADDRESSES.find(
+    // Get all Celo Mento Reserve addresses
+    const mentoReserveCeloAddresses = RESERVE_ADDRESSES.filter(
       (addr) => addr.chain === Chain.CELO && addr.category === AddressCategory.MENTO_RESERVE,
     );
 
-    // TODO: Log an error and return an empty array
-    // TODO: Sentry integration for logging errors
-    if (!mentoReserveCelo) {
-      throw new Error('Mento Reserve address on Celo not found');
+    if (mentoReserveCeloAddresses.length === 0) {
+      console.log('No Mento Reserve addresses found on Celo');
+      return [];
     }
 
     const fetcher = this.erc20Fetchers.get(Chain.CELO)!;
-    const reserveAssets = mentoReserveCelo.assets;
 
-    // Fetch balances for all assets in this reserve
-    return Promise.all(
-      reserveAssets.map(async (symbol) => {
-        // Get the config for the asset with this symbol
-        const assetConfig = ASSETS_CONFIGS[symbol];
+    // For each reserve address, fetch all asset balances
+    const allBalances = await Promise.all(
+      mentoReserveCeloAddresses.flatMap((reserveAddress) =>
+        // Map over each asset symbol for this reserve address
+        reserveAddress.assets.map(async (symbol) => {
+          // Get the config for this asset
+          const assetConfig = ASSETS_CONFIGS[symbol];
 
-        if (!assetConfig) {
-          // TODO: This is not an error but a warning.
-          // If the asset config is not there balances will not be accurate
-          console.log(`Asset config for ${symbol} not found`);
-          return null;
-        }
+          if (!assetConfig) {
+            console.log(`Asset config for ${symbol} not found`);
+            return null;
+          }
 
-        // Fetch the balance of the asset for this reserve address
-        const balance = await fetcher.fetchBalance(assetConfig.address, mentoReserveCelo.address);
+          // Fetch the balance of the asset for this reserve address
+          const balance = await fetcher.fetchBalance(assetConfig.address, reserveAddress.address);
 
-        // Return the balance of the asset for this reserve address with the calculated USD value
-        return {
-          symbol,
-          address: mentoReserveCelo.address,
-          chain: Chain.CELO,
-          balance,
-          usdValue: await this.calculateUsdValue(assetConfig, balance),
-        };
-      }),
+          // Return the balance with USD value calculated
+          return {
+            symbol,
+            address: reserveAddress.address,
+            chain: Chain.CELO,
+            balance: ethers.formatUnits(balance, assetConfig.decimals),
+            usdValue: await this.calculateUsdValue(assetConfig, balance),
+          };
+        }),
+      ),
     );
+
+    // Filter out null values and return the array of balances
+    return allBalances.filter((balance): balance is AssetBalance => balance !== null);
   }
 
   private async fetchMentoReserveEthereumBalances(): Promise<AssetBalance[]> {
-    // TODO: Generalise this, this is the same as the Celo one
-    const mentoReserveEth = RESERVE_ADDRESSES.find(
+    // Get the reserve addresses that live on Ethereum
+    const ethReserveAddresses = RESERVE_ADDRESSES.filter(
       (addr) => addr.chain === Chain.ETHEREUM && addr.category === AddressCategory.MENTO_RESERVE,
     );
 
-    if (!mentoReserveEth) {
-      // TODO: Better logging
+    if (ethReserveAddresses.length === 0) {
       console.log('Mento Reserve address on Ethereum not found');
       return [];
     }
 
     const fetcher = this.erc20Fetchers.get(Chain.ETHEREUM)!;
 
-    return Promise.all(
-      mentoReserveEth.assets.map(async (symbol) => {
-        const assetConfig = ASSETS_CONFIGS[symbol];
-        const balance = await fetcher.fetchBalance(assetConfig.address, mentoReserveEth.address);
+    // For each reserve address, fetch all asset balances
+    const allBalances = await Promise.all(
+      ethReserveAddresses.flatMap((reserveAddress) =>
+        // Map over each asset symbol for this reserve address
+        reserveAddress.assets.map(async (symbol) => {
+          // Get the config for this asset
+          const assetConfig = ASSETS_CONFIGS[symbol];
 
-        return {
-          symbol,
-          address: mentoReserveEth.address,
-          chain: Chain.ETHEREUM,
-          balance,
-          usdValue: await this.calculateUsdValue(assetConfig, balance),
-        };
-      }),
+          if (!assetConfig) {
+            console.log(`Asset config for ${symbol} not found`);
+            return null;
+          }
+
+          // Fetch the balance of the asset for this reserve address
+          // Pass null as tokenAddress for ETH, otherwise use the asset's address
+          const balance = await fetcher.fetchBalance(
+            symbol === 'ETH' ? null : assetConfig.address,
+            reserveAddress.address,
+          );
+
+          // Return the balance with USD value calculated
+          return {
+            symbol,
+            address: reserveAddress.address,
+            chain: Chain.ETHEREUM,
+            balance: ethers.formatUnits(balance, assetConfig.decimals),
+            usdValue: await this.calculateUsdValue(assetConfig, balance),
+          };
+        }),
+      ),
     );
+
+    // Filter out null values and return the array of balances
+    return allBalances.filter((balance): balance is AssetBalance => balance !== null);
   }
 
   private async fetchCurvePoolBalances(): Promise<AssetBalance[]> {

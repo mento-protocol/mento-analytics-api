@@ -24,10 +24,6 @@ export interface AssetConfig {
   name: string;
   chain: Chain;
   decimals: number;
-  priceApi?: {
-    endpoint: string;
-    path: string;
-  };
   address?: string; // Optional address for the asset.
 }
 

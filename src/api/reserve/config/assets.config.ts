@@ -1,7 +1,6 @@
 import { AssetConfig, Chain } from 'src/types';
 
 // TODO: Import paths @types
-// TODO: Consider assets that existin on multiple chains. e.g. USDC on Ethereum and Celo
 export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
   CELO: {
     symbol: 'CELO',
@@ -36,9 +35,46 @@ export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
     name: 'Bitcoin',
     chain: Chain.BITCOIN,
     decimals: 8,
-    priceApi: {
-      endpoint: 'https://api.coingecko.com/api/v3/simple/price',
-      path: 'bitcoin.usd',
-    },
+  },
+  WBTC: {
+    symbol: 'WBTC',
+    name: 'Wrapped Bitcoin',
+    chain: Chain.ETHEREUM,
+    decimals: 8,
+    address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+  },
+  stETH: {
+    symbol: 'stETH',
+    name: 'Lido Staked ETH',
+    chain: Chain.ETHEREUM,
+    decimals: 18,
+    address: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84',
+  },
+  EURC: {
+    symbol: 'EURC',
+    name: 'Euro Coin',
+    chain: Chain.ETHEREUM,
+    decimals: 6,
+    address: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c',
+  },
+  ETH: {
+    symbol: 'ETH',
+    name: 'Ether',
+    chain: Chain.ETHEREUM,
+    decimals: 18,
+  },
+  USDGLO: {
+    symbol: 'USDGLO',
+    name: 'Glo Dollar',
+    chain: Chain.CELO,
+    decimals: 18,
+    address: '0x4F604735c1cF31399C6E711D5962b2B3E0225AD3',
+  },
+  WETH: {
+    symbol: 'WETH',
+    name: 'Wrapped Ether (Wormhole)',
+    chain: Chain.CELO,
+    decimals: 18,
+    address: '0x66803FB87aBd4aaC3cbB3fAd7C3aa01f6F3FB207',
   },
 };
