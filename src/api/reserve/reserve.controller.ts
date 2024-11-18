@@ -63,17 +63,25 @@ export class ReserveController {
     type: ReserveAddressesResponseDto,
   })
   getReserveAddresses(): ReserveAddressesResponseDto {
+    // Group addresses by network and category
+    const groupedAddresses = RESERVE_ADDRESSES.reduce((acc, addr) => {
+      const key = `${addr.chain}-${addr.category}`;
+      if (!acc[key]) {
+        acc[key] = {
+          network: addr.chain,
+          category: addr.category,
+          addresses: [],
+        };
+      }
+      acc[key].addresses.push({
+        address: addr.address,
+        label: addr.label,
+      });
+      return acc;
+    }, {});
+
     return {
-      addresses: RESERVE_ADDRESSES.map((addr) => ({
-        network: addr.chain,
-        category: addr.category,
-        addresses: [
-          {
-            address: addr.address,
-            label: addr.label,
-          },
-        ],
-      })),
+      addresses: Object.values(groupedAddresses),
     };
   }
 }

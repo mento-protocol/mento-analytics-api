@@ -35,9 +35,8 @@ export class ReserveService {
     // Fetch balances for each reserve address category
     await Promise.all([
       this.fetchMentoReserveCeloBalances(),
-      // this.fetchMentoReserveEthereumBalances(),
-      // this.fetchCurvePoolBalances(),
-      // this.fetchBitcoinBalances(),
+      this.fetchMentoReserveEthereumBalances(),
+      this.fetchBitcoinBalances(),
     ]).then((results) => results.flat().forEach((balance) => holdings.push(balance)));
 
     return holdings;
@@ -139,35 +138,6 @@ export class ReserveService {
 
     // Filter out null values and return the array of balances
     return allBalances.filter((balance): balance is AssetBalance => balance !== null);
-  }
-
-  private async fetchCurvePoolBalances(): Promise<AssetBalance[]> {
-    const curvePool = RESERVE_ADDRESSES.find(
-      (addr) => addr.chain === Chain.CELO && addr.category === AddressCategory.CURVE_POOL,
-    );
-
-    if (!curvePool) {
-      console.log('Curve Pool address on Celo not found');
-      return [];
-    }
-
-    const fetcher = this.erc20Fetchers.get(Chain.CELO)!;
-
-    return Promise.all(
-      curvePool.assets.map(async (symbol) => {
-        const assetConfig = ASSETS_CONFIGS[symbol];
-        const balance = await fetcher.fetchBalance(assetConfig.address, curvePool.address);
-        const usdValue = await this.calculateUsdValue(assetConfig, balance);
-
-        return {
-          symbol,
-          address: curvePool.address,
-          chain: Chain.CELO,
-          balance,
-          usdValue,
-        };
-      }),
-    );
   }
 
   private async fetchBitcoinBalances(): Promise<AssetBalance[]> {

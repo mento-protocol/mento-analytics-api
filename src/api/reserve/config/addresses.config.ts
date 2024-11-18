@@ -51,4 +51,13 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     assets: ['CELO', 'USDGLO', 'USDC', 'WETH'],
     description: 'Reserve multisig on Celo',
   },
+  // TODO: What is this address?? Currently listed on the reserve site
+  {
+    address: '0x13a9803d547332c81Ebc6060F739821264DBcf1E',
+    chain: Chain.CELO,
+    category: AddressCategory.MENTO_RESERVE,
+    label: '???????',
+    assets: ['CELO'],
+    description: '??????',
+  },
 ];
