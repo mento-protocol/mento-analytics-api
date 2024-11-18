@@ -17,6 +17,9 @@ export class StablecoinsService {
   //       For USD values, we want a number with 2 decimal places
   //       For token amounts, we want full precision as a string.
 
+  // TODO: Need to add logic to subtract the amount of cUSD that has been preminted and is in the curve pool
+  //       from the total supply.
+
   async getStablecoins(): Promise<StablecoinsResponseDto> {
     const maxRetries = 3;
     let attempt = 0;
