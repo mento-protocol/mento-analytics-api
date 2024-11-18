@@ -6,6 +6,7 @@ import { RESERVE_ADDRESSES } from './config/addresses.config';
 import { ASSETS_CONFIGS } from './config/assets.config';
 import { PriceFetcherService } from '../../common/services/price-fetcher.service';
 import { ethers } from 'ethers';
+import { BitcoinBalanceFetcher } from './services/bitcoin-balance-fetcher';
 
 @Injectable()
 export class ReserveService {
@@ -14,6 +15,7 @@ export class ReserveService {
   constructor(
     private readonly chainProviders: ChainProvidersService,
     private readonly priceFetcher: PriceFetcherService,
+    private readonly bitcoinFetcher: BitcoinBalanceFetcher,
   ) {
     this.erc20Fetchers = new Map([
       [Chain.CELO, new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO))],
@@ -30,10 +32,10 @@ export class ReserveService {
 
     // Fetch balances for each reserve address category
     await Promise.all([
-      this.fetchMentoReserveCeloBalances(),
+      // this.fetchMentoReserveCeloBalances(),
       // this.fetchMentoReserveEthereumBalances(),
       // this.fetchCurvePoolBalances(),
-      // this.fetchBitcoinBalances(),
+      this.fetchBitcoinBalances(),
     ]).then((results) => results.flat().forEach((balance) => holdings.push(balance)));
 
     return holdings;
@@ -132,13 +134,14 @@ export class ReserveService {
       curvePool.assets.map(async (symbol) => {
         const assetConfig = ASSETS_CONFIGS[symbol];
         const balance = await fetcher.fetchBalance(assetConfig.address, curvePool.address);
+        const usdValue = await this.calculateUsdValue(assetConfig, balance);
 
         return {
           symbol,
           address: curvePool.address,
           chain: Chain.CELO,
           balance,
-          usdValue: await this.calculateUsdValue(assetConfig, balance),
+          usdValue,
         };
       }),
     );
@@ -152,8 +155,6 @@ export class ReserveService {
       return [];
     }
 
-    // Use a Bitcoin API to fetch balances
-    // This would need a separate implementation or external service
     return Promise.all(
       bitcoinAddresses.map(async (addr) => {
         const balance = await this.fetchBitcoinBalance(addr.address);
@@ -163,7 +164,7 @@ export class ReserveService {
           symbol: 'BTC',
           address: addr.address,
           chain: Chain.BITCOIN,
-          balance,
+          balance: balance,
           usdValue: await this.calculateUsdValue(assetConfig, balance),
         };
       }),
@@ -173,18 +174,24 @@ export class ReserveService {
   private async calculateUsdValue(assetConfig: AssetConfig, balance: string): Promise<number> {
     try {
       const price = await this.priceFetcher.getPrice(assetConfig.symbol);
+
+      // For Bitcoin, the balance is already in satoshis, so we just need to convert to BTC
+      if (assetConfig.symbol === 'BTC') {
+        const btcBalance = Number(balance);
+        return btcBalance * price;
+      }
+
+      // For other assets, use ethers.formatUnits as before
       const formattedBalance = ethers.formatUnits(balance, assetConfig.decimals);
       return Number(formattedBalance) * price;
     } catch (error) {
-      // TODO: Sentry integration for logging errors
-      // Log error but return 0 to avoid breaking the entire request
       console.error(`Failed to calculate USD value for ${assetConfig.symbol}:`, error);
       return 0;
     }
   }
 
   private async fetchBitcoinBalance(address: string): Promise<string> {
-    console.log(address);
-    return '0';
+    const balance = await this.bitcoinFetcher.fetchBalance(address);
+    return balance;
   }
 }

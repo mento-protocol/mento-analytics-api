@@ -11,6 +11,22 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     assets: ['CELO', 'USDC', 'axlUSDC', 'USDT'], //TODO: Consider making assets strongly typed
     description: 'Main Mento reserve holding collateral assets on Celo',
   },
+  {
+    address: '38EPdP4SPshc5CiUCzKcLP9v7Vqo5u1HBL',
+    chain: Chain.BITCOIN,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Bitcoin Reserve',
+    assets: ['BTC'],
+    description: 'Reserve address holding Bitcoin',
+  },
+  // {
+  //   address: '3Hc1Wje1DeJU5ahXdmD8Pt2yAfoYep331z',
+  //   chain: Chain.BITCOIN,
+  //   category: AddressCategory.MENTO_RESERVE,
+  //   label: 'Bitcoin Reserve',
+  //   assets: ['BTC'],
+  //   description: 'Reserve address holding Bitcoin',
+  // },
   // {
   //   address: '0xd0697f70E79476195B742d5aFAb14BE50f98CC1E',
   //   chain: Chain.ETHEREUM,
