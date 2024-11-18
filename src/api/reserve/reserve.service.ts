@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ERC20BalanceFetcher } from './services/erc20-balance-fetcher';
 import { ChainProvidersService } from './services/chain-provider.service';
-import { AddressCategory, AssetBalance, AssetConfig, Chain } from 'src/types';
+import { AddressCategory, AssetBalance, AssetConfig, Chain, GroupedAssetBalance } from 'src/types';
 import { RESERVE_ADDRESSES } from './config/addresses.config';
 import { ASSETS_CONFIGS } from './config/assets.config';
 import { PriceFetcherService } from '../../common/services/price-fetcher.service';
 import { ethers } from 'ethers';
 import { BitcoinBalanceFetcher } from './services/bitcoin-balance-fetcher';
+import { ASSET_GROUPS } from './config/assets.config';
 
 @Injectable()
 export class ReserveService {
@@ -193,5 +194,54 @@ export class ReserveService {
   private async fetchBitcoinBalance(address: string): Promise<string> {
     const balance = await this.bitcoinFetcher.fetchBalance(address);
     return balance;
+  }
+
+  async getGroupedReserveHoldings(): Promise<{
+    total_holdings_usd: number;
+    assets: GroupedAssetBalance[];
+  }> {
+    const holdings = await this.getReserveHoldings();
+
+    // Create reverse mapping for asset groups
+    const symbolToGroup = Object.entries(ASSET_GROUPS).reduce(
+      (acc, [mainSymbol, symbols]) => {
+        symbols.forEach((symbol) => {
+          acc[symbol] = mainSymbol;
+        });
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
+    // Group by symbol (considering wrapped/native assets)
+    const groupedHoldings = holdings.reduce(
+      (acc, curr) => {
+        // Determine the main symbol (e.g., ETH for WETH)
+        const mainSymbol = symbolToGroup[curr.symbol] || curr.symbol;
+
+        if (!acc[mainSymbol]) {
+          acc[mainSymbol] = {
+            symbol: mainSymbol,
+            totalBalance: '0',
+            usdValue: 0,
+          };
+        }
+
+        // Add balances
+        acc[mainSymbol].totalBalance = (Number(acc[mainSymbol].totalBalance) + Number(curr.balance)).toString();
+        acc[mainSymbol].usdValue += curr.usdValue;
+
+        return acc;
+      },
+      {} as Record<string, GroupedAssetBalance>,
+    );
+
+    const assets = Object.values(groupedHoldings);
+    const total_holdings_usd = assets.reduce((sum, asset) => sum + asset.usdValue, 0);
+
+    return {
+      total_holdings_usd,
+      assets: assets.sort((a, b) => b.usdValue - a.usdValue), // Sort by USD value descending
+    };
   }
 }

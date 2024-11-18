@@ -48,3 +48,22 @@ export class ReserveAddressesResponseDto {
   @ApiProperty({ type: [AddressGroup] })
   addresses: AddressGroup[];
 }
+
+export class GroupedAssetItem {
+  @ApiProperty({ example: 'CELO' })
+  symbol: string;
+
+  @ApiProperty({ example: '119777747.653165114096' })
+  totalBalance: string;
+
+  @ApiProperty({ example: 79663092.16571306 })
+  usdValue: number;
+}
+
+export class GroupedReserveHoldingsResponseDto {
+  @ApiProperty({ example: 138037891 })
+  total_holdings_usd: number;
+
+  @ApiProperty({ type: [GroupedAssetItem] })
+  assets: GroupedAssetItem[];
+}

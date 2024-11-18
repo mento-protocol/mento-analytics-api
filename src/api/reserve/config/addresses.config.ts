@@ -40,7 +40,7 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Reserve on Ethereum',
-    assets: ['ETH', 'SDAI'],
+    assets: ['ETH', 'sDAI'],
     description: 'Reserve holding collateral assets on Ethereum',
   },
   {
@@ -48,7 +48,7 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Reserve multisig on Celo',
-    assets: ['CELO', 'USDGLO', 'USDC', 'WETH'],
+    assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
     description: 'Reserve multisig on Celo',
   },
   // TODO: What is this address?? Currently listed on the reserve site

@@ -5,6 +5,7 @@ import {
   ReserveHoldingsResponseDto,
   ReserveCompositionResponseDto,
   ReserveAddressesResponseDto,
+  GroupedReserveHoldingsResponseDto,
 } from './dto/reserve.dto';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { RESERVE_ADDRESSES } from './config/addresses.config';
@@ -83,5 +84,17 @@ export class ReserveController {
     return {
       addresses: Object.values(groupedAddresses),
     };
+  }
+
+  @Get('holdings/grouped')
+  @CacheTTL(300)
+  @ApiOperation({ summary: 'Get grouped reserve holdings by asset' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current reserve holdings grouped by asset',
+    type: GroupedReserveHoldingsResponseDto,
+  })
+  async getGroupedReserveHoldings(): Promise<GroupedReserveHoldingsResponseDto> {
+    return this.reserveService.getGroupedReserveHoldings();
   }
 }

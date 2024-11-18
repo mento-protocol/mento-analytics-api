@@ -1,5 +1,11 @@
 import { AssetConfig, Chain } from 'src/types';
 
+export const ASSET_GROUPS: Record<string, string[]> = {
+  ETH: ['ETH', 'WETH'],
+  BTC: ['BTC', 'WBTC'],
+  USDC: ['USDC', 'axlUSDC'],
+};
+
 // TODO: Import paths @types
 export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
   CELO: {
@@ -77,11 +83,18 @@ export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
     decimals: 18,
     address: '0x66803FB87aBd4aaC3cbB3fAd7C3aa01f6F3FB207',
   },
-  SDAI: {
-    symbol: 'SDAI',
+  sDAI: {
+    symbol: 'sDAI',
     name: 'Savings Dai',
     chain: Chain.CELO,
     decimals: 18,
     address: '0x83F20F44975D03b1b09e64809B757c47f942BEeA',
+  },
+  stEUR: {
+    symbol: 'stEUR',
+    name: 'Staked agEUR',
+    chain: Chain.CELO,
+    decimals: 18,
+    address: '0x004626A008B1aCdC4c74ab51644093b155e59A23',
   },
 };

@@ -56,3 +56,9 @@ export interface AssetBalance {
   balance: string;
   usdValue: number;
 }
+
+export interface GroupedAssetBalance {
+  symbol: string;
+  totalBalance: string;
+  usdValue: number;
+}
