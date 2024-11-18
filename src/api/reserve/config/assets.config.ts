@@ -77,4 +77,11 @@ export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
     decimals: 18,
     address: '0x66803FB87aBd4aaC3cbB3fAd7C3aa01f6F3FB207',
   },
+  SDAI: {
+    symbol: 'SDAI',
+    name: 'Savings Dai',
+    chain: Chain.CELO,
+    decimals: 18,
+    address: '0x83F20F44975D03b1b09e64809B757c47f942BEeA',
+  },
 };

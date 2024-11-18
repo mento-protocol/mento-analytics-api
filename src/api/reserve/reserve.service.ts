@@ -37,9 +37,16 @@ export class ReserveService {
       this.fetchMentoReserveCeloBalances(),
       this.fetchMentoReserveEthereumBalances(),
       this.fetchBitcoinBalances(),
+      this.fetchCurvePoolBalances(),
     ]).then((results) => results.flat().forEach((balance) => holdings.push(balance)));
 
     return holdings;
+  }
+  private async fetchCurvePoolBalances(): Promise<AssetBalance[]> {
+    // TODO: Seems the curve pools are not being used anymore, confirm then remove.
+    // Addresses:
+    //          - 0x854ec4ede802e1205802c2bd2c08a43f778fc9a6
+    return [];
   }
 
   /**

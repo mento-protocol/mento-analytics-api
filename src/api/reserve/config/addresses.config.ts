@@ -40,7 +40,7 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Reserve on Ethereum',
-    assets: ['ETH'],
+    assets: ['ETH', 'SDAI'],
     description: 'Reserve holding collateral assets on Ethereum',
   },
   {
