@@ -4,13 +4,17 @@ import { ChainProvidersService } from './services/chain-provider.service';
 import { AddressCategory, AssetBalance, AssetConfig, Chain } from 'src/types';
 import { RESERVE_ADDRESSES } from './config/addresses.config';
 import { ASSETS_CONFIGS } from './config/assets.config';
+import { PriceFetcherService } from '../../common/services/price-fetcher.service';
+import { ethers } from 'ethers';
 
 @Injectable()
 export class ReserveService {
   private readonly erc20Fetchers: Map<Chain, ERC20BalanceFetcher>;
 
-  constructor(private readonly chainProviders: ChainProvidersService) {
-    // Initialize ERC20 fetchers for each chain
+  constructor(
+    private readonly chainProviders: ChainProvidersService,
+    private readonly priceFetcher: PriceFetcherService,
+  ) {
     this.erc20Fetchers = new Map([
       [Chain.CELO, new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO))],
       [Chain.ETHEREUM, new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.ETHEREUM))],
@@ -27,9 +31,9 @@ export class ReserveService {
     // Fetch balances for each reserve address category
     await Promise.all([
       this.fetchMentoReserveCeloBalances(),
-      this.fetchMentoReserveEthereumBalances(),
-      this.fetchCurvePoolBalances(),
-      this.fetchBitcoinBalances(),
+      // this.fetchMentoReserveEthereumBalances(),
+      // this.fetchCurvePoolBalances(),
+      // this.fetchBitcoinBalances(),
     ]).then((results) => results.flat().forEach((balance) => holdings.push(balance)));
 
     return holdings;
@@ -40,7 +44,7 @@ export class ReserveService {
    * @returns The balances of the mento reserve addresses on Celo
    */
   private async fetchMentoReserveCeloBalances(): Promise<AssetBalance[]> {
-    // Get addresses where the chain is celo and the category is mento reserve
+    // Gets the Celo Mento Reserve address
     const mentoReserveCelo = RESERVE_ADDRESSES.find(
       (addr) => addr.chain === Chain.CELO && addr.category === AddressCategory.MENTO_RESERVE,
     );
@@ -52,10 +56,11 @@ export class ReserveService {
     }
 
     const fetcher = this.erc20Fetchers.get(Chain.CELO)!;
+    const reserveAssets = mentoReserveCelo.assets;
 
     // Fetch balances for all assets in this reserve
     return Promise.all(
-      mentoReserveCelo.assets.map(async (symbol) => {
+      reserveAssets.map(async (symbol) => {
         // Get the config for the asset with this symbol
         const assetConfig = ASSETS_CONFIGS[symbol];
 
@@ -166,8 +171,16 @@ export class ReserveService {
   }
 
   private async calculateUsdValue(assetConfig: AssetConfig, balance: string): Promise<number> {
-    console.log(assetConfig, balance);
-    return 100;
+    try {
+      const price = await this.priceFetcher.getPrice(assetConfig.symbol);
+      const formattedBalance = ethers.formatUnits(balance, assetConfig.decimals);
+      return Number(formattedBalance) * price;
+    } catch (error) {
+      // TODO: Sentry integration for logging errors
+      // Log error but return 0 to avoid breaking the entire request
+      console.error(`Failed to calculate USD value for ${assetConfig.symbol}:`, error);
+      return 0;
+    }
   }
 
   private async fetchBitcoinBalance(address: string): Promise<string> {

@@ -58,6 +58,7 @@ export class StablecoinsService {
           this.logger.error('Failed to fetch stablecoins after multiple attempts', error.stack);
           throw error;
         }
+        // Wait before retrying (exponential backoff)
         await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
       }
     }
