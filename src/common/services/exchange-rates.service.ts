@@ -30,6 +30,16 @@ export class ExchangeRatesService {
     }
 
     try {
+      // TODO: We have hardcoded URLS littered all over the place. We should refactor so these are not being hardcoded..
+      //       Something like this:
+      //  export const API_CONFIG = {
+      //   exchangeRates: {
+      //     baseUrl: process.env.EXCHANGE_RATES_API_URL || 'https://api.exchangeratesapi.io/v1',
+      //     endpoints: {
+      //       latest: '/latest',
+      //     },
+      //   },
+      // };
       const response = await fetch(`https://api.exchangeratesapi.io/v1/latest?base=USD&access_key=${this.apiKey}`);
       const data: ExchangeRatesResponse = await response.json();
 
