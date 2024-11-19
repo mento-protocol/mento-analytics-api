@@ -1,3 +1,5 @@
+import { AssetSymbol } from 'src/api/reserve/config/assets.config';
+
 export enum Chain {
   CELO = 'celo',
   ETHEREUM = 'ethereum',
@@ -42,7 +44,7 @@ export interface ReserveAddress {
   chain: Chain;
   category: AddressCategory;
   label?: string;
-  assets: string[];
+  assets: AssetSymbol[];
   description?: string;
 }
 
@@ -57,6 +59,9 @@ export interface AssetBalance {
   usdValue: number;
 }
 
+/**
+ * A grouped asset balance. This is used to group asset balances by their symbol.
+ */
 export interface GroupedAssetBalance {
   symbol: string;
   totalBalance: string;

@@ -12,9 +12,18 @@ export class ChainProvidersService {
   }
 
   private initializeProviders() {
-    // TODO: Add checks to make sure RPC URLS are valid
-    this.providers.set(Chain.CELO, new JsonRpcProvider(this.config.get('CELO_RPC_URL')));
-    this.providers.set(Chain.ETHEREUM, new JsonRpcProvider(this.config.get('ETH_RPC_URL')));
+    const celoRpcUrl = this.config.get('CELO_RPC_URL');
+    if (!celoRpcUrl) {
+      throw new Error('CELO_RPC_URL is not set');
+    }
+
+    const ethereumRpcUrl = this.config.get('ETH_RPC_URL');
+    if (!ethereumRpcUrl) {
+      throw new Error('ETH_RPC_URL is not set');
+    }
+
+    this.providers.set(Chain.CELO, new JsonRpcProvider(celoRpcUrl));
+    this.providers.set(Chain.ETHEREUM, new JsonRpcProvider(ethereumRpcUrl));
   }
 
   /**

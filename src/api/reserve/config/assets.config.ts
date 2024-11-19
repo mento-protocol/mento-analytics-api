@@ -1,14 +1,17 @@
 import { AssetConfig, Chain } from 'src/types';
+// TODO: Import paths alias - @types
 
+/**
+ * Asset groups that are used to group like/bridged assets by their main symbol.
+ */
 export const ASSET_GROUPS: Record<string, string[]> = {
   ETH: ['ETH', 'WETH'],
   BTC: ['BTC', 'WBTC'],
   USDC: ['USDC', 'axlUSDC'],
 };
 
-// TODO: Import paths @types
 export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
-  CELO: {
+  CLO: {
     symbol: 'CELO',
     name: 'Celo',
     chain: Chain.CELO,
@@ -98,3 +101,5 @@ export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
     address: '0x004626A008B1aCdC4c74ab51644093b155e59A23',
   },
 };
+
+export type AssetSymbol = keyof typeof ASSETS_CONFIGS;

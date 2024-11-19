@@ -8,7 +8,7 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Main Reserve',
-    assets: ['CELO', 'USDC', 'axlUSDC', 'USDT'], //TODO: Consider making assets strongly typed
+    assets: ['CELO', 'USDC', 'axlUSDC', 'USDT', 'Blan'], //TODO: Consider making assets strongly typed
     description: 'Main Mento reserve holding collateral assets on Celo',
   },
   {
