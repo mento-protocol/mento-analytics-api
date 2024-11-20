@@ -34,6 +34,15 @@ export class StablecoinsService {
             const fiatTicker = token.fiatTicker;
             const totalSupply = token.totalSupply;
 
+            // TODO: In some cases we have pre-minted some of the stable coins, so using the totalSupply as is is not correct.
+            //       We need to identify which ones these are and adjust accordingly. Currently the only one we do this for is cUSD.
+            //       A clean way to handle this would be to have a function that can take a token and return the adjusted supply.
+            //       const adjustedSupply = this.getAdjustedSupply(token);
+            //       Ideally this function/logic should be close to where the data is fetched(sdk). However, that would require implementing
+            //       curve pool logic in the sdk. This feels off but ultimately will be best as it means 3rd parties can use the same logic
+            //       without having to know about Mento's curve pool. So to not introduce technical debt long term we should implement this in \
+            //       the SDK.
+
             // Convert from fiat to USD
             const rawUsdValue = await this.exchangeRatesService.convert(Number(totalSupply), fiatTicker, 'USD');
 
@@ -43,12 +52,16 @@ export class StablecoinsService {
             return {
               symbol: token.symbol,
               name: token.name,
+              address: token.address,
               supply: {
                 amount: totalSupply.toString(),
                 usd_value: usdValue,
               },
               decimals: token.decimals,
-              icon_url: `https://raw.githubusercontent.com/mento-protocol/reserve-site/refs/heads/main/public/assets/tokens/cUSD.svg`,
+              // TODO: Move this URL to a config file
+              // TODO: Check if the file exists, if not, use the default icon or blank?
+              // TODO: Do we want to keep svgs in the reserve repo or move them somewhere else?
+              icon_url: `https://raw.githubusercontent.com/mento-protocol/reserve-site/refs/heads/main/public/assets/tokens/${token.symbol}.svg`,
               fiat_symbol: fiatTicker,
             };
           }),

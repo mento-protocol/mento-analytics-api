@@ -8,13 +8,15 @@ export class SupplyDto {
   usd_value: number;
 }
 
-// TODO: Do we want to include the address?
 export class StablecoinDto {
   @ApiProperty({ example: 'cUSD' })
   symbol: string;
 
   @ApiProperty({ example: 'Celo Dollar' })
   name: string;
+
+  @ApiProperty({ example: '0x874069Fa1Eb16D44d622F2e0Ca25eeA17236EA15' })
+  address: string;
 
   @ApiProperty()
   supply: SupplyDto;
