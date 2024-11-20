@@ -1,5 +1,5 @@
 import { Contract, Provider } from 'ethers';
-import { ERC20_ABI } from '@mento/sdk';
+import { ERC20_ABI } from '@mento-protocol/mento-sdk';
 
 export class ERC20BalanceFetcher {
   constructor(private provider: Provider) {}

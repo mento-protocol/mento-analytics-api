@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Mento } from '@mento/sdk';
+import { Mento } from '@mento-protocol/mento-sdk';
 import { JsonRpcProvider } from 'ethers';
 
 @Injectable()
