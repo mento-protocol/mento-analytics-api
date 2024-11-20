@@ -39,7 +39,7 @@ export interface AssetConfig {
  * @param assets - The assets held by the reserve.
  * @param description - The description of the reserve.
  */
-export interface ReserveAddress {
+export interface ReserveAddressConfig {
   address: string;
   chain: Chain;
   category: AddressCategory;
@@ -53,7 +53,7 @@ export interface ReserveAddress {
  */
 export interface AssetBalance {
   symbol: string;
-  address: string;
+  reserveAddress: string;
   chain: Chain;
   balance: string;
   usdValue: number;

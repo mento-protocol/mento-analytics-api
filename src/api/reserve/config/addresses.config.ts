@@ -1,8 +1,8 @@
-import { Chain, AddressCategory, ReserveAddress } from 'src/types';
+import { Chain, AddressCategory, ReserveAddressConfig } from 'src/types';
 
 // TODO: Import paths @types
 
-export const RESERVE_ADDRESSES: ReserveAddress[] = [
+export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
   {
     address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
     chain: Chain.CELO,

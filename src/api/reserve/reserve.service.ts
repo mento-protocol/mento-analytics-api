@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ERC20BalanceFetcher } from './services/erc20-balance-fetcher';
 import { ChainProvidersService } from './services/chain-provider.service';
 import { AddressCategory, AssetBalance, AssetConfig, Chain, GroupedAssetBalance } from 'src/types';
-import { RESERVE_ADDRESSES } from './config/addresses.config';
+import { RESERVE_ADDRESS_CONFIGS } from './config/addresses.config';
 import { ASSETS_CONFIGS } from './config/assets.config';
 import { PriceFetcherService } from '../../common/services/price-fetcher.service';
 import { ethers } from 'ethers';
@@ -56,11 +56,11 @@ export class ReserveService {
    */
   private async fetchMentoReserveCeloBalances(): Promise<AssetBalance[]> {
     // Get all Celo Mento Reserve addresses
-    const mentoReserveCeloAddresses = RESERVE_ADDRESSES.filter(
+    const mentoReserveCeloAddressConfigs = RESERVE_ADDRESS_CONFIGS.filter(
       (addr) => addr.chain === Chain.CELO && addr.category === AddressCategory.MENTO_RESERVE,
     );
 
-    if (mentoReserveCeloAddresses.length === 0) {
+    if (mentoReserveCeloAddressConfigs.length === 0) {
       console.log('No Mento Reserve addresses found on Celo');
       return [];
     }
@@ -69,9 +69,9 @@ export class ReserveService {
 
     // For each reserve address, fetch all asset balances
     const allBalances = await Promise.all(
-      mentoReserveCeloAddresses.flatMap((reserveAddress) =>
+      mentoReserveCeloAddressConfigs.flatMap((reserveConfig) =>
         // Map over each asset symbol for this reserve address
-        reserveAddress.assets.map(async (symbol) => {
+        reserveConfig.assets.map(async (symbol) => {
           // Get the config for this asset
           const assetConfig = ASSETS_CONFIGS[symbol];
 
@@ -81,12 +81,12 @@ export class ReserveService {
           }
 
           // Fetch the balance of the asset for this reserve address
-          const balance = await fetcher.fetchBalance(assetConfig.address, reserveAddress.address);
+          const balance = await fetcher.fetchBalance(assetConfig.address, reserveConfig.address);
 
           // Return the balance with USD value calculated
           return {
             symbol,
-            address: reserveAddress.address,
+            reserveAddress: reserveConfig.address,
             chain: Chain.CELO,
             balance: ethers.formatUnits(balance, assetConfig.decimals),
             usdValue: await this.calculateUsdValue(assetConfig, balance),
@@ -101,11 +101,11 @@ export class ReserveService {
 
   private async fetchMentoReserveEthereumBalances(): Promise<AssetBalance[]> {
     // Get the reserve addresses that live on Ethereum
-    const ethReserveAddresses = RESERVE_ADDRESSES.filter(
+    const ethReserveConfigs = RESERVE_ADDRESS_CONFIGS.filter(
       (addr) => addr.chain === Chain.ETHEREUM && addr.category === AddressCategory.MENTO_RESERVE,
     );
 
-    if (ethReserveAddresses.length === 0) {
+    if (ethReserveConfigs.length === 0) {
       console.log('Mento Reserve address on Ethereum not found');
       return [];
     }
@@ -114,9 +114,9 @@ export class ReserveService {
 
     // For each reserve address, fetch all asset balances
     const allBalances = await Promise.all(
-      ethReserveAddresses.flatMap((reserveAddress) =>
+      ethReserveConfigs.flatMap((reserveConfig) =>
         // Map over each asset symbol for this reserve address
-        reserveAddress.assets.map(async (symbol) => {
+        reserveConfig.assets.map(async (symbol) => {
           // Get the config for this asset
           const assetConfig = ASSETS_CONFIGS[symbol];
 
@@ -129,13 +129,13 @@ export class ReserveService {
           // Pass null as tokenAddress for ETH, otherwise use the asset's address
           const balance = await fetcher.fetchBalance(
             symbol === 'ETH' ? null : assetConfig.address,
-            reserveAddress.address,
+            reserveConfig.address,
           );
 
           // Return the balance with USD value calculated
           return {
             symbol,
-            address: reserveAddress.address,
+            reserveAddress: reserveConfig.address,
             chain: Chain.ETHEREUM,
             balance: ethers.formatUnits(balance, assetConfig.decimals),
             usdValue: await this.calculateUsdValue(assetConfig, balance),
@@ -149,21 +149,21 @@ export class ReserveService {
   }
 
   private async fetchBitcoinBalances(): Promise<AssetBalance[]> {
-    const bitcoinAddresses = RESERVE_ADDRESSES.filter((addr) => addr.chain === Chain.BITCOIN);
+    const bitcoinConfigs = RESERVE_ADDRESS_CONFIGS.filter((addr) => addr.chain === Chain.BITCOIN);
 
-    if (bitcoinAddresses.length === 0) {
+    if (bitcoinConfigs.length === 0) {
       console.log('Bitcoin addresses not found');
       return [];
     }
 
     return Promise.all(
-      bitcoinAddresses.map(async (addr) => {
-        const balance = await this.fetchBitcoinBalance(addr.address);
+      bitcoinConfigs.map(async (config) => {
+        const balance = await this.fetchBitcoinBalance(config.address);
         const assetConfig = ASSETS_CONFIGS['BTC'];
 
         return {
           symbol: 'BTC',
-          address: addr.address,
+          reserveAddress: config.address,
           chain: Chain.BITCOIN,
           balance: balance,
           usdValue: await this.calculateUsdValue(assetConfig, balance),

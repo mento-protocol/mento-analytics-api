@@ -1,13 +1,13 @@
-import { RESERVE_ADDRESSES } from './addresses.config';
+import { RESERVE_ADDRESS_CONFIGS } from './addresses.config';
 import { ASSETS_CONFIGS } from './assets.config';
-import { AssetConfig, Chain, ReserveAddress } from 'src/types';
+import { AssetConfig, Chain, ReserveAddressConfig } from 'src/types';
 
-export function getAddressesByChain(chain: Chain): ReserveAddress[] {
-  return RESERVE_ADDRESSES.filter((addr) => addr.chain === chain);
+export function getAddressesByChain(chain: Chain): ReserveAddressConfig[] {
+  return RESERVE_ADDRESS_CONFIGS.filter((addr) => addr.chain === chain);
 }
 
-export function getAssetAddresses(symbol: string): ReserveAddress[] {
-  return RESERVE_ADDRESSES.filter((addr) => addr.assets.includes(symbol));
+export function getAssetAddresses(symbol: string): ReserveAddressConfig[] {
+  return RESERVE_ADDRESS_CONFIGS.filter((addr) => addr.assets.includes(symbol));
 }
 
 export function getAssetConfig(symbol: string): AssetConfig | undefined {

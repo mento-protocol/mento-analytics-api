@@ -8,7 +8,7 @@ import {
   GroupedReserveHoldingsResponseDto,
 } from './dto/reserve.dto';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
-import { RESERVE_ADDRESSES } from './config/addresses.config';
+import { RESERVE_ADDRESS_CONFIGS } from './config/addresses.config';
 
 @ApiTags('reserve')
 @Controller('api/v1/reserve')
@@ -65,7 +65,7 @@ export class ReserveController {
   })
   getReserveAddresses(): ReserveAddressesResponseDto {
     // Group addresses by network and category
-    const groupedAddresses = RESERVE_ADDRESSES.reduce((acc, addr) => {
+    const groupedAddresses = RESERVE_ADDRESS_CONFIGS.reduce((acc, addr) => {
       const key = `${addr.chain}-${addr.category}`;
       if (!acc[key]) {
         acc[key] = {
