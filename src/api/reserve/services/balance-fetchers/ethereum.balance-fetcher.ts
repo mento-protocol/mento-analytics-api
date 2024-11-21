@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AddressCategory, Chain } from 'src/types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
-import { ChainProvidersService } from '../chain-provider.service';
+import { ChainProvidersService } from '../../../../common/services/chain-provider.service';
 
 @Injectable()
 export class EthereumBalanceFetcher extends BaseBalanceFetcher {

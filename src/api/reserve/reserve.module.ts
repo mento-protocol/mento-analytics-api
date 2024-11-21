@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ReserveService } from './services/reserve.service';
 import { ConfigModule } from '@nestjs/config';
-import { ChainProvidersService } from './services/chain-provider.service';
 import { ReserveController } from './reserve.controller';
 import { BitcoinBalanceFetcher } from './services/balance-fetchers/bitcoin-balance-fetcher';
 import { ReserveBalanceService } from './services/reserve-balance.service';
@@ -22,7 +21,6 @@ import { BALANCE_FETCHERS } from './constants/injection-tokens';
     ReserveService,
     ReserveBalanceService,
     ReserveValueService,
-    ChainProvidersService,
     BitcoinBalanceFetcher,
     CeloBalanceFetcher,
     EthereumBalanceFetcher,
