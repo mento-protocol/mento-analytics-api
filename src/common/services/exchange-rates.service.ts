@@ -29,6 +29,13 @@ export class ExchangeRatesService {
       return this.ratesCache;
     }
 
+    // TODO: This api supports an additional symbols param to reduce bandwith. We should use this and add
+    //       the supported fiat currencies to the url.
+    //       e.g. curl --request GET 'https://api.apilayer.com/exchangerates_data/live?base=USD&symbols=EUR,GBP' \
+    //      --header 'apikey: YOUR API KEY'
+    //      Fiat currencies we support can be fetched from the sdk stablecoins endpoint.
+    //      May be better to make the hard coded mapping public to reduce network calls.
+
     try {
       // TODO: We have hardcoded URLS littered all over the place. We should refactor so these are not being hardcoded..
       //       Something like this:

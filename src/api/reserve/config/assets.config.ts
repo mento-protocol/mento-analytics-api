@@ -104,5 +104,6 @@ export const ASSETS_CONFIGS: Record<AssetSymbol, AssetConfig> = {
     chain: Chain.CELO,
     decimals: 18,
     address: '0x004626A008B1aCdC4c74ab51644093b155e59A23',
+    rateSymbol: 'EURC',
   },
 };

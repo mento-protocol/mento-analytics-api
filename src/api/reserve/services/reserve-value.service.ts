@@ -15,7 +15,10 @@ export class ReserveValueService {
 
   async calculateUsdValue(assetConfig: AssetConfig, balance: string): Promise<number> {
     try {
-      const price = await this.priceFetcher.getPrice(assetConfig.symbol);
+      // If the asset has a rate symbol set, then we use this to get the price instead
+      const rateSymbol = assetConfig.rateSymbol ?? assetConfig.symbol;
+
+      const price = await this.priceFetcher.getPrice(rateSymbol);
       const formattedBalance =
         assetConfig.symbol === 'BTC' ? Number(balance) : Number(ethers.formatUnits(balance, assetConfig.decimals));
 
