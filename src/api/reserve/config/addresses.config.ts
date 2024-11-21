@@ -1,6 +1,11 @@
-import { Chain, AddressCategory, ReserveAddressConfig } from 'src/types';
+import { Chain, AddressCategory, ReserveAddressConfig } from '@types';
 
-// TODO: Import paths @types
+// TODO: Reserve address audit. The following asset balances are off when compared to what is shown on the reserve site.
+//       This is due to some address not being added yet, and non "mento reserve" addresses(UniV3 Pool, Curve Pool, etc) not being included.
+//       - CELO
+//       - ETH
+//       - EURC
+//       - USDT
 
 export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
   {
@@ -19,14 +24,13 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     assets: ['CELO', 'USDC', 'axlUSDC', 'USDT'],
     description: 'Main Mento reserve holding collateral assets on Celo',
   },
-  // TODO: What is this address?? Currently listed on the reserve site
   {
     address: '0x13a9803d547332c81Ebc6060F739821264DBcf1E',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
-    label: '???????',
+    label: 'Reserve address',
     assets: ['CELO'],
-    description: '??????',
+    description: 'Holds reserve owned funds on CELO',
   },
   {
     address: '0xDA7BFEF937F0944551a24b4C68B054bfA7127570',

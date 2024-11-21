@@ -1,5 +1,4 @@
-import { AssetConfig, AssetSymbol, Chain } from 'src/types';
-// TODO: Import paths alias - @types
+import { AssetConfig, AssetSymbol, Chain } from '@types';
 
 /**
  * Asset groups that are used to group like/bridged assets by their main symbol.
