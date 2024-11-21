@@ -1,6 +1,6 @@
 import { Controller, Get, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { ReserveService } from './reserve.service';
+import { ReserveService } from './services/reserve.service';
 import {
   ReserveHoldingsResponseDto,
   ReserveCompositionResponseDto,

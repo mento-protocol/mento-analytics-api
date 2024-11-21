@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ReserveService } from './reserve.service';
+import { ReserveService } from './services/reserve.service';
 import { ConfigModule } from '@nestjs/config';
-import { ERC20BalanceFetcher } from './services/erc20-balance-fetcher';
 import { ChainProvidersService } from './services/chain-provider.service';
 import { ReserveController } from './reserve.controller';
-import { BitcoinBalanceFetcher } from './services/bitcoin-balance-fetcher';
+import { BitcoinBalanceFetcher } from './services/balance-fetchers/bitcoin-balance-fetcher';
+import { ReserveBalanceService } from './services/reserve-balance.service';
+import { ReserveValueService } from './services/reserve-value.service';
+import { CeloBalanceFetcher, EthereumBalanceFetcher } from './services/balance-fetchers';
+import { BALANCE_FETCHERS } from './constants/injection-tokens';
 
 @Module({
   imports: [
@@ -17,11 +20,20 @@ import { BitcoinBalanceFetcher } from './services/bitcoin-balance-fetcher';
   controllers: [ReserveController],
   providers: [
     ReserveService,
+    ReserveBalanceService,
+    ReserveValueService,
     ChainProvidersService,
     BitcoinBalanceFetcher,
+    CeloBalanceFetcher,
+    EthereumBalanceFetcher,
     {
-      provide: 'ERC20_BALANCE_FETCHER',
-      useClass: ERC20BalanceFetcher,
+      provide: BALANCE_FETCHERS,
+      useFactory: (
+        bitcoinFetcher: BitcoinBalanceFetcher,
+        celoFetcher: CeloBalanceFetcher,
+        ethereumFetcher: EthereumBalanceFetcher,
+      ) => [bitcoinFetcher, celoFetcher, ethereumFetcher],
+      inject: [BitcoinBalanceFetcher, CeloBalanceFetcher, EthereumBalanceFetcher],
     },
   ],
   exports: [ReserveService],

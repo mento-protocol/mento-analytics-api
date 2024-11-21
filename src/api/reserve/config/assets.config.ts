@@ -10,6 +10,8 @@ export const ASSET_GROUPS: Record<string, string[]> = {
   USDC: ['USDC', 'axlUSDC'],
 };
 
+// TODO: api/holdings/grouped is calculating incorrect total holdings. Check out why. Compare result to api/holdings
+
 export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
   CLO: {
     symbol: 'CELO',

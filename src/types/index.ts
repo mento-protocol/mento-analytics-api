@@ -1,5 +1,10 @@
 import { AssetSymbol } from 'src/api/reserve/config/assets.config';
 
+/**
+ * Enum for the different chains that are supported
+ * @dev Opted for a normalised string of the chain name for compatibility with the
+ *      bitcoin as it does not have a chainID, and any future chains that may be added.
+ */
 export enum Chain {
   CELO = 'celo',
   ETHEREUM = 'ethereum',
@@ -10,23 +15,32 @@ export enum Chain {
  * The category of a reserve address. This is used to group reserve
  * addresses by their type and also to determine how to fetch their
  * balances.
+ *
+ * @dev Descriptions:
+ *      Mento Reserve - The simplest form of reserve, a contract or account holding assets directly.
+ *      Curve Pool - A curve pool holding assets that are owned indirectly by the reserve.
+ *
  */
 export enum AddressCategory {
   MENTO_RESERVE = 'Mento Reserve',
-  USDC_AXELAR = 'USDC Axelar',
   CURVE_POOL = 'Curve Pool',
 }
 
 /**
  * The configuration for an asset. This is used to determine how to fetch
  * the price of an asset.
+ * @param symbol - The symbol of the asset.
+ * @param name - The name of the asset.
+ * @param chain - The chain of the asset.
+ * @param decimals - The number of decimals of the asset.
+ * @param address - Nullable address of the asset. Null is an indication of a chain native asset such as ETH or BTC.
  */
 export interface AssetConfig {
   symbol: string;
   name: string;
   chain: Chain;
   decimals: number;
-  address?: string; // Optional address for the asset.
+  address?: string;
 }
 
 /**
@@ -54,6 +68,7 @@ export interface ReserveAddressConfig {
 export interface AssetBalance {
   symbol: string;
   reserveAddress: string;
+  assetAddress: string | null;
   chain: Chain;
   balance: string;
   usdValue: number;
