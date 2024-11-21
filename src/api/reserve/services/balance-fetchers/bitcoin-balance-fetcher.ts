@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AddressCategory, Chain } from 'src/types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
+import { ConfigService } from '@nestjs/config';
 
 interface BlockchainInfoResponse {
   [address: string]: {
@@ -20,13 +21,25 @@ interface BlockstreamResponse {
 @Injectable()
 export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(BitcoinBalanceFetcher.name);
+  private readonly blockstreamBaseUrl: string;
+  private readonly blockchainInfoBaseUrl: string;
 
-  constructor() {
+  constructor(private readonly configService: ConfigService) {
     const config: BalanceFetcherConfig = {
       chain: Chain.BITCOIN,
       supportedCategories: [AddressCategory.MENTO_RESERVE],
     };
     super(config);
+
+    this.blockstreamBaseUrl = this.configService.get<string>('BLOCKSTREAM_API_URL');
+    if (!this.blockstreamBaseUrl) {
+      throw new Error('BLOCKSTREAM_API_URL is not defined in environment variables');
+    }
+
+    this.blockchainInfoBaseUrl = this.configService.get<string>('BLOCKCHAIN_INFO_API_URL');
+    if (!this.blockchainInfoBaseUrl) {
+      throw new Error('BLOCKCHAIN_INFO_API_URL is not defined in environment variables');
+    }
   }
 
   async fetchBalance(_tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
@@ -67,8 +80,11 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
   }
 
   private async fetchFromBlockchainInfo(address: string): Promise<string> {
-    // TODO: Remove hardcoded URL
-    const response = await fetch(`https://blockchain.info/balance?active=${address}`);
+    const requestUrl = new URL(this.blockchainInfoBaseUrl);
+    requestUrl.pathname = '/balance';
+    requestUrl.searchParams.set('active', address);
+
+    const response = await fetch(requestUrl.toString());
     if (!response.ok) {
       throw new Error(`Blockchain.info API error: ${response.statusText}`);
     }
@@ -83,8 +99,10 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
   }
 
   private async fetchFromBlockstream(address: string): Promise<string> {
-    // TODO: Remove hardcoded URL
-    const response = await fetch(`https://blockstream.info/api/address/${address}`);
+    const requestUrl = new URL(this.blockstreamBaseUrl);
+    requestUrl.pathname = `/api/address/${address}`;
+
+    const response = await fetch(requestUrl.toString());
     if (!response.ok) {
       throw new Error(`Blockstream API error: ${response.statusText}`);
     }
