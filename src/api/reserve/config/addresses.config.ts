@@ -2,26 +2,22 @@ import { Chain, AddressCategory, ReserveAddressConfig } from 'src/types';
 
 // TODO: Import paths @types
 
-// TODO: stEUR USD value comes through as 0, check out why
-
 export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
-  {
-    address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
-    chain: Chain.CELO,
-    category: AddressCategory.MENTO_RESERVE,
-    label: 'Main Reserve',
-    assets: ['CELO'],
-    // assets: ['CELO', 'USDC', 'axlUSDC', 'USDT'],
-    description: 'Main Mento reserve holding collateral assets on Celo',
-  },
   {
     address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Reserve multisig on Celo',
-    assets: ['CELO'],
-    // assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
+    assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
     description: 'Reserve multisig on Celo',
+  },
+  {
+    address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
+    chain: Chain.CELO,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Main Reserve',
+    assets: ['CELO', 'USDC', 'axlUSDC', 'USDT'],
+    description: 'Main Mento reserve holding collateral assets on Celo',
   },
   // TODO: What is this address?? Currently listed on the reserve site
   {
@@ -61,7 +57,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Reserve on Ethereum',
-    assets: ['ETH', 'WBTC', 'stETH', 'EURC', 'sDAI'],
+    assets: ['ETH', 'WBTC', 'stETH', 'EURC', 'sDAI', 'WETH'],
     description: 'Main Mento reserve holding collateral assets on Ethereum',
   },
   {

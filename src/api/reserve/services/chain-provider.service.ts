@@ -22,8 +22,8 @@ export class ChainProvidersService {
       throw new Error('ETH_RPC_URL is not set');
     }
 
-    this.providers.set(Chain.CELO, new JsonRpcProvider(celoRpcUrl));
-    this.providers.set(Chain.ETHEREUM, new JsonRpcProvider(ethereumRpcUrl));
+    this.providers.set(Chain.CELO, new JsonRpcProvider(celoRpcUrl, 4220, { staticNetwork: true }));
+    this.providers.set(Chain.ETHEREUM, new JsonRpcProvider(ethereumRpcUrl, 1, { staticNetwork: true }));
   }
 
   /**

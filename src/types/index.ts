@@ -29,7 +29,6 @@ export enum AddressCategory {
  * the price of an asset.
  * @param symbol - The symbol of the asset.
  * @param name - The name of the asset.
- * @param chain - The chain of the asset.
  * @param decimals - The number of decimals of the asset.
  * @param address - Nullable address of the asset. Null is an indication of a chain native asset such as ETH or BTC.
  * @param rateSymbol - The symbol of the asset used to calculate the price of the asset. e.g. EURC for stEUR.
@@ -37,7 +36,6 @@ export enum AddressCategory {
 export interface AssetConfig {
   symbol: AssetSymbol;
   name: string;
-  chain: Chain;
   decimals: number;
   address?: string;
   rateSymbol?: AssetSymbol;

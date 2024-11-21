@@ -52,7 +52,7 @@ export class ReserveBalanceService {
     return Promise.all(
       reserveAddressConfig.assets.map(async (symbol) => {
         // Get the asset config for the symbol.
-        const assetConfig = ASSETS_CONFIGS[symbol];
+        const assetConfig = ASSETS_CONFIGS[reserveAddressConfig.chain][symbol];
         if (!assetConfig) {
           this.logger.warn(`Asset config for ${symbol} not found`);
           return null;
@@ -70,9 +70,10 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            this.logger.warn(
-              `Balance is 0 for token (${symbol}) ${assetConfig.address} at reserve address ${reserveAddressConfig.address}, on chain ${reserveAddressConfig.chain}`,
-            );
+            this.logger.warn(`Balance is 0 for asset (${symbol}) ${assetConfig.address}`);
+            this.logger.warn(`Reserve address: ${reserveAddressConfig.address}`);
+            this.logger.warn(`Chain: ${reserveAddressConfig.chain}`);
+            this.logger.warn(`Address category: ${reserveAddressConfig.category}`);
           } else {
             // Get the usd value for the balance.
             usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);
