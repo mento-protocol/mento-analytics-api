@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Chain, AssetBalance, ReserveAddressConfig, AssetConfig } from 'src/types';
+import { Chain, AssetBalance, ReserveAddressConfig, AssetConfig } from '@types';
 import { ReserveValueService } from './reserve-value.service';
 import { ethers } from 'ethers';
 import { BaseBalanceFetcher } from './balance-fetchers';

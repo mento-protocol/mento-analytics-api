@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AddressCategory, Chain } from 'src/types';
+import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
-import { ChainProvidersService } from '../../../../common/services/chain-provider.service';
+import { ChainProvidersService } from '@common/services/chain-provider.service';
 
 // TODO: Verify CELO balance. There is a discrepancy between what is displayed currently on the reserve site
 //       and what is being fetched here.

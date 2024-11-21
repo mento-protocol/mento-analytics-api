@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AddressCategory, Chain } from 'src/types';
+import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ConfigService } from '@nestjs/config';
 

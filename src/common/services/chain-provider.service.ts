@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JsonRpcProvider, Provider } from 'ethers';
 import { ConfigService } from '@nestjs/config';
-import { Chain } from 'src/types';
+import { Chain } from '@types';
 
 @Injectable()
 export class ChainProvidersService {

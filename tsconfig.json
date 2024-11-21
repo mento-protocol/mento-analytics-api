@@ -16,6 +16,13 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@/*": ["src/*"],
+      "@common/*": ["src/common/*"],
+      "@api/*": ["src/api/*"],
+      "@types": ["src/types"],
+      "@config/*": ["src/config/*"]
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AssetConfig } from 'src/types';
 import { ethers } from 'ethers';
-import { PriceFetcherService } from 'src/common/services/price-fetcher.service';
+import { PriceFetcherService } from '@common/services/price-fetcher.service';
 
 /**
  * Service for calculating USD values of asset balances.

@@ -25,7 +25,13 @@ export class ExchangeRatesService {
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('EXCHANGE_RATES_API_KEY');
+    if (!this.apiKey) {
+      throw new Error('EXCHANGE_RATES_API_KEY is not defined in environment variables');
+    }
     this.baseUrl = this.configService.get<string>('EXCHANGE_RATES_API_URL');
+    if (!this.baseUrl) {
+      throw new Error('EXCHANGE_RATES_API_URL is not defined in environment variables');
+    }
 
     // Get all the fiat symbols from the sdk
     this.fiatSymbols = Object.values(STABLE_TOKEN_FIAT_MAPPING);
@@ -42,6 +48,9 @@ export class ExchangeRatesService {
       requestUrl.searchParams.set('base', 'USD');
       requestUrl.searchParams.set('symbols', this.fiatSymbols.join(','));
       requestUrl.searchParams.set('access_key', this.apiKey);
+
+      //const response = await fetch(`https://api.exchangeratesapi.io/v1/latest?base=USD&access_key=${this.apiKey}`);
+      //"https://api.exchangeratesapi.io/latest?base=USD&symbols=USD%2CEUR%2CBRL%2CKES%2CPHP%2CCOP%2CXOF&access_key=undefined"
 
       const response = await fetch(requestUrl.toString());
       const data: ExchangeRatesResponse = await response.json();

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MentoService } from '../../common/services/mento.service';
+import { MentoService } from '@common/services/mento.service';
 import { StablecoinDto, StablecoinsResponseDto } from './dto/stablecoin.dto';
-import { ExchangeRatesService } from '../../common/services/exchange-rates.service';
+import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 
 @Injectable()
 export class StablecoinsService {

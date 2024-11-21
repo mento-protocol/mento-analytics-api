@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AssetBalance, AssetSymbol, GroupedAssetBalance } from 'src/types';
+import { AssetBalance, AssetSymbol, GroupedAssetBalance } from '@types';
 import { RESERVE_ADDRESS_CONFIGS } from '../config/addresses.config';
 import { ASSET_GROUPS } from '../config/assets.config';
 import { ReserveBalanceService } from './reserve-balance.service';

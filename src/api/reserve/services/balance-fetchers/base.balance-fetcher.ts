@@ -1,4 +1,4 @@
-import { Chain, AddressCategory } from 'src/types';
+import { Chain, AddressCategory } from '@types';
 
 export interface BalanceFetcherConfig {
   chain: Chain;
