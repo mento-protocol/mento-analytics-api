@@ -24,13 +24,20 @@ interface CMCQuote {
 export class PriceFetcherService {
   private readonly logger = new Logger(PriceFetcherService.name);
   private readonly apiKey: string;
+  private readonly baseUrl: string;
+
   private readonly priceCache: Map<string, { price: number; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('COINMARKETCAP_KEY');
+    this.apiKey = this.configService.get<string>('COINMARKETCAP_API_KEY');
     if (!this.apiKey) {
-      throw new Error('COINMARKETCAP_KEY is not defined in environment variables');
+      throw new Error('COINMARKETCAP_API_KEY is not defined in environment variables');
+    }
+
+    this.baseUrl = this.configService.get<string>('COINMARKETCAP_API_URL');
+    if (!this.baseUrl) {
+      throw new Error('COINMARKETCAP_API_URL is not defined in environment variables');
     }
   }
 
@@ -44,9 +51,13 @@ export class PriceFetcherService {
         return cached.price;
       }
 
-      const requestUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${normalizedSymbol}`;
+      // https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${normalizedSymbol}
+      // "https://pro-api.coinmarketcap.com/cryptocurrency/quotes/latest?symbol=WETH"
 
-      const response = await fetch(requestUrl, {
+      const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
+      requestUrl.searchParams.set('symbol', normalizedSymbol);
+
+      const response = await fetch(requestUrl.toString(), {
         headers: {
           'X-CMC_PRO_API_KEY': this.apiKey,
           Accept: 'application/json',

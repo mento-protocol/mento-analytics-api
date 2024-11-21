@@ -24,7 +24,7 @@ export class ExchangeRatesService {
   private fiatSymbols: string[] = [];
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('EXCHANGE_RATE_API');
+    this.apiKey = this.configService.get<string>('EXCHANGE_RATES_API_KEY');
     this.baseUrl = this.configService.get<string>('EXCHANGE_RATES_API_URL');
 
     // Get all the fiat symbols from the sdk

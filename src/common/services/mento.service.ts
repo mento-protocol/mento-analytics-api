@@ -10,9 +10,9 @@ export class MentoService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    const rpcUrl = this.configService.get<string>('RPC_URL');
+    const rpcUrl = this.configService.get<string>('CELO_RPC_URL');
     if (!rpcUrl) {
-      throw new Error('RPC_URL is not defined. Verify it is set in environment variables.');
+      throw new Error('CELO_RPC_URL is not defined. Verify it is set in environment variables.');
     }
 
     // TODO: Replace this with the chain provider service
