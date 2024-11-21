@@ -51,9 +51,6 @@ export class PriceFetcherService {
         return cached.price;
       }
 
-      // https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${normalizedSymbol}
-      // "https://pro-api.coinmarketcap.com/cryptocurrency/quotes/latest?symbol=WETH"
-
       const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
       requestUrl.searchParams.set('symbol', normalizedSymbol);
 
