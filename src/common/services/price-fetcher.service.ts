@@ -5,6 +5,7 @@ interface CMCQuote {
   data?: Record<
     string,
     {
+      symbol: string;
       quote: {
         USD: {
           price: number;
@@ -35,7 +36,6 @@ export class PriceFetcherService {
 
   async getPrice(symbol: string): Promise<number> {
     try {
-      // First normalize the symbol
       const normalizedSymbol = symbol.toUpperCase();
 
       // Check cache first
@@ -44,23 +44,30 @@ export class PriceFetcherService {
         return cached.price;
       }
 
-      const response = await fetch(
-        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${normalizedSymbol}`,
-        {
-          headers: {
-            'X-CMC_PRO_API_KEY': this.apiKey,
-            Accept: 'application/json',
-          },
+      const requestUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${normalizedSymbol}`;
+
+      const response = await fetch(requestUrl, {
+        headers: {
+          'X-CMC_PRO_API_KEY': this.apiKey,
+          Accept: 'application/json',
         },
-      );
+      });
 
       const data = (await response.json()) as CMCQuote;
 
-      if (!data.data?.[normalizedSymbol]) {
-        throw new Error(data.status.error_message || `Price not found for ${symbol}`);
+      if (data.status.error_code !== 0) {
+        this.logger.error(`Request url: ${requestUrl} returned error: ${data.status.error_message}`);
+        throw new Error(data.status.error_message || `Failed to fetch price for ${symbol} from CoinMarketCap API`);
       }
 
-      const price = data.data[normalizedSymbol].quote.USD.price;
+      const tokenData = Object.values(data.data || {}).find((token) => token.symbol.toUpperCase() === normalizedSymbol);
+
+      if (!tokenData) {
+        this.logger.error(`No data found for symbol ${normalizedSymbol} in CoinMarketCap API response`);
+        throw new Error(`Price not found for ${symbol} in CoinMarketCap API response`);
+      }
+
+      const price = tokenData.quote.USD.price;
 
       // Update cache
       this.priceCache.set(normalizedSymbol, {
