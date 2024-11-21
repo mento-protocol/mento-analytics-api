@@ -46,7 +46,6 @@ export class ReserveBalanceService {
       return [];
     }
 
-    // Log info to say fetching balance for the reserve address.
     this.logger.debug(`Fetching balance for reserve address config: ${JSON.stringify(reserveAddressConfig)}`);
 
     return Promise.all(
