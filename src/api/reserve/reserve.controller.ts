@@ -66,7 +66,10 @@ export class ReserveController {
   getReserveAddresses(): ReserveAddressesResponseDto {
     // Group addresses by network and category
     const groupedAddresses = RESERVE_ADDRESS_CONFIGS.reduce((acc, addr) => {
+      // Create a key for the group
       const key = `${addr.chain}-${addr.category}`;
+
+      // If the key doesn't exist, create it and initialize the array
       if (!acc[key]) {
         acc[key] = {
           network: addr.chain,
@@ -74,6 +77,8 @@ export class ReserveController {
           addresses: [],
         };
       }
+
+      // Add the address to the array for the group with the same key
       acc[key].addresses.push({
         address: addr.address,
         label: addr.label,
@@ -81,6 +86,7 @@ export class ReserveController {
       return acc;
     }, {});
 
+    // Return the grouped addresses
     return {
       addresses: Object.values(groupedAddresses),
     };
