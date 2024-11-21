@@ -1,5 +1,3 @@
-import { AssetSymbol } from 'src/api/reserve/config/assets.config';
-
 /**
  * Enum for the different chains that are supported
  * @dev Opted for a normalised string of the chain name for compatibility with the
@@ -36,7 +34,7 @@ export enum AddressCategory {
  * @param address - Nullable address of the asset. Null is an indication of a chain native asset such as ETH or BTC.
  */
 export interface AssetConfig {
-  symbol: string;
+  symbol: AssetSymbol;
   name: string;
   chain: Chain;
   decimals: number;
@@ -66,7 +64,7 @@ export interface ReserveAddressConfig {
  * The balance of an asset held by a reserve address.
  */
 export interface AssetBalance {
-  symbol: string;
+  symbol: AssetSymbol;
   reserveAddress: string;
   assetAddress: string | null;
   chain: Chain;
@@ -78,7 +76,28 @@ export interface AssetBalance {
  * A grouped asset balance. This is used to group asset balances by their symbol.
  */
 export interface GroupedAssetBalance {
-  symbol: string;
+  symbol: AssetSymbol;
   totalBalance: string;
   usdValue: number;
 }
+
+/**
+ * The symbols of the assets that are supported.
+ */
+export const ASSET_SYMBOLS = {
+  CELO: 'CELO',
+  USDC: 'USDC',
+  axlUSDC: 'axlUSDC',
+  USDT: 'USDT',
+  BTC: 'BTC',
+  WBTC: 'WBTC',
+  stETH: 'stETH',
+  EURC: 'EURC',
+  ETH: 'ETH',
+  USDGLO: 'USDGLO',
+  WETH: 'WETH',
+  sDAI: 'sDAI',
+  stEUR: 'stEUR',
+} as const;
+
+export type AssetSymbol = (typeof ASSET_SYMBOLS)[keyof typeof ASSET_SYMBOLS];

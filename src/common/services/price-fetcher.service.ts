@@ -35,14 +35,17 @@ export class PriceFetcherService {
 
   async getPrice(symbol: string): Promise<number> {
     try {
+      // First normalize the symbol
+      const normalizedSymbol = symbol.toUpperCase();
+
       // Check cache first
-      const cached = this.priceCache.get(symbol);
+      const cached = this.priceCache.get(normalizedSymbol);
       if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
         return cached.price;
       }
 
       const response = await fetch(
-        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`,
+        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${normalizedSymbol}`,
         {
           headers: {
             'X-CMC_PRO_API_KEY': this.apiKey,
@@ -53,14 +56,14 @@ export class PriceFetcherService {
 
       const data = (await response.json()) as CMCQuote;
 
-      if (!data.data?.[symbol]) {
+      if (!data.data?.[normalizedSymbol]) {
         throw new Error(data.status.error_message || `Price not found for ${symbol}`);
       }
 
-      const price = data.data[symbol].quote.USD.price;
+      const price = data.data[normalizedSymbol].quote.USD.price;
 
       // Update cache
-      this.priceCache.set(symbol, {
+      this.priceCache.set(normalizedSymbol, {
         price,
         timestamp: Date.now(),
       });

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AssetBalance, GroupedAssetBalance } from 'src/types';
+import { AssetBalance, AssetSymbol, GroupedAssetBalance } from 'src/types';
 import { RESERVE_ADDRESS_CONFIGS } from '../config/addresses.config';
 import { ASSET_GROUPS } from '../config/assets.config';
 import { ReserveBalanceService } from './reserve-balance.service';
@@ -52,22 +52,22 @@ export class ReserveService {
     };
   }
 
-  private createSymbolToGroupMapping(): Record<string, string> {
+  private createSymbolToGroupMapping(): Record<AssetSymbol, AssetSymbol> {
     return Object.entries(ASSET_GROUPS).reduce(
       (acc, [mainSymbol, symbols]) => {
         symbols.forEach((symbol) => {
-          acc[symbol] = mainSymbol;
+          acc[symbol] = mainSymbol as AssetSymbol;
         });
         return acc;
       },
-      {} as Record<string, string>,
+      {} as Record<AssetSymbol, AssetSymbol>,
     );
   }
 
   private groupHoldingsBySymbol(
     holdings: AssetBalance[],
-    symbolToGroup: Record<string, string>,
-  ): Record<string, GroupedAssetBalance> {
+    symbolToGroup: Record<string, AssetSymbol>,
+  ): Record<AssetSymbol, GroupedAssetBalance> {
     return holdings.reduce(
       (acc, curr) => {
         const mainSymbol = symbolToGroup[curr.symbol] || curr.symbol;
@@ -79,11 +79,11 @@ export class ReserveService {
         acc[mainSymbol] = this.updateGroupedBalance(acc[mainSymbol], curr);
         return acc;
       },
-      {} as Record<string, GroupedAssetBalance>,
+      {} as Record<AssetSymbol, GroupedAssetBalance>,
     );
   }
 
-  private createInitialGroupedBalance(symbol: string): GroupedAssetBalance {
+  private createInitialGroupedBalance(symbol: AssetSymbol): GroupedAssetBalance {
     return {
       symbol,
       totalBalance: '0',

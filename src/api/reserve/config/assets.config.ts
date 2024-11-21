@@ -1,10 +1,10 @@
-import { AssetConfig, Chain } from 'src/types';
+import { AssetConfig, AssetSymbol, Chain } from 'src/types';
 // TODO: Import paths alias - @types
 
 /**
  * Asset groups that are used to group like/bridged assets by their main symbol.
  */
-export const ASSET_GROUPS: Record<string, string[]> = {
+export const ASSET_GROUPS: Partial<Record<AssetSymbol, AssetSymbol[]>> = {
   ETH: ['ETH', 'WETH'],
   BTC: ['BTC', 'WBTC'],
   USDC: ['USDC', 'axlUSDC'],
@@ -12,8 +12,10 @@ export const ASSET_GROUPS: Record<string, string[]> = {
 
 // TODO: api/holdings/grouped is calculating incorrect total holdings. Check out why. Compare result to api/holdings
 
-// TODO: This mapping key needs to be strongly typed. Create a type that is accessible application wide that defines the asset symbols.
-export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
+// TODO: This does not allow for adding assets with the same key. This could be useful for assets
+//       that exist on multiple chains e.g. native USDC on Celo & Eth. This could be updated
+//       by adding a chain property to the AssetConfig type that has addresses keyed by chain.
+export const ASSETS_CONFIGS: Record<AssetSymbol, AssetConfig> = {
   CELO: {
     symbol: 'CELO',
     name: 'Celo',
@@ -92,7 +94,7 @@ export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
   sDAI: {
     symbol: 'sDAI',
     name: 'Savings Dai',
-    chain: Chain.CELO,
+    chain: Chain.ETHEREUM,
     decimals: 18,
     address: '0x83F20F44975D03b1b09e64809B757c47f942BEeA',
   },
@@ -104,5 +106,3 @@ export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
     address: '0x004626A008B1aCdC4c74ab51644093b155e59A23',
   },
 };
-
-export type AssetSymbol = keyof typeof ASSETS_CONFIGS;
