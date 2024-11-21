@@ -12,8 +12,9 @@ export const ASSET_GROUPS: Record<string, string[]> = {
 
 // TODO: api/holdings/grouped is calculating incorrect total holdings. Check out why. Compare result to api/holdings
 
+// TODO: This mapping key needs to be strongly typed. Create a type that is accessible application wide that defines the asset symbols.
 export const ASSETS_CONFIGS: Record<string, AssetConfig> = {
-  CLO: {
+  CELO: {
     symbol: 'CELO',
     name: 'Celo',
     chain: Chain.CELO,
