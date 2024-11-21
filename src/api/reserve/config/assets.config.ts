@@ -10,8 +10,6 @@ export const ASSET_GROUPS: Partial<Record<AssetSymbol, AssetSymbol[]>> = {
   USDC: ['USDC', 'axlUSDC'],
 };
 
-// TODO: api/holdings/grouped is calculating incorrect total holdings. Check out why. Compare result to api/holdings
-
 /**
  * Mapping of chain to supported assets on that chain.
  * @dev This allows for adding assets with the same key. This could be useful for assets
