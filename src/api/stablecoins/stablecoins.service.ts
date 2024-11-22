@@ -14,8 +14,9 @@ export class StablecoinsService {
 
   // TODO: The number format is inconsistent between the reserve and stablecoins endpoints.
   //       Should use a shared utility function to format the numbers for consistency.
+  //       Use BigNumber.js for all token amount calculations, then represent as a string.
+  //       Use regular numbers (with toFixed when needed) for USD values and percentages
   //       For USD values, we want a number with 2 decimal places
-  //       For token amounts, we want full precision as a string.
 
   // TODO: Need to add logic to subtract the amount of cUSD that has been preminted and is in the curve pool
   //       from the total supply.

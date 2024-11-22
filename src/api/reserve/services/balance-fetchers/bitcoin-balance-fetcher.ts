@@ -108,7 +108,7 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
     }
 
     const data = (await response.json()) as BlockstreamResponse;
-    const balance = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
-    return balance.toString();
+    const balance = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000;
+    return balance.toFixed(8);
   }
 }

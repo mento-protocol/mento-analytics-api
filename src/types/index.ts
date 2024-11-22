@@ -22,6 +22,7 @@ export enum Chain {
 export enum AddressCategory {
   MENTO_RESERVE = 'Mento Reserve',
   CURVE_POOL = 'Curve Pool',
+  UNIV3_POOL = 'Uniswap V3 Pool',
 }
 
 /**
@@ -70,6 +71,7 @@ export interface AssetBalance {
   chain: Chain;
   balance: string;
   usdValue: number;
+  type: AddressCategory;
 }
 
 /**

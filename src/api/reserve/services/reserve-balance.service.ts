@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import { BaseBalanceFetcher } from './balance-fetchers';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { BALANCE_FETCHERS } from '../constants';
+import BigNumber from 'bignumber.js';
 
 /**
  * Service for fetching and formatting asset balances across different chains.
@@ -76,8 +77,14 @@ export class ReserveBalanceService {
           } else {
             // Get the usd value for the balance.
             usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);
-            // Format the balance.
-            formattedBalance = this.formatBalance(balance, assetConfig);
+
+            // Check if the balance is already formatted
+            if (BigNumber.isBigNumber(balance) || balance.includes('.')) {
+              formattedBalance = balance;
+            } else {
+              // Format the balance.
+              formattedBalance = this.formatBalance(balance, assetConfig);
+            }
           }
 
           return {
@@ -87,6 +94,7 @@ export class ReserveBalanceService {
             chain: reserveAddressConfig.chain,
             balance: formattedBalance,
             usdValue: usdValue,
+            type: reserveAddressConfig.category,
           };
         } catch (error) {
           this.logger.error(`Failed to fetch balance for ${symbol} at ${reserveAddressConfig.address}:`, error);

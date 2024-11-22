@@ -2,12 +2,17 @@ import { Chain, AddressCategory, ReserveAddressConfig } from '@types';
 
 // TODO: Reserve address audit. The following asset balances are off when compared to what is shown on the reserve site.
 //       This is due to some address not being added yet, and non "mento reserve" addresses(UniV3 Pool, Curve Pool, etc) not being included.
-//       - CELO
-//       - ETH
 //       - EURC
-//       - USDT
 
 export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
+  {
+    address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
+    chain: Chain.CELO,
+    category: AddressCategory.UNIV3_POOL,
+    label: 'Reserve multisig on Celo',
+    assets: ['CELO', 'WETH', 'USDT'],
+    description: 'Reserve multisig with positions in Uniswap V3 on Celo',
+  },
   {
     address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
     chain: Chain.CELO,
@@ -49,7 +54,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     description: 'Reserve address holding Bitcoin',
   },
   {
-    address: '3Hc1Wje1DeJU5ahXdmD8Pt2yAfoYep331z',
+    address: '3Hc1Wje1DeJU5ahXdmD8Pt2yAfoYep331z', //TODO: Currently balance is 0
     chain: Chain.BITCOIN,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Bitcoin Reserve',
