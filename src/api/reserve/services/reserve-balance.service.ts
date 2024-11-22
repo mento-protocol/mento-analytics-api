@@ -82,7 +82,6 @@ export class ReserveBalanceService {
             if (BigNumber.isBigNumber(balance) || balance.includes('.')) {
               formattedBalance = balance;
             } else {
-              // Format the balance.
               formattedBalance = this.formatBalance(balance, assetConfig);
             }
           }

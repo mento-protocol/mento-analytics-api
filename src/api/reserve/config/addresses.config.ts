@@ -6,6 +6,14 @@ import { Chain, AddressCategory, ReserveAddressConfig } from '@types';
 
 export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
   {
+    address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
+    chain: Chain.CELO,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Main Reserve',
+    assets: ['CELO', 'USDC', 'axlUSDC', 'USDT', 'axlEUROC'],
+    description: 'Main Mento reserve holding collateral assets on Celo',
+  },
+  {
     address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
     chain: Chain.CELO,
     category: AddressCategory.UNIV3_POOL,
@@ -20,14 +28,6 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     label: 'Reserve multisig on Celo',
     assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
     description: 'Reserve multisig on Celo',
-  },
-  {
-    address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
-    chain: Chain.CELO,
-    category: AddressCategory.MENTO_RESERVE,
-    label: 'Main Reserve',
-    assets: ['CELO', 'USDC', 'axlUSDC', 'USDT'],
-    description: 'Main Mento reserve holding collateral assets on Celo',
   },
   {
     address: '0x13a9803d547332c81Ebc6060F739821264DBcf1E',

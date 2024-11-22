@@ -100,6 +100,7 @@ export const ASSET_SYMBOLS = {
   WETH: 'WETH',
   sDAI: 'sDAI',
   stEUR: 'stEUR',
+  axlEUROC: 'axlEUROC',
 } as const;
 
 export type AssetSymbol = (typeof ASSET_SYMBOLS)[keyof typeof ASSET_SYMBOLS];

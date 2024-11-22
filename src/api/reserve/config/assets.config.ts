@@ -7,6 +7,7 @@ export const ASSET_GROUPS: Partial<Record<AssetSymbol, AssetSymbol[]>> = {
   ETH: ['ETH', 'WETH'],
   BTC: ['BTC', 'WBTC'],
   USDC: ['USDC', 'axlUSDC'],
+  EURC: ['EURC', 'axlEUROC'],
 };
 
 /**
@@ -61,6 +62,13 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       name: 'Staked agEUR',
       decimals: 18,
       address: '0x004626A008B1aCdC4c74ab51644093b155e59A23',
+      rateSymbol: 'EURC',
+    },
+    axlEUROC: {
+      symbol: 'axlEUROC',
+      name: 'Axelar Wrapped EUROC',
+      decimals: 6,
+      address: '0x061cc5a2C863E0C1Cb404006D559dB18A34C762d',
       rateSymbol: 'EURC',
     },
   },
