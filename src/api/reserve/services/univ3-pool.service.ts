@@ -155,6 +155,10 @@ export class UniV3PoolService {
 
     const decimalsPromises = uncachedTokens.map(async (addr) => {
       try {
+        // TODO: We will already have decimals for tokens in assets.config
+        //       We should update to use that instead of fetching from the contract
+        //       to reduce RPC calls. In the unlikely event that the decimals are
+        //       not in assets.config, we will fallback to the contract.
         const contract = new Contract(addr, ERC20_ABI, this.provider);
         const decimals = await this.withTimeout(contract.decimals());
         return [addr, decimals];
@@ -257,7 +261,6 @@ export class UniV3PoolService {
 
       const indices = Array.from({ length: numPositions }, (_, i) => i);
 
-      // Process token IDs in batches if multicall isn't available
       const tokenIds = [];
       for (let i = 0; i < indices.length; i += BATCH_SIZE) {
         const batchIndices = indices.slice(i, i + BATCH_SIZE);
