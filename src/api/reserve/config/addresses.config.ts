@@ -1,9 +1,5 @@
 import { Chain, AddressCategory, ReserveAddressConfig } from '@types';
 
-// TODO: Reserve address audit. The following asset balances are off when compared to what is shown on the reserve site.
-//       This is due to some address not being added yet, and non "mento reserve" addresses(UniV3 Pool, Curve Pool, etc) not being included.
-//       - EURC
-
 export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
   {
     address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
