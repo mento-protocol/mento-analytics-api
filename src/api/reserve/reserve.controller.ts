@@ -18,7 +18,7 @@ export class ReserveController {
 
   @Get('holdings')
   @CacheTTL(300)
-  @ApiOperation({ summary: 'Get reserve holdings across all chains' })
+  @ApiOperation({ summary: 'Get detailed information on the reserve holdings' })
   @ApiResponse({
     status: 200,
     description: 'Current reserve holdings by asset',
@@ -43,12 +43,11 @@ export class ReserveController {
     type: ReserveCompositionResponseDto,
   })
   async getReserveComposition(): Promise<ReserveCompositionResponseDto> {
-    const holdings = await this.reserveService.getReserveHoldings();
-    const total_value = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
+    const { total_holdings_usd, assets } = await this.reserveService.getGroupedReserveHoldings();
 
-    const composition = holdings.map((asset) => ({
+    const composition = assets.map((asset) => ({
       symbol: asset.symbol,
-      percentage: (asset.usdValue / total_value) * 100,
+      percentage: (asset.usdValue / total_holdings_usd) * 100,
       usd_value: asset.usdValue,
     }));
 
