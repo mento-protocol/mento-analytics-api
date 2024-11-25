@@ -1,6 +1,6 @@
-# API Service
+# Mento Analytics API
 
-A NestJS-based API service for accessing blockchain data and related services.
+A NestJS-based API for retrieving Mento Analytics Data
 
 ## Project Structure
 
@@ -29,14 +29,9 @@ src/
 │       ├── health.controller.ts
 │       └── health.module.ts
 │
-├── common/                      # Shared resources
-│   ├── middleware/
-│   │   ├── rate-limiter.middleware.ts
-│   │   └── cache.middleware.ts
-│   ├── filters/
-│   │   └── http-exception.filter.ts
-│   └── services/
-│       └── mento.service.ts
+├── common/                      
+│   └── services/                # Shared services
+│       └── mento.service.ts     
 │
 ├── types/                       # Shared types/interfaces
 │   └── api.types.ts
@@ -51,8 +46,6 @@ src/
 - **Stablecoins API**: Endpoints for retrieving stablecoin information
 - **Reserve API**: Access to reserve holdings and composition data
 - **Health Checks**: Service health monitoring
-- **Rate Limiting**: Protection against excessive requests
-- **Caching**: Performance optimization for frequently accessed data
 - **Error Handling**: Standardized error responses
 
 ## Getting Started
@@ -83,10 +76,7 @@ pnpm run start:prod
 Create a `.env` file in the root directory:
 
 ```env
-PORT=3000
-NODE_ENV=development
-RATE_LIMIT_TTL=60
-RATE_LIMIT_MAX=100
+cp .env.example sample
 ```
 
 ## API Documentation

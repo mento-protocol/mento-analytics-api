@@ -1,5 +1,11 @@
 import { Chain, AddressCategory, ReserveAddressConfig } from '@types';
 
+/**
+ * The list of addresses that hold reserve assets.
+ * @dev This file should only contain addresses that are used for holding reserve assets.
+ *      Addresses for interacting with external protocols or contracts should be defined in a
+ *      separate file.
+ */
 export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
   {
     address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
