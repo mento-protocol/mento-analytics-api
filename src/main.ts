@@ -14,6 +14,7 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('stablecoins')
     .addTag('reserve')
+    .addTag('health')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

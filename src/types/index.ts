@@ -17,6 +17,7 @@ export enum Chain {
  * @dev Descriptions:
  *      Mento Reserve - The simplest form of reserve, a contract or account holding assets directly.
  *      Curve Pool - A curve pool holding assets that are owned indirectly by the reserve.
+ *      Uniswap V3 Pool - A Uniswap V3 pool holding assets that are owned indirectly by the reserve.
  *
  */
 export enum AddressCategory {
@@ -28,6 +29,7 @@ export enum AddressCategory {
 /**
  * The configuration for an asset. This is used to determine how to fetch
  * the price of an asset.
+ *
  * @param symbol - The symbol of the asset.
  * @param name - The name of the asset.
  * @param decimals - The number of decimals of the asset.
@@ -45,6 +47,7 @@ export interface AssetConfig {
 /**
  * The configuration for a reserve address. This is used to determine how to fetch
  * the balances of a reserve address.
+ *
  * @param address - The address of the reserve.
  * @param chain - The chain of the reserve.
  * @param category - The category of the reserve.
