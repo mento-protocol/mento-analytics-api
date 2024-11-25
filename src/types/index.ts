@@ -48,9 +48,9 @@ export interface AssetConfig {
  * @param address - The address of the reserve.
  * @param chain - The chain of the reserve.
  * @param category - The category of the reserve.
- * @param label - The label of the reserve.
+ * @param label - The label of the reserve. Useful for public display of the reserve.
  * @param assets - The assets held by the reserve.
- * @param description - The description of the reserve.
+ * @param description - The description of the reserve. Should provide enough information to understand the purpose of the reserve address.
  */
 export interface ReserveAddressConfig {
   address: string;

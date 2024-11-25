@@ -59,23 +59,23 @@ src/
 
 ### Prerequisites
 
-- Node.js (v16+)
-- npm or yarn
+- Node.js (v21+)
+- pnpm
 
 ### Installation
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Start development server
-npm run start:dev
+pnpm run start:dev
 
 # Build for production
-npm run build
+pnpm run build
 
 # Start production server
-npm run start:prod
+pnpm run start:prod
 ```
 
 ### Environment Variables

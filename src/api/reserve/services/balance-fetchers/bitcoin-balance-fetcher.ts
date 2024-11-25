@@ -18,11 +18,14 @@ interface BlockstreamResponse {
   };
 }
 
+// We use two different APIs to fetch the balance because they both vary in reliability.
+// This way we can fallback to the other API if one is down.
 @Injectable()
 export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(BitcoinBalanceFetcher.name);
   private readonly blockstreamBaseUrl: string;
   private readonly blockchainInfoBaseUrl: string;
+  private readonly maxRetries = 3;
 
   constructor(private readonly configService: ConfigService) {
     const config: BalanceFetcherConfig = {
@@ -79,36 +82,58 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
     throw new Error('No valid Bitcoin balance found');
   }
 
+  // TODO: Move to a utility function and use for all network calls
+  private async withRetry<T>(operation: () => Promise<T>, errorMessage: string): Promise<T> {
+    let attempt = 0;
+    while (attempt < this.maxRetries) {
+      try {
+        return await operation();
+      } catch (error) {
+        attempt++;
+        if (attempt === this.maxRetries) {
+          this.logger.error(`${errorMessage} after ${this.maxRetries} attempts:`, error);
+          throw error;
+        }
+        // Exponential backoff
+        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
+  }
+
   private async fetchFromBlockchainInfo(address: string): Promise<string> {
-    const requestUrl = new URL(this.blockchainInfoBaseUrl);
-    requestUrl.pathname = '/balance';
-    requestUrl.searchParams.set('active', address);
+    return this.withRetry(async () => {
+      const requestUrl = new URL(this.blockchainInfoBaseUrl);
+      requestUrl.pathname = '/balance';
+      requestUrl.searchParams.set('active', address);
 
-    const response = await fetch(requestUrl.toString());
-    if (!response.ok) {
-      throw new Error(`Blockchain.info API error: ${response.statusText}`);
-    }
+      const response = await fetch(requestUrl.toString());
+      if (!response.ok) {
+        throw new Error(`Blockchain.info API error: ${response.statusText}`);
+      }
 
-    const data = (await response.json()) as BlockchainInfoResponse;
-    if (!data[address]?.final_balance) {
-      throw new Error('Invalid response from blockchain.info');
-    }
+      const data = (await response.json()) as BlockchainInfoResponse;
+      if (!data[address]?.final_balance) {
+        throw new Error('Invalid response from blockchain.info');
+      }
 
-    const balance = data[address].final_balance / 100000000;
-    return balance.toFixed(8);
+      const balance = data[address].final_balance / 100000000;
+      return balance.toFixed(8);
+    }, `Failed to fetch balance from blockchain.info for address ${address}`);
   }
 
   private async fetchFromBlockstream(address: string): Promise<string> {
-    const requestUrl = new URL(this.blockstreamBaseUrl);
-    requestUrl.pathname = `/api/address/${address}`;
+    return this.withRetry(async () => {
+      const requestUrl = new URL(this.blockstreamBaseUrl);
+      requestUrl.pathname = `/api/address/${address}`;
 
-    const response = await fetch(requestUrl.toString());
-    if (!response.ok) {
-      throw new Error(`Blockstream API error: ${response.statusText}`);
-    }
+      const response = await fetch(requestUrl.toString());
+      if (!response.ok) {
+        throw new Error(`Blockstream API error: ${response.statusText}`);
+      }
 
-    const data = (await response.json()) as BlockstreamResponse;
-    const balance = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000;
-    return balance.toFixed(8);
+      const data = (await response.json()) as BlockstreamResponse;
+      const balance = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000;
+      return balance.toFixed(8);
+    }, `Failed to fetch balance from blockstream for address ${address}`);
   }
 }

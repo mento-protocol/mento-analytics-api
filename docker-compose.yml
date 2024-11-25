@@ -1,8 +1,8 @@
 services:
   api:
     build:
-      context: .
-      target: builder
+      context: ..
+      dockerfile: ./mento-analytics-api/Dockerfile
     ports:
       - "3000:3000"
     volumes:

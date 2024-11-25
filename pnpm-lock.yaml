@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mento-protocol/mento-sdk':
-        specifier: file:../mento-sdk
-        version: file:../mento-sdk(ethers@6.13.4)
+        specifier: 2.0.0-beta.1
+        version: 2.0.0-beta.1(ethers@6.13.4)
       '@nestjs/cache-manager':
         specifier: ^2.3.0
         version: 2.3.0(@nestjs/common@10.4.1(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.4.1(@nestjs/common@10.4.1(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/platform-express@10.4.1)(reflect-metadata@0.2.2)(rxjs@7.8.1))(cache-manager@5.7.6)(rxjs@7.8.1)
@@ -454,8 +454,8 @@ packages:
   '@mento-protocol/mento-core-ts@0.2.3':
     resolution: {integrity: sha512-Fjj0t2a6xqpHTbhfafioqjkY9ZDBsq3oy/DkRizihDI2zul/PFQJfQwyy7WDSSc/cNAflevBeSJyqTPTv9HD/Q==}
 
-  '@mento-protocol/mento-sdk@file:../mento-sdk':
-    resolution: {directory: ../mento-sdk, type: directory}
+  '@mento-protocol/mento-sdk@2.0.0-beta.1':
+    resolution: {integrity: sha512-9zpEG2guVGSZEksBUqfafhaRT64cwWo23BVsO1ei3YfKUKn/ZBqNOHj5Qrx1Jdk3pGyt+TsYW4IT1LRCrgdixw==}
     engines: {node: '>=18', pnpm: '>=9'}
     peerDependencies:
       ethers: ^6.13.4
@@ -3394,9 +3394,10 @@ snapshots:
 
   '@mento-protocol/mento-core-ts@0.2.3': {}
 
-  '@mento-protocol/mento-sdk@file:../mento-sdk(ethers@6.13.4)':
+  '@mento-protocol/mento-sdk@2.0.0-beta.1(ethers@6.13.4)':
     dependencies:
       '@mento-protocol/mento-core-ts': 0.2.3
+      bignumber.js: 9.1.2
     optionalDependencies:
       ethers: 6.13.4
 
