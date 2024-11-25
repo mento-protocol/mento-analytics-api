@@ -1,6 +1,9 @@
 # Dockerfile
 FROM node:18-alpine AS builder
 
+# Set environment variables
+ENV PORT=8080
+
 # Set working directory
 WORKDIR /app
 
@@ -39,7 +42,7 @@ RUN pnpm install --prod
 COPY --from=builder /app/dist ./dist
 
 # Expose API port
-EXPOSE 3000
+EXPOSE 8080
 
 # Start the application
 CMD ["pnpm", "start:prod"]
