@@ -22,10 +22,6 @@ class HealthCheckResponse {
       status: 'ok' | 'error';
       details?: string;
     };
-    cache: {
-      status: 'ok' | 'error';
-      details?: string;
-    };
     external_apis: {
       status: 'ok' | 'error';
       details?: string;
@@ -59,7 +55,6 @@ export class HealthController {
   async checkHealth(): Promise<HealthCheckResponse> {
     const healthStatuses = {
       mentoSdk: await this.checkMentoSdkConnection(),
-      cache: await this.checkCache(),
       external_apis: await this.checkExternalApis(),
     };
 
@@ -83,11 +78,6 @@ export class HealthController {
         details: 'Failed to connect to Celo blockchain',
       };
     }
-  }
-
-  private async checkCache() {
-    // TODO: Once redis is implemented, add a health check for that
-    return { status: 'ok' as const };
   }
 
   private async checkExternalApis() {

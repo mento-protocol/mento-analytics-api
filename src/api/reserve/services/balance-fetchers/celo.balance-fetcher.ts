@@ -5,10 +5,6 @@ import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainProvidersService } from '@common/services/chain-provider.service';
 import { UniV3PoolService } from '../univ3-pool.service';
 
-// TODO: Verify CELO balance. There is a discrepancy between what is displayed currently on the reserve site
-//       and what is being fetched here.
-//       Intial thoughts are that it could be stCELO, but the reserve multisig apparently holds 0 stCELO.
-
 @Injectable()
 export class CeloBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(CeloBalanceFetcher.name);

@@ -15,9 +15,7 @@ export class MentoService implements OnModuleInit {
       throw new Error('CELO_RPC_URL is not defined. Verify it is set in environment variables.');
     }
 
-    // TODO: Replace this with the chain provider service
     const provider = new JsonRpcProvider(rpcUrl);
-
     await provider.ready;
 
     this.mento = await Mento.create({

@@ -69,8 +69,6 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
       throw new Error('All Bitcoin balance providers failed');
     }
 
-    // TODO: Is it necessary to use both providers?
-
     if (blockchainInfo.status === 'fulfilled') {
       return blockchainInfo.value;
     }

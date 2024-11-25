@@ -1,12 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Contract, Provider } from 'ethers';
-import { UNIV3_FACTORY_ABI, UNIV3_POOL_ABI, UNIV3_POSITION_MANAGER_ABI } from '../constants';
+import {
+  UNIV3_FACTORY_ADDRESS,
+  UNIV3_FACTORY_ABI,
+  UNIV3_POOL_ABI,
+  UNIV3_POSITION_MANAGER_ADDRESS,
+  UNIV3_POSITION_MANAGER_ABI,
+} from '../constants';
 import { ERC20_ABI } from '@mento-protocol/mento-sdk';
 import BigNumber from 'bignumber.js';
-
-// TODO: Move to config somewhere
-const UNIV3_POSITION_TOKEN_ADDRESS = '0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A';
-const UNIV3_FACTORY_ADDRESS = '0xAfE208a311B21f13EF87E33A90049fC17A7acDEc';
 
 const RPC_TIMEOUT = 30000; // 30 seconds
 const BATCH_SIZE = 5; // Number of positions to process at once
@@ -22,7 +24,7 @@ export class UniV3PoolService {
   private readonly poolContractCache: Map<string, Contract> = new Map();
 
   constructor(private readonly provider: Provider) {
-    this.positionManagerContract = new Contract(UNIV3_POSITION_TOKEN_ADDRESS, UNIV3_POSITION_MANAGER_ABI, provider);
+    this.positionManagerContract = new Contract(UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_POSITION_MANAGER_ABI, provider);
     this.factoryContract = new Contract(UNIV3_FACTORY_ADDRESS, UNIV3_FACTORY_ABI, provider);
   }
 
