@@ -3,6 +3,8 @@ dist
 .git
 .gitignore
 README.md
-.env
 .env.example
 *.log
+.prettierrc
+.eslintrc
+test

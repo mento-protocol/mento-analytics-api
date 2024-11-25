@@ -24,5 +24,6 @@
       "@types": ["src/types"],
       "@config/*": ["src/config/*"]
     }
-  }
+  },
+  "exclude": ["test"]
 }

@@ -7,8 +7,9 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     category: AddressCategory.MENTO_RESERVE,
     label: 'Main Reserve',
     assets: ['CELO', 'USDC', 'axlUSDC', 'USDT', 'axlEUROC'],
-    description:
-      'The main reserve contract that manages reserve assets used to stabilize stablecoins through spending limits, asset allocation, and reserve ratio enforcement.',
+    description: `The main reserve contract that manages reserve assets used to 
+    stabilize stablecoins through spending limits, asset allocation, 
+    and reserve ratio enforcement.`,
   },
   {
     address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
@@ -24,7 +25,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     category: AddressCategory.MENTO_RESERVE,
     label: 'Reserve multisig on Celo',
     assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
-    description: 'A reserve owned multisig with positions in Uniswap V3 on Celo',
+    description: `A reserve owned multisig holding assets on Celo`,
   },
   {
     address: '0x13a9803d547332c81Ebc6060F739821264DBcf1E',

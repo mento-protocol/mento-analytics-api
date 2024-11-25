@@ -34,6 +34,6 @@ async function bootstrap() {
       .swagger-ui .topbar .download-url-wrapper { display: none; }
     `,
   });
-  await app.listen(3255);
+  await app.listen(3000);
 }
 bootstrap();

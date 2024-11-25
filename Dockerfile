@@ -8,8 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY pnpm-lock.yaml ./
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and nest CLI globally
+RUN npm install -g pnpm @nestjs/cli
 
 # Install dependencies
 RUN pnpm install
@@ -29,15 +29,14 @@ WORKDIR /app
 COPY package*.json ./
 COPY pnpm-lock.yaml ./
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and nest CLI globally
+RUN npm install -g pnpm @nestjs/cli
 
 # Install production dependencies only
 RUN pnpm install --prod
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/.env ./.env
 
 # Expose API port
 EXPOSE 3000
