@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MentoService } from '@common/services/mento.service';
 import { StablecoinDto, StablecoinsResponseDto } from './dto/stablecoin.dto';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
+import { ICONS_BASE_URL } from './constants';
+import { ethers } from 'ethers';
 
 @Injectable()
 export class StablecoinsService {
@@ -11,15 +13,6 @@ export class StablecoinsService {
     private readonly mentoService: MentoService,
     private readonly exchangeRatesService: ExchangeRatesService,
   ) {}
-
-  // TODO: The number format is inconsistent between the reserve and stablecoins endpoints.
-  //       Should use a shared utility function to format the numbers for consistency.
-  //       Use BigNumber.js for all token amount calculations, then represent as a string.
-  //       Use regular numbers (with toFixed when needed) for USD values and percentages
-  //       For USD values, we want a number with 2 decimal places
-
-  // TODO: Need to add logic to subtract the amount of cUSD that has been preminted and is in the curve pool
-  //       from the total supply.
 
   async getStablecoins(): Promise<StablecoinsResponseDto> {
     const maxRetries = 3;
@@ -33,7 +26,7 @@ export class StablecoinsService {
         const stablecoins: StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
             const fiatTicker = token.fiatTicker;
-            const totalSupply = token.totalSupply;
+            const formattedTotalSupply = Number(ethers.formatUnits(token.totalSupply, token.decimals));
 
             // TODO: In some cases we have pre-minted some of the stable coins, so using the totalSupply as is is not correct.
             //       We need to identify which ones these are and adjust accordingly. Currently the only one we do this for is cUSD.
@@ -45,24 +38,18 @@ export class StablecoinsService {
             //       the SDK.
 
             // Convert from fiat to USD
-            const rawUsdValue = await this.exchangeRatesService.convert(Number(totalSupply), fiatTicker, 'USD');
-
-            // Format USD value to have 2 decimal places
-            const usdValue = Number(rawUsdValue.toFixed(2));
+            const rawUsdValue = await this.exchangeRatesService.convert(formattedTotalSupply, fiatTicker, 'USD');
 
             return {
               symbol: token.symbol,
               name: token.name,
               address: token.address,
               supply: {
-                amount: totalSupply.toString(),
-                usd_value: usdValue,
+                amount: formattedTotalSupply.toString(),
+                usd_value: Number(rawUsdValue),
               },
               decimals: token.decimals,
-              // TODO: Move this URL to a config file
-              // TODO: Check if the file exists, if not, use the default icon or blank?
-              // TODO: Do we want to keep svgs in the reserve repo or move them somewhere else?
-              icon_url: `https://raw.githubusercontent.com/mento-protocol/reserve-site/refs/heads/main/public/assets/tokens/${token.symbol}.svg`,
+              icon_url: `${ICONS_BASE_URL}/${token.symbol}.svg`,
               fiat_symbol: fiatTicker,
             };
           }),

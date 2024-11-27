@@ -21,7 +21,7 @@ async function bootstrap() {
 
   SwaggerModule.setup('docs', app, document, {
     customSiteTitle: 'Mento Analytics API Docs',
-    customfavIcon: '/favicon.ico',
+    customfavIcon: '/favicon.ico', //TODO: Change this to full path on github in public folder, same as the logo.svg
     customCss: `
       .swagger-ui .topbar { background-color: black; }
       .swagger-ui .topbar-wrapper svg  { display: none !important; }
