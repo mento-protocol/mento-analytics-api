@@ -9,6 +9,8 @@ import {
 } from '../constants';
 import { ERC20_ABI } from '@mento-protocol/mento-sdk';
 import BigNumber from 'bignumber.js';
+import { ASSETS_CONFIGS } from '../config/assets.config';
+import { AssetSymbol, Chain } from '@/types';
 
 const RPC_TIMEOUT = 30000; // 30 seconds
 const BATCH_SIZE = 5; // Number of positions to process at once
@@ -23,7 +25,11 @@ export class UniV3PoolService {
   private readonly poolCache: Map<string, string> = new Map();
   private readonly poolContractCache: Map<string, Contract> = new Map();
 
-  constructor(private readonly provider: Provider) {
+  constructor(
+    private readonly provider: Provider,
+    private readonly chain: Chain,
+  ) {
+    // TODO: The Uni addresses really should be in a mapping of chain to addresses
     this.positionManagerContract = new Contract(UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_POSITION_MANAGER_ABI, provider);
     this.factoryContract = new Contract(UNIV3_FACTORY_ADDRESS, UNIV3_FACTORY_ABI, provider);
   }
@@ -157,12 +163,16 @@ export class UniV3PoolService {
 
     const decimalsPromises = uncachedTokens.map(async (addr) => {
       try {
-        // TODO: We will already have decimals for tokens in assets.config
-        //       We should update to use that instead of fetching from the contract
-        //       to reduce RPC calls. In the unlikely event that the decimals are
-        //       not in assets.config, we will fallback to the contract.
-        const contract = new Contract(addr, ERC20_ABI, this.provider);
-        const decimals = await this.withTimeout(contract.decimals());
+        let decimals = 18;
+        const assetConfig = ASSETS_CONFIGS[this.chain][addr as AssetSymbol];
+        if (assetConfig) {
+          decimals = assetConfig.decimals;
+        } else {
+          // In the unlikely event that the decimals are not in assets.config,
+          // we will fallback to the contract.
+          const contract = new Contract(addr, ERC20_ABI, this.provider);
+          decimals = await this.withTimeout(contract.decimals());
+        }
         return [addr, decimals];
       } catch (error) {
         this.logger.warn(`Failed to fetch decimals for ${addr}, using default:`, error);
@@ -171,7 +181,7 @@ export class UniV3PoolService {
     });
 
     const results = await Promise.all(decimalsPromises);
-    results.forEach(([addr, decimals]) => {
+    results.forEach(([addr, decimals]: [string, number]) => {
       this.decimalsCache.set(addr, decimals);
     });
   }
