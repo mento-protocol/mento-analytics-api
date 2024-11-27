@@ -50,23 +50,6 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     description: '??????',
   },
   {
-    address: '38EPdP4SPshc5CiUCzKcLP9v7Vqo5u1HBL',
-    chain: Chain.BITCOIN,
-    category: AddressCategory.MENTO_RESERVE,
-    label: 'Bitcoin Reserve',
-    assets: ['BTC'],
-    description: 'Reserve address holding Bitcoin',
-  },
-  {
-    //TODO: The current BTC balance is 0, confirm if we want to keep this address
-    address: '3Hc1Wje1DeJU5ahXdmD8Pt2yAfoYep331z',
-    chain: Chain.BITCOIN,
-    category: AddressCategory.MENTO_RESERVE,
-    label: 'Bitcoin Reserve',
-    assets: ['BTC'],
-    description: 'Reserve address holding Bitcoin',
-  },
-  {
     address: '0xd0697f70E79476195B742d5aFAb14BE50f98CC1E',
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
