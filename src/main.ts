@@ -21,12 +21,13 @@ async function bootstrap() {
 
   SwaggerModule.setup('docs', app, document, {
     customSiteTitle: 'Mento Analytics API Docs',
-    customfavIcon: '/favicon.ico', //TODO: Change this to full path on github in public folder, same as the logo.svg
+    customfavIcon:
+      'https://raw.githubusercontent.com/mento-protocol/mento-analytics-api/refs/heads/main/public/favicon.ico',
     customCss: `
       .swagger-ui .topbar { background-color: black; }
       .swagger-ui .topbar-wrapper svg  { display: none !important; }
       .swagger-ui .topbar-wrapper a {
-        background-image: url('/logo.svg');
+        background-image: url('https://raw.githubusercontent.com/mento-protocol/mento-analytics-api/refs/heads/main/public/logo.svg');
         background-repeat: no-repeat;
         background-position: left center;
         background-size: contain;
