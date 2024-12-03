@@ -9,7 +9,7 @@ import { ReserveBalanceService } from './services/reserve-balance.service';
 import { ReserveValueService } from './services/reserve-value.service';
 import { CeloBalanceFetcher, EthereumBalanceFetcher } from './services/balance-fetchers';
 import { BALANCE_FETCHERS } from './constants/injection-tokens';
-
+import { StablecoinsService } from '../stablecoins/stablecoins.service';
 @Module({
   imports: [
     CommonModule,
@@ -26,6 +26,7 @@ import { BALANCE_FETCHERS } from './constants/injection-tokens';
     BitcoinBalanceFetcher,
     CeloBalanceFetcher,
     EthereumBalanceFetcher,
+    StablecoinsService,
     {
       provide: BALANCE_FETCHERS,
       useFactory: (
