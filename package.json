@@ -21,7 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@mento-protocol/mento-sdk": "2.0.0-beta.2",
+    "@mento-protocol/mento-sdk": "2.0.0-beta.3",
     "@nestjs/cache-manager": "^2.3.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.3.0",
