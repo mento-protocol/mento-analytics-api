@@ -67,3 +67,17 @@ export class GroupedReserveHoldingsResponseDto {
   @ApiProperty({ type: [GroupedAssetItem] })
   assets: GroupedAssetItem[];
 }
+
+export class ReserveStatsResponseDto {
+  @ApiProperty()
+  total_reserve_value_usd: number;
+
+  @ApiProperty()
+  total_outstanding_stables_usd: number;
+
+  @ApiProperty()
+  collateralization_ratio: number;
+
+  @ApiProperty()
+  timestamp: string;
+}

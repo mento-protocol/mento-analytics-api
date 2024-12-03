@@ -6,15 +6,20 @@ import {
   ReserveCompositionResponseDto,
   ReserveAddressesResponseDto,
   GroupedReserveHoldingsResponseDto,
+  ReserveStatsResponseDto,
 } from './dto/reserve.dto';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { RESERVE_ADDRESS_CONFIGS } from './config/addresses.config';
+import { StablecoinsService } from '../stablecoins/stablecoins.service';
 
 @ApiTags('reserve')
 @Controller('api/v1/reserve')
 @UseInterceptors(CacheInterceptor)
 export class ReserveController {
-  constructor(private readonly reserveService: ReserveService) {}
+  constructor(
+    private readonly reserveService: ReserveService,
+    private readonly stablecoinsService: StablecoinsService,
+  ) {}
 
   @Get('holdings')
   @CacheTTL(300)
@@ -101,5 +106,24 @@ export class ReserveController {
   })
   async getGroupedReserveHoldings(): Promise<GroupedReserveHoldingsResponseDto> {
     return this.reserveService.getGroupedReserveHoldings();
+  }
+
+  @Get('stats')
+  @CacheTTL(300)
+  @ApiOperation({ summary: 'Get reserve statistics including value and collateralization ratio' })
+  @ApiResponse({
+    status: 200,
+    type: ReserveStatsResponseDto,
+  })
+  async getReserveStats(): Promise<ReserveStatsResponseDto> {
+    const { total_holdings_usd: total_reserve_value_usd } = await this.reserveService.getGroupedReserveHoldings();
+    const { total_supply_usd: total_outstanding_stables_usd } = await this.stablecoinsService.getStablecoins();
+
+    return {
+      total_reserve_value_usd,
+      total_outstanding_stables_usd,
+      collateralization_ratio: total_reserve_value_usd / total_outstanding_stables_usd,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
