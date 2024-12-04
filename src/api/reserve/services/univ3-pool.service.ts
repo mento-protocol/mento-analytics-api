@@ -12,9 +12,9 @@ import BigNumber from 'bignumber.js';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { AssetSymbol, Chain } from '@/types';
 
-const RPC_TIMEOUT = 90000; // 30 seconds
-const BATCH_SIZE = 5; // Number of positions to process at once
-const BATCH_DELAY = 100; // ms between batches
+const RPC_TIMEOUT = 90000;
+const BATCH_SIZE = 5;
+const BATCH_DELAY = 100;
 
 @Injectable()
 export class UniV3PoolService {
