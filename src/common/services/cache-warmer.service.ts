@@ -8,8 +8,8 @@ import { Cache } from 'cache-manager';
 import { CACHE_TTL } from '../constants';
 
 /**
- * Warms the cache for reserve and stablecoins endpoints on an hourly schedule.
- * Data is cached for 75 minutes (leaving a 15-minute buffer over the hourly refresh)
+ * Warms the cache for reserve and stablecoins endpoints on a schedule.
+ * Data is cached for 15 minutes more than the refresh interval
  * to ensure data availability during cache updates.
  */
 @Injectable()
