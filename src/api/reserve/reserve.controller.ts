@@ -43,7 +43,6 @@ export class ReserveController {
     const total_holdings_usd = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
     const response = { total_holdings_usd, assets: holdings };
 
-    await this.cacheManager.set('reserve-holdings', response, 300000);
     return response;
   }
 
