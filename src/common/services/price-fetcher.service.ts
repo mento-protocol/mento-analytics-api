@@ -29,11 +29,11 @@ export class PriceFetcherService {
   private readonly baseUrl: string;
 
   private readonly priceCache: Map<string, { price: number; timestamp: number }> = new Map();
-  private readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
-  private readonly BATCH_SIZE = 10; // CMC allows up to 100 symbols per request
+  private readonly CACHE_DURATION = 15 * 60 * 1000;
+  private readonly BATCH_SIZE = 10;
   private readonly pendingRequests: Map<string, Promise<number>> = new Map();
 
-  // Rate limiter: 30 requests per minute - CMC basic tier :(
+  // Rate limiter: 30 requests per minute - In line with CMC basic tier :(
   private readonly rateLimiter = new RateLimiter({
     tokensPerInterval: 30,
     interval: 'minute',
@@ -64,7 +64,6 @@ export class PriceFetcherService {
       return pending;
     }
 
-    // Create new request
     const pricePromise = this.fetchPriceWithRetry(normalizedSymbol);
     this.pendingRequests.set(normalizedSymbol, pricePromise);
 
@@ -82,7 +81,6 @@ export class PriceFetcherService {
     const result = new Map<string, number>();
     const symbolsToFetch: string[] = [];
 
-    // Check cache first
     for (const symbol of symbols) {
       const normalizedSymbol = symbol.toUpperCase();
       const cached = this.priceCache.get(normalizedSymbol);
@@ -93,7 +91,6 @@ export class PriceFetcherService {
       }
     }
 
-    // Fetch remaining prices in batches
     for (let i = 0; i < symbolsToFetch.length; i += this.BATCH_SIZE) {
       const batch = symbolsToFetch.slice(i, i + this.BATCH_SIZE);
       const prices = await this.fetchBatchPrices(batch);
@@ -116,13 +113,12 @@ export class PriceFetcherService {
       `Failed to fetch price for ${symbol}`,
       {
         maxRetries: 3,
-        baseDelay: 2000, // Start with 2 second delay
+        baseDelay: 2000,
       },
     );
   }
 
   private async fetchBatchPrices(symbols: string[]): Promise<Map<string, number>> {
-    // Wait for rate limit token
     await this.rateLimiter.removeTokens(1);
 
     const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
