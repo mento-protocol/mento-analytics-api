@@ -1,1 +1,1 @@
-export const CACHE_TTL = 4500000; // 75 minutes in milliseconds
+export const CACHE_TTL = 195 * 60 * 1000; // 195 minutes in milliseconds
