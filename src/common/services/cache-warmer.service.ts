@@ -22,7 +22,7 @@ export class CacheWarmerService implements OnModuleInit {
     private readonly stablecoinsService: StablecoinsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_3_HOURS)
+  @Cron(CronExpression.EVERY_HOUR)
   async warmCache() {
     this.logger.log('Starting cache warm-up...');
 
