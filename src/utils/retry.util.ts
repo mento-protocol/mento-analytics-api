@@ -42,3 +42,38 @@ export async function withRetry<T>(
     }
   }
 }
+
+/**
+ * Utility function to retry an async operation with exponential backoff until a condition is met
+ * @param operation The async operation to retry
+ * @param condition The condition to check the result of the operation
+ * @param options Configuration options for retry behavior
+ * @returns The result of the operation
+ */
+export async function retryWithCondition<T>(
+  operation: () => Promise<T>,
+  condition: (result: T) => boolean,
+  options: RetryOptions & {
+    warningMessage: string;
+  } = { warningMessage: 'Operation failed condition check' },
+): Promise<T> {
+  const { maxRetries, logger, baseDelay, warningMessage } = { ...defaultOptions, ...options };
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    const result = await operation();
+
+    if (condition(result)) {
+      return result;
+    }
+
+    attempt++;
+    if (attempt === maxRetries) {
+      logger.warn(`${warningMessage} after ${maxRetries} attempts`);
+      return result;
+    }
+
+    // Exponential backoff
+    await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay));
+  }
+}
