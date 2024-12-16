@@ -3,13 +3,13 @@ import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainProvidersService } from '@common/services/chain-provider.service';
-import { UniV3PoolService } from '../univ3-pool.service';
+import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
+import { UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_FACTORY_ADDRESS } from '../../constants';
 
 @Injectable()
 export class CeloBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(CeloBalanceFetcher.name);
   private readonly erc20Fetcher: ERC20BalanceFetcher;
-  private readonly univ3Service: UniV3PoolService;
 
   constructor(private readonly chainProviders: ChainProvidersService) {
     const config: BalanceFetcherConfig = {
@@ -18,7 +18,6 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     };
     super(config);
     this.erc20Fetcher = new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO));
-    this.univ3Service = new UniV3PoolService(this.chainProviders.getProvider(Chain.CELO), Chain.CELO);
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
@@ -49,8 +48,16 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
 
   private async fetchUniv3PoolBalance(tokenAddress: string, accountAddress: string): Promise<string> {
     try {
-      const holdings = await this.univ3Service.getPositionBalances(accountAddress);
-      return (holdings.get(tokenAddress) || '0').toString();
+      const adapter = new EthersAdapter(this.chainProviders.getProvider(Chain.CELO));
+      const calculator = new UniV3SupplyCalculator(
+        adapter,
+        UNIV3_POSITION_MANAGER_ADDRESS,
+        UNIV3_FACTORY_ADDRESS,
+        accountAddress,
+      );
+
+      const holdings = await calculator.getAmount(tokenAddress);
+      return (holdings || '0').toString();
     } catch (error) {
       this.logger.error(`Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}:`, error);
       throw error;
