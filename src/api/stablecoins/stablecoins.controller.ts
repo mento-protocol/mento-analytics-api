@@ -1,20 +1,12 @@
-import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { StablecoinsService } from './stablecoins.service';
 import { StablecoinsResponseDto } from './dto/stablecoin.dto';
-import { CacheInterceptor } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
 
 @ApiTags('stablecoins')
 @Controller('api/v1/stablecoins')
-@UseInterceptors(CacheInterceptor)
 export class StablecoinsController {
-  constructor(
-    private readonly stablecoinsService: StablecoinsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private readonly stablecoinsService: StablecoinsService) {}
 
   @Get()
   @ApiOperation({ summary: 'Get all stablecoins' })
@@ -24,11 +16,6 @@ export class StablecoinsController {
     type: StablecoinsResponseDto,
   })
   async getStablecoins(): Promise<StablecoinsResponseDto> {
-    const cached = await this.cacheManager.get('stablecoins');
-    if (cached) {
-      return cached as StablecoinsResponseDto;
-    }
-
     const response = await this.stablecoinsService.getStablecoins();
     return response;
   }

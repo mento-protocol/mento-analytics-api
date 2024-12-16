@@ -11,9 +11,6 @@ import {
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { RESERVE_ADDRESS_CONFIGS } from './config/addresses.config';
 import { StablecoinsService } from '../stablecoins/stablecoins.service';
-import { Cache } from 'cache-manager';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
 
 @ApiTags('reserve')
 @Controller('api/v1/reserve')
@@ -22,7 +19,6 @@ export class ReserveController {
   constructor(
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   @Get('holdings')
@@ -34,16 +30,13 @@ export class ReserveController {
     type: ReserveHoldingsResponseDto,
   })
   async getReserveHoldings(): Promise<ReserveHoldingsResponseDto> {
-    const cached = await this.cacheManager.get('reserve-holdings');
-    if (cached) {
-      return cached as ReserveHoldingsResponseDto;
-    }
-
     const holdings = await this.reserveService.getReserveHoldings();
     const total_holdings_usd = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
-    const response = { total_holdings_usd, assets: holdings };
 
-    return response;
+    return {
+      total_holdings_usd,
+      assets: holdings,
+    };
   }
 
   @Get('composition')
@@ -55,11 +48,6 @@ export class ReserveController {
     type: ReserveCompositionResponseDto,
   })
   async getReserveComposition(): Promise<ReserveCompositionResponseDto> {
-    const cached = await this.cacheManager.get('reserve-composition');
-    if (cached) {
-      return cached as ReserveCompositionResponseDto;
-    }
-
     const { total_holdings_usd, assets } = await this.reserveService.getGroupedReserveHoldings();
 
     const composition = assets.map((asset) => ({
@@ -80,9 +68,12 @@ export class ReserveController {
     type: ReserveAddressesResponseDto,
   })
   getReserveAddresses(): ReserveAddressesResponseDto {
+    // Group addresses by network and category
     const groupedAddresses = RESERVE_ADDRESS_CONFIGS.reduce((acc, addr) => {
+      // Create a key for the group
       const key = `${addr.chain}-${addr.category}`;
 
+      // If the key doesn't exist, create it and initialize the array
       if (!acc[key]) {
         acc[key] = {
           network: addr.chain,
@@ -91,6 +82,7 @@ export class ReserveController {
         };
       }
 
+      // Add the address to the array for the group with the same key
       acc[key].addresses.push({
         address: addr.address,
         label: addr.label,
@@ -98,6 +90,7 @@ export class ReserveController {
       return acc;
     }, {});
 
+    // Return the grouped addresses
     return {
       addresses: Object.values(groupedAddresses),
     };
@@ -112,12 +105,7 @@ export class ReserveController {
     type: GroupedReserveHoldingsResponseDto,
   })
   async getGroupedReserveHoldings(): Promise<GroupedReserveHoldingsResponseDto> {
-    const cached = await this.cacheManager.get('reserve-holdings-grouped');
-    if (cached) {
-      return cached as GroupedReserveHoldingsResponseDto;
-    }
-
-    return await this.reserveService.getGroupedReserveHoldings();
+    return this.reserveService.getGroupedReserveHoldings();
   }
 
   @Get('stats')
@@ -128,11 +116,6 @@ export class ReserveController {
     type: ReserveStatsResponseDto,
   })
   async getReserveStats(): Promise<ReserveStatsResponseDto> {
-    const cached = await this.cacheManager.get('reserve-stats');
-    if (cached) {
-      return cached as ReserveStatsResponseDto;
-    }
-
     const { total_holdings_usd: total_reserve_value_usd } = await this.reserveService.getGroupedReserveHoldings();
     const { total_supply_usd: total_outstanding_stables_usd } = await this.stablecoinsService.getStablecoins();
 

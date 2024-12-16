@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { CommonModule } from '@common/common.module';
 import { ReserveService } from './services/reserve.service';
 import { ConfigModule } from '@nestjs/config';
@@ -10,7 +11,13 @@ import { CeloBalanceFetcher, EthereumBalanceFetcher } from './services/balance-f
 import { BALANCE_FETCHERS } from './constants/injection-tokens';
 import { StablecoinsService } from '../stablecoins/stablecoins.service';
 @Module({
-  imports: [CommonModule, ConfigModule],
+  imports: [
+    CommonModule,
+    CacheModule.register({
+      ttl: 300, // 5 minutes cache
+    }),
+    ConfigModule,
+  ],
   controllers: [ReserveController],
   providers: [
     ReserveService,

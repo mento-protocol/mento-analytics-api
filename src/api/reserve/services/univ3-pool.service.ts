@@ -12,9 +12,9 @@ import BigNumber from 'bignumber.js';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { AssetSymbol, Chain } from '@/types';
 
-const RPC_TIMEOUT_MS = 90000; // 90 seconds
-const BATCH_SIZE = 5;
-const BATCH_DELAY_MS = 30000; // 30 seconds
+const RPC_TIMEOUT = 30000; // 30 seconds
+const BATCH_SIZE = 5; // Number of positions to process at once
+const BATCH_DELAY = 100; // ms between batches
 
 @Injectable()
 export class UniV3PoolService {
@@ -34,29 +34,13 @@ export class UniV3PoolService {
     this.factoryContract = new Contract(UNIV3_FACTORY_ADDRESS, UNIV3_FACTORY_ABI, provider);
   }
 
-  /**
-   * Wraps a promise with a timeout.
-   * @param promise - The promise to wrap.
-   * @returns A promise that resolves to the result of the input promise or rejects with an error if the timeout is reached.
-   * @dev This is a helper function to timeout RPC calls to avoid hanging the server.
-   */
   private async withTimeout<T>(promise: Promise<T>): Promise<T> {
     return Promise.race([
       promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => {
-          this.logger.warn(`RPC request timed out after ${RPC_TIMEOUT_MS}ms`);
-          reject(new Error('RPC Timeout'));
-        }, RPC_TIMEOUT_MS),
-      ),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('RPC Timeout')), RPC_TIMEOUT)),
     ]);
   }
 
-  /**
-   * Get the balances of all UNIV3 positions for a given account.
-   * @param accountAddress - The address of the account to get positions for.
-   * @returns A promise that resolves to a map of token balances.
-   */
   public async getPositionBalances(accountAddress: string): Promise<Map<string, number>> {
     try {
       const positions = await this.withTimeout(this.getPositionTokenIds(accountAddress));
@@ -70,8 +54,7 @@ export class UniV3PoolService {
         await this.processPositionBatch(batchPositions, holdings);
 
         if (i + BATCH_SIZE < positions.length) {
-          // Here we just wait for the next batch to avoid rate limiting or any other issues
-          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
         }
       }
 
@@ -146,11 +129,6 @@ export class UniV3PoolService {
     }
   }
 
-  /**
-   * Get the pool addresses for a given set of positions.
-   * @param positions - The positions to get pool addresses for.
-   * @returns A promise that resolves to an array of pool addresses.
-   */
   private async getPoolAddressesWithCache(positions: any[]): Promise<string[]> {
     const poolPromises = positions.map(async (pos) => {
       const cacheKey = `${pos[2]}-${pos[3]}-${pos[4]}`;
@@ -287,11 +265,6 @@ export class UniV3PoolService {
     holdings.set(token1, (holdings.get(token1) || 0) + normalizedAmount1);
   }
 
-  /**
-   * Get the token IDs of all positions for a given account.
-   * @param accountAddress - The address of the account to get positions for.
-   * @returns A promise that resolves to an array of token IDs.
-   */
   public async getPositionTokenIds(accountAddress: string): Promise<number[]> {
     try {
       const balanceOf = await this.withTimeout(this.positionManagerContract.balanceOf(accountAddress));
@@ -308,13 +281,11 @@ export class UniV3PoolService {
             Number(tokenId),
           ),
         );
-
         const batchResults = await Promise.all(batchPromises);
         tokenIds.push(...batchResults);
 
         if (i + BATCH_SIZE < indices.length) {
-          // Here we just wait for the next batch to avoid rate limiting or any other issues
-          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
         }
       }
 
