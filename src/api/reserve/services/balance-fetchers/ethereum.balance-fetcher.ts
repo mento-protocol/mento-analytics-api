@@ -27,7 +27,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch Ethereum balance for ${accountAddress}:`, error);
+      this.logger.error(error, `Failed to fetch Ethereum balance for ${accountAddress}:`);
       return '0';
     }
   }
@@ -38,8 +38,8 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       return balance;
     } catch (error) {
       this.logger.error(
-        `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`,
         error,
+        `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`,
       );
       throw error;
     }
