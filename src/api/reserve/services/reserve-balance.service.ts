@@ -47,7 +47,10 @@ export class ReserveBalanceService {
       return [];
     }
 
-    this.logger.debug(`Fetching balance for reserve address config: ${JSON.stringify(reserveAddressConfig)}`);
+    this.logger.debug(
+      reserveAddressConfig,
+      `Fetching balance for reserve address config: ${reserveAddressConfig.address}`,
+    );
 
     return Promise.all(
       reserveAddressConfig.assets.map(async (symbol) => {
@@ -96,7 +99,8 @@ export class ReserveBalanceService {
             type: reserveAddressConfig.category,
           };
         } catch (error) {
-          this.logger.error(`Failed to fetch balance for ${symbol} at ${reserveAddressConfig.address}:`, error);
+          const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
+          this.logger.error(error, errorMessage);
           return null;
         }
       }),
