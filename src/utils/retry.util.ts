@@ -34,7 +34,7 @@ export async function withRetry<T>(
     } catch (error) {
       attempt++;
       if (attempt === maxRetries) {
-        logger.error(`${errorMessage} after ${maxRetries} attempts:`, error);
+        logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
         throw error;
       }
       // Exponential backoff
