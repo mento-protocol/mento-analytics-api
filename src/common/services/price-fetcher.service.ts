@@ -134,8 +134,14 @@ export class PriceFetcherService {
     const data = (await response.json()) as CMCQuote;
 
     if (data.status.error_code !== 0) {
-      this.logger.error(`API error: ${data.status.error_message}`);
-      throw new Error(data.status.error_message);
+      const errorMessage = `CoinmarketCap API error: ${data.status.error_message}`;
+      const errorContext = {
+        error_code: data.status.error_code,
+        error_message: data.status.error_message,
+      };
+
+      this.logger.error({ ...errorContext }, errorMessage);
+      throw new Error(errorMessage);
     }
 
     const prices = new Map<string, number>();
