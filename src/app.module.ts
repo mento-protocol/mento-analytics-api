@@ -6,6 +6,7 @@ import { CommonModule } from '@common/common.module';
 import { StablecoinsModule } from '@api/stablecoins/stablecoins.module';
 import { ReserveModule } from '@api/reserve/reserve.module';
 import { HealthModule } from './api/health/health.module';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
@@ -18,6 +19,16 @@ import { HealthModule } from './api/health/health.module';
     StablecoinsModule,
     ReserveModule,
     HealthModule,
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            singleLine: true,
+          },
+        },
+      },
+    }),
   ],
   providers: [CacheWarmerService],
 })
