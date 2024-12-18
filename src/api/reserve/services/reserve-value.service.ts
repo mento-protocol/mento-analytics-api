@@ -11,9 +11,10 @@ export class ReserveValueService {
   constructor(private readonly priceFetcher: PriceFetcherService) {}
 
   async calculateUsdValue(assetConfig: AssetConfig, balance: string | BigNumber): Promise<number> {
+    let price = 0;
     try {
       const rateSymbol = assetConfig.rateSymbol ?? assetConfig.symbol;
-      const price = await this.priceFetcher.getPrice(rateSymbol);
+      price = await this.priceFetcher.getPrice(rateSymbol);
 
       // Check if balance is already formatted (from UniV3Pool)
       if (balance instanceof BigNumber || balance.includes('.')) {
@@ -27,11 +28,15 @@ export class ReserveValueService {
 
       return formattedBalance * price;
     } catch (error) {
-      this.logger.error(`Failed to calculate USD value for ${assetConfig.symbol}:`, error, {
-        balance,
-        type: typeof balance,
-        isFormatted: balance instanceof BigNumber || String(balance).includes('.'),
-      });
+      const errorMessage = `Failed to calculate USD value for ${assetConfig.symbol}: ${error}`;
+      const errorContext = {
+        assetSymbol: assetConfig.symbol,
+        balance: balance.toString(),
+        rateSymbol: assetConfig.rateSymbol ?? assetConfig.symbol,
+        price: price,
+      };
+
+      this.logger.error({ ...errorContext }, errorMessage);
       return 0;
     }
   }
