@@ -73,10 +73,13 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            this.logger.warn(`Balance is 0 for asset (${symbol}) ${assetConfig.address}`);
-            this.logger.warn(`Reserve address: ${reserveAddressConfig.address}`);
-            this.logger.warn(`Chain: ${reserveAddressConfig.chain}`);
-            this.logger.warn(`Address category: ${reserveAddressConfig.category}`);
+            const errorMessage = `Balance is 0 for asset (${symbol}) ${assetConfig.address}`;
+            const errorContext = {
+              reserve_address: reserveAddressConfig.address,
+              chain: reserveAddressConfig.chain,
+              category: reserveAddressConfig.category,
+            };
+            this.logger.warn(errorContext, errorMessage);
           } else {
             // Get the usd value for the balance.
             usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);
