@@ -31,7 +31,7 @@ export class CacheWarmerService implements OnModuleInit {
 
       this.logger.log('Cache warm-up completed successfully');
     } catch (error) {
-      this.logger.error('Cache warm-up failed:', error);
+      this.logger.error(error, 'Cache warm-up failed');
     }
   }
 
@@ -80,9 +80,9 @@ export class CacheWarmerService implements OnModuleInit {
         try {
           const data = await fetcher();
           await this.cacheManager.set(key, data, CACHE_TTL);
-          this.logger.debug(`Cached ${key} successfully`);
+          this.logger.log(`Cached ${key} successfully`);
         } catch (error) {
-          this.logger.error(`Failed to cache ${key}:`, error);
+          this.logger.error(error, `Failed to cache ${key}`);
         }
       }),
     );
@@ -92,9 +92,9 @@ export class CacheWarmerService implements OnModuleInit {
     try {
       const stablecoins = await this.stablecoinsService.getStablecoins();
       await this.cacheManager.set('stablecoins', stablecoins, CACHE_TTL);
-      this.logger.debug('Cached stablecoins successfully');
+      this.logger.log('Cached stablecoins successfully');
     } catch (error) {
-      this.logger.error('Failed to cache stablecoins:', error);
+      this.logger.error(error, 'Failed to cache stablecoins');
     }
   }
 }

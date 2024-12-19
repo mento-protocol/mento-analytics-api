@@ -47,7 +47,10 @@ export class ReserveBalanceService {
       return [];
     }
 
-    this.logger.debug(`Fetching balance for reserve address config: ${JSON.stringify(reserveAddressConfig)}`);
+    this.logger.debug(
+      reserveAddressConfig,
+      `Fetching balance for reserve address config: ${reserveAddressConfig.address}`,
+    );
 
     return Promise.all(
       reserveAddressConfig.assets.map(async (symbol) => {
@@ -70,10 +73,13 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            this.logger.warn(`Balance is 0 for asset (${symbol}) ${assetConfig.address}`);
-            this.logger.warn(`Reserve address: ${reserveAddressConfig.address}`);
-            this.logger.warn(`Chain: ${reserveAddressConfig.chain}`);
-            this.logger.warn(`Address category: ${reserveAddressConfig.category}`);
+            const errorMessage = `Balance is 0 for asset (${symbol}) ${assetConfig.address}`;
+            const errorContext = {
+              reserve_address: reserveAddressConfig.address,
+              chain: reserveAddressConfig.chain,
+              category: reserveAddressConfig.category,
+            };
+            this.logger.warn(errorContext, errorMessage);
           } else {
             // Get the usd value for the balance.
             usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);
@@ -96,7 +102,8 @@ export class ReserveBalanceService {
             type: reserveAddressConfig.category,
           };
         } catch (error) {
-          this.logger.error(`Failed to fetch balance for ${symbol} at ${reserveAddressConfig.address}:`, error);
+          const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
+          this.logger.error(error, errorMessage);
           return null;
         }
       }),

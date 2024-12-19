@@ -31,7 +31,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch Celo balance for ${accountAddress}:`, error);
+      this.logger.error(error, `Failed to fetch Celo balance for ${accountAddress}`);
       return '0';
     }
   }
@@ -41,7 +41,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress);
       return balance;
     } catch (error) {
-      this.logger.error(`Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}:`, error);
+      this.logger.error(error, `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`);
       throw error;
     }
   }
@@ -59,7 +59,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       const holdings = await calculator.getAmount(tokenAddress);
       return (holdings || '0').toString();
     } catch (error) {
-      this.logger.error(`Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}:`, error);
+      this.logger.error(error, `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`);
       throw error;
     }
   }

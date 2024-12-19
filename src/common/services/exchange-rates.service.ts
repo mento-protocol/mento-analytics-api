@@ -20,7 +20,7 @@ export class ExchangeRatesService {
 
   private ratesCache: Record<string, number> | null = null;
   private lastFetchTimestamp: number = 0;
-  private readonly CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
+  private readonly CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
   private fiatSymbols: string[] = [];
 
   constructor(private readonly configService: ConfigService) {
@@ -49,22 +49,25 @@ export class ExchangeRatesService {
       requestUrl.searchParams.set('symbols', this.fiatSymbols.join(','));
       requestUrl.searchParams.set('access_key', this.apiKey);
 
-      //const response = await fetch(`https://api.exchangeratesapi.io/v1/latest?base=USD&access_key=${this.apiKey}`);
-      //"https://api.exchangeratesapi.io/latest?base=USD&symbols=USD%2CEUR%2CBRL%2CKES%2CPHP%2CCOP%2CXOF&access_key=undefined"
-
       const response = await fetch(requestUrl.toString());
       const data: ExchangeRatesResponse = await response.json();
 
       if (data.error) {
-        this.logger.warn('Exchange rates API error', data.error);
-        throw new Error(data.error.message);
+        const errorMessage = `Exchange rates API error: ${data.error.message}`;
+        const errorContext = {
+          error_code: data.error.code,
+          error_message: data.error.message,
+        };
+        this.logger.warn(errorContext, errorMessage);
+        throw new Error(errorMessage);
       }
 
       this.ratesCache = data.rates;
       this.lastFetchTimestamp = now;
       return data.rates;
     } catch (error) {
-      this.logger.error('Failed to fetch exchange rates', error);
+      const errorMessage = 'Failed to fetch exchange rates';
+      this.logger.error(error, errorMessage);
       throw error;
     }
   }
@@ -74,7 +77,9 @@ export class ExchangeRatesService {
     const rate = rates[currency.toUpperCase()];
 
     if (rate === undefined) {
-      throw new Error(`Exchange rate not found for currency: ${currency}`);
+      const errorMessage = `Exchange rate not found for currency: ${currency}`;
+      this.logger.error(errorMessage);
+      throw new Error(errorMessage);
     }
 
     return rate;
@@ -86,7 +91,9 @@ export class ExchangeRatesService {
     const toRate = rates[to.toUpperCase()];
 
     if (fromRate === undefined || toRate === undefined) {
-      throw new Error(`Exchange rate not found for conversion ${from} to ${to}`);
+      const errorMessage = `Exchange rate not found for conversion ${from} to ${to}`;
+      this.logger.error(errorMessage);
+      throw new Error(errorMessage);
     }
 
     // Convert to USD first, then to target currency

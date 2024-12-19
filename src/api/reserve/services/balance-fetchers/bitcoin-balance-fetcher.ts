@@ -54,7 +54,7 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch Bitcoin balance for ${accountAddress}:`, error);
+      this.logger.error(error, `Failed to fetch Bitcoin balance for ${accountAddress}`);
       return '0';
     }
   }
@@ -81,39 +81,51 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
   }
 
   private async fetchFromBlockchainInfo(address: string): Promise<string> {
-    return withRetry(async () => {
-      const requestUrl = new URL(this.blockchainInfoBaseUrl);
-      requestUrl.pathname = '/balance';
-      requestUrl.searchParams.set('active', address);
+    return withRetry(
+      async () => {
+        const requestUrl = new URL(this.blockchainInfoBaseUrl);
+        requestUrl.pathname = '/balance';
+        requestUrl.searchParams.set('active', address);
 
-      const response = await fetch(requestUrl.toString());
-      if (!response.ok) {
-        throw new Error(`Blockchain.info API error: ${response.statusText}`);
-      }
+        const response = await fetch(requestUrl.toString());
+        if (!response.ok) {
+          throw new Error(`Blockchain.info API error: ${response.statusText}`);
+        }
 
-      const data = (await response.json()) as BlockchainInfoResponse;
-      if (!data[address]?.final_balance) {
-        throw new Error('Invalid response from blockchain.info');
-      }
+        const data = (await response.json()) as BlockchainInfoResponse;
+        if (!data[address]?.final_balance) {
+          throw new Error('Invalid response from blockchain.info');
+        }
 
-      const balance = data[address].final_balance / 100000000;
-      return balance.toFixed(8);
-    }, `Failed to fetch balance from blockchain.info for address ${address}`);
+        const balance = data[address].final_balance / 100000000;
+        return balance.toFixed(8);
+      },
+      `Failed to fetch balance from blockchain.info for address ${address}`,
+      {
+        logger: new Logger(BitcoinBalanceFetcher.name),
+      },
+    );
   }
 
   private async fetchFromBlockstream(address: string): Promise<string> {
-    return withRetry(async () => {
-      const requestUrl = new URL(this.blockstreamBaseUrl);
-      requestUrl.pathname = `/api/address/${address}`;
+    return withRetry(
+      async () => {
+        const requestUrl = new URL(this.blockstreamBaseUrl);
+        requestUrl.pathname = `/api/address/${address}`;
 
-      const response = await fetch(requestUrl.toString());
-      if (!response.ok) {
-        throw new Error(`Blockstream API error: ${response.statusText}`);
-      }
+        const response = await fetch(requestUrl.toString());
+        if (!response.ok) {
+          throw new Error(`Blockstream API error: ${response.statusText}`);
+        }
 
-      const data = (await response.json()) as BlockstreamResponse;
-      const balance = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000;
-      return balance.toFixed(8);
-    }, `Failed to fetch balance from blockstream for address ${address}`);
+        const data = (await response.json()) as BlockstreamResponse;
+        const balance = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000;
+        return balance.toFixed(8);
+      },
+      `Failed to fetch balance from blockstream for address ${address}`,
+      {
+        logger: new Logger(BitcoinBalanceFetcher.name),
+      },
+    );
   }
 }

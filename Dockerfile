@@ -26,6 +26,8 @@ RUN pnpm run build
 # Production stage
 FROM node:18-alpine AS production
 
+ENV NODE_ENV=production PORT=8080
+
 WORKDIR /app
 
 # Copy package files
