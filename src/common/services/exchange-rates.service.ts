@@ -20,7 +20,7 @@ export class ExchangeRatesService {
 
   private ratesCache: Record<string, number> | null = null;
   private lastFetchTimestamp: number = 0;
-  private readonly CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
+  private readonly CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
   private fiatSymbols: string[] = [];
 
   constructor(private readonly configService: ConfigService) {
