@@ -7,6 +7,7 @@ import { StablecoinsModule } from '@api/stablecoins/stablecoins.module';
 import { ReserveModule } from '@api/reserve/reserve.module';
 import { HealthModule } from './api/health/health.module';
 import { LoggerModule } from 'nestjs-pino';
+import { getLocalPinoConfig, getProductionPinoConfig } from './config/logger.config';
 
 @Module({
   imports: [
@@ -19,16 +20,7 @@ import { LoggerModule } from 'nestjs-pino';
     StablecoinsModule,
     ReserveModule,
     HealthModule,
-    LoggerModule.forRoot({
-      pinoHttp: {
-        transport: {
-          target: 'pino-pretty',
-          options: {
-            singleLine: true,
-          },
-        },
-      },
-    }),
+    LoggerModule.forRoot(process.env.NODE_ENV === 'production' ? getProductionPinoConfig() : getLocalPinoConfig()),
   ],
   providers: [CacheWarmerService],
 })
