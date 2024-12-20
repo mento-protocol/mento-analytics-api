@@ -16,37 +16,41 @@ export class StablecoinsService {
   ) {}
 
   async getStablecoins(): Promise<StablecoinsResponseDto> {
-    return withRetry(async () => {
-      const mento = this.mentoService.getMentoInstance();
-      const tokens = await mento.getStableTokens();
+    return withRetry(
+      async () => {
+        const mento = this.mentoService.getMentoInstance();
+        const tokens = await mento.getStableTokens();
 
-      const stablecoins: StablecoinDto[] = await Promise.all(
-        tokens.map(async (token) => {
-          const fiatTicker = token.fiatTicker;
-          const formattedTotalSupply = Number(ethers.formatUnits(token.totalSupply, token.decimals));
-          const rawUsdValue = await this.exchangeRatesService.convert(formattedTotalSupply, fiatTicker, 'USD');
+        const stablecoins: StablecoinDto[] = await Promise.all(
+          tokens.map(async (token) => {
+            const fiatTicker = token.fiatTicker;
+            const formattedTotalSupply = Number(ethers.formatUnits(token.totalSupply, token.decimals));
+            const rawUsdValue = await this.exchangeRatesService.convert(formattedTotalSupply, fiatTicker, 'USD');
 
-          return {
-            symbol: token.symbol,
-            name: token.name,
-            address: token.address,
-            supply: {
-              amount: formattedTotalSupply.toString(),
-              usd_value: Number(rawUsdValue),
-            },
-            decimals: token.decimals,
-            icon_url: `${ICONS_BASE_URL}/${token.symbol}.svg`,
-            fiat_symbol: fiatTicker,
-          };
-        }),
-      );
+            return {
+              symbol: token.symbol,
+              name: token.name,
+              address: token.address,
+              supply: {
+                amount: formattedTotalSupply.toString(),
+                usd_value: Number(rawUsdValue),
+              },
+              decimals: token.decimals,
+              icon_url: `${ICONS_BASE_URL}/${token.symbol}.svg`,
+              fiat_symbol: fiatTicker,
+            };
+          }),
+        );
 
-      const total_supply_usd = Number(stablecoins.reduce((sum, coin) => sum + coin.supply.usd_value, 0));
+        const total_supply_usd = Number(stablecoins.reduce((sum, coin) => sum + coin.supply.usd_value, 0));
 
-      return {
-        total_supply_usd,
-        stablecoins,
-      };
-    }, 'Failed to fetch stablecoins');
+        return {
+          total_supply_usd,
+          stablecoins,
+        };
+      },
+      'Failed to fetch stablecoins',
+      { logger: this.logger, baseDelay: 5000 },
+    );
   }
 }
