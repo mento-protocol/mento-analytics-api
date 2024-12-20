@@ -16,6 +16,7 @@ export function getLocalPinoConfig(): Params {
 export function getProductionPinoConfig(): Params {
   return {
     pinoHttp: {
+      autoLogging: false,
       timestamp: false,
       messageKey: 'message',
       formatters: {

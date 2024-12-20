@@ -33,6 +33,7 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       attempt++;
+      logger.warn(error, `${errorMessage} after ${attempt} attempts. Retrying...`);
       if (attempt === maxRetries) {
         logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
         throw error;
