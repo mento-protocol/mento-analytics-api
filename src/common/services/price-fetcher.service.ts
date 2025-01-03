@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { withRetry } from '@/utils';
 import { RateLimiter } from 'limiter';
-
+import * as Sentry from '@sentry/nestjs';
 interface CMCQuote {
   data?: Record<
     string,
@@ -141,6 +141,13 @@ export class PriceFetcherService {
       };
 
       this.logger.error({ ...errorContext }, errorMessage);
+      Sentry.captureException(new Error(errorMessage), {
+        level: 'error',
+        extra: {
+          ...errorContext,
+          description: errorMessage,
+        },
+      });
       throw new Error(errorMessage);
     }
 

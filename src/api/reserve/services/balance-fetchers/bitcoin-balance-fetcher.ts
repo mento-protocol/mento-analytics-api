@@ -3,7 +3,7 @@ import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ConfigService } from '@nestjs/config';
 import { withRetry } from '@/utils';
-
+import * as Sentry from '@sentry/nestjs';
 interface BlockchainInfoResponse {
   [address: string]: {
     final_balance: number;
@@ -55,6 +55,15 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
       }
     } catch (error) {
       this.logger.error(error, `Failed to fetch Bitcoin balance for ${accountAddress}`);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          address: accountAddress,
+          chain: Chain.BITCOIN,
+          category: AddressCategory.MENTO_RESERVE,
+          description: `Failed to fetch Bitcoin balance for ${accountAddress}`,
+        },
+      });
       return '0';
     }
   }

@@ -3,7 +3,7 @@ import { AddressCategory, Chain } from 'src/types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainProvidersService } from '@common/services/chain-provider.service';
-
+import * as Sentry from '@sentry/nestjs';
 @Injectable()
 export class EthereumBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(EthereumBalanceFetcher.name);
@@ -27,7 +27,17 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(error, `Failed to fetch Ethereum balance for ${accountAddress}:`);
+      const errorMessage = `Failed to fetch Ethereum balance for ${accountAddress}:`;
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          address: accountAddress,
+          chain: Chain.ETHEREUM,
+          category: AddressCategory.MENTO_RESERVE,
+          description: errorMessage,
+        },
+      });
       return '0';
     }
   }
@@ -37,10 +47,17 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress);
       return balance;
     } catch (error) {
-      this.logger.error(
-        error,
-        `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`,
-      );
+      const errorMessage = `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`;
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          address: accountAddress,
+          chain: Chain.ETHEREUM,
+          category: AddressCategory.MENTO_RESERVE,
+          description: errorMessage,
+        },
+      });
       throw error;
     }
   }
