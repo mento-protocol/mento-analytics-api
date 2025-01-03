@@ -6,6 +6,7 @@ import { BaseBalanceFetcher } from './balance-fetchers';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { BALANCE_FETCHERS } from '../constants';
 import BigNumber from 'bignumber.js';
+import * as Sentry from '@sentry/nestjs';
 
 /**
  * Service for fetching and formatting asset balances across different chains.
@@ -104,6 +105,19 @@ export class ReserveBalanceService {
         } catch (error) {
           const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
           this.logger.error(error, errorMessage);
+
+          Sentry.captureException(error, {
+            level: 'error',
+            extra: {
+              reserve_address: reserveAddressConfig.address,
+              chain: reserveAddressConfig.chain,
+              reserve_category: reserveAddressConfig.category,
+              symbol,
+              description: errorMessage,
+            },
+            fingerprint: ['reserve-balance-fetch-error', symbol, reserveAddressConfig.chain],
+          });
+
           return null;
         }
       }),

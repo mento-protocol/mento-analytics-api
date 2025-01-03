@@ -6,7 +6,7 @@ import { ReserveService } from '@api/reserve/services/reserve.service';
 import { StablecoinsService } from '@api/stablecoins/stablecoins.service';
 import { Cache } from 'cache-manager';
 import { CACHE_TTL } from '../constants';
-
+import * as Sentry from '@sentry/nestjs';
 /**
  * Warms the cache for reserve and stablecoins endpoints on a schedule.
  * Data is cached for 15 minutes more than the refresh interval
@@ -31,7 +31,14 @@ export class CacheWarmerService implements OnModuleInit {
 
       this.logger.log('Cache warm-up completed successfully');
     } catch (error) {
-      this.logger.error(error, 'Cache warm-up failed');
+      const errorMessage = 'Cache warm-up failed';
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          description: errorMessage,
+        },
+      });
     }
   }
 
@@ -94,7 +101,14 @@ export class CacheWarmerService implements OnModuleInit {
       await this.cacheManager.set('stablecoins', stablecoins, CACHE_TTL);
       this.logger.log('Cached stablecoins successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to cache stablecoins');
+      const errorMessage = 'Failed to cache stablecoins';
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          description: errorMessage,
+        },
+      });
     }
   }
 }
