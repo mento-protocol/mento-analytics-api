@@ -6,7 +6,6 @@ import { ReserveService } from '@api/reserve/services/reserve.service';
 import { StablecoinsService } from '@api/stablecoins/stablecoins.service';
 import { Cache } from 'cache-manager';
 import { CACHE_TTL } from '../constants';
-import { PriceFetcherService } from './price-fetcher.service';
 
 /**
  * Warms the cache for reserve and stablecoins endpoints on a schedule.
@@ -21,7 +20,6 @@ export class CacheWarmerService implements OnModuleInit {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
-    private readonly priceFetcherService: PriceFetcherService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -29,8 +27,6 @@ export class CacheWarmerService implements OnModuleInit {
     this.logger.log('Starting cache warm-up...');
 
     try {
-      await this.primePriceFetcher();
-
       await Promise.all([this.warmReserveEndpoints(), this.warmStablecoinsEndpoints()]);
 
       this.logger.log('Cache warm-up completed successfully');
@@ -42,22 +38,6 @@ export class CacheWarmerService implements OnModuleInit {
   async onModuleInit() {
     this.logger.log('Initializing cache warmer...');
     await this.warmCache();
-  }
-
-  /**
-   * Prime the price fetcher service to ensure it's ready to use.
-   * This is useful for ensuring that the price fetcher service is ready to use
-   * and to avoid the initial delay when the first price fetch is made.
-   */
-  private async primePriceFetcher() {
-    try {
-      // Fetch a known ticker like BTC to "warm up" the connection
-      this.logger.log('Priming PriceFetcherService...');
-      await this.priceFetcherService.getPrice('BTC');
-      this.logger.log('PriceFetcherService primed successfully');
-    } catch (err) {
-      this.logger.warn(`Failed to prime price fetcher (it should retry automatically anyway). Error: ${err.message}`);
-    }
   }
 
   /**
