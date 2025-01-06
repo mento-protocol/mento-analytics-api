@@ -48,7 +48,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
 
   private async fetchMentoReserveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
     try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress);
+      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
       return balance;
     } catch (error) {
       const errorMessage = `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`;
