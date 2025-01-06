@@ -27,7 +27,7 @@ export class ERC20BalanceFetcher {
         const balance = await contract.balanceOf(holderAddress);
         return balance.toString();
       },
-      (balance) => BigInt(balance) >= BigInt(50),
+      (balance) => BigInt(balance) >= BigInt(1000000),
       {
         maxRetries: 3,
         logger: new Logger('ERC20BalanceFetcher'),
