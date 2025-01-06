@@ -30,7 +30,6 @@ export class PriceFetcherService {
 
   private readonly priceCache: Map<string, { price: number; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 15 * 60 * 1000;
-  private readonly BATCH_SIZE = 10;
   private readonly pendingRequests: Map<string, Promise<number>> = new Map();
 
   // Rate limiter: 30 requests per minute - In line with CMC basic tier :(
@@ -77,37 +76,10 @@ export class PriceFetcherService {
     }
   }
 
-  async getPrices(symbols: string[]): Promise<Map<string, number>> {
-    const result = new Map<string, number>();
-    const symbolsToFetch: string[] = [];
-
-    for (const symbol of symbols) {
-      const normalizedSymbol = symbol.toUpperCase();
-      const cached = this.priceCache.get(normalizedSymbol);
-      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        result.set(normalizedSymbol, cached.price);
-      } else {
-        symbolsToFetch.push(normalizedSymbol);
-      }
-    }
-
-    for (let i = 0; i < symbolsToFetch.length; i += this.BATCH_SIZE) {
-      const batch = symbolsToFetch.slice(i, i + this.BATCH_SIZE);
-      const prices = await this.fetchBatchPrices(batch);
-      prices.forEach((price, symbol) => result.set(symbol, price));
-    }
-
-    return result;
-  }
-
   private async fetchPriceWithRetry(symbol: string): Promise<number> {
     return withRetry(
       async () => {
-        const prices = await this.fetchBatchPrices([symbol]);
-        const price = prices.get(symbol);
-        if (!price) {
-          throw new Error(`Price not found for ${symbol}`);
-        }
+        const price = await this.fetchPrice(symbol);
         return price;
       },
       `Failed to fetch price for ${symbol}`,
@@ -118,11 +90,11 @@ export class PriceFetcherService {
     );
   }
 
-  private async fetchBatchPrices(symbols: string[]): Promise<Map<string, number>> {
+  private async fetchPrice(symbol: string): Promise<number> {
     await this.rateLimiter.removeTokens(1);
 
     const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
-    requestUrl.searchParams.set('symbol', symbols.join(','));
+    requestUrl.searchParams.set('symbol', symbol);
 
     const response = await fetch(requestUrl.toString(), {
       headers: {
@@ -151,23 +123,20 @@ export class PriceFetcherService {
       throw new Error(errorMessage);
     }
 
-    const prices = new Map<string, number>();
+    const tokenData = Object.values(data.data || {}).find((token) => token.symbol.toUpperCase() === symbol);
 
-    for (const symbol of symbols) {
-      const tokenData = Object.values(data.data || {}).find((token) => token.symbol.toUpperCase() === symbol);
-
-      if (tokenData) {
-        const price = tokenData.quote.USD.price;
-        prices.set(symbol, price);
-
-        // Update cache
-        this.priceCache.set(symbol, {
-          price,
-          timestamp: Date.now(),
-        });
-      }
+    if (!tokenData) {
+      throw new Error(`Price not found for symbol: ${symbol}`);
     }
 
-    return prices;
+    const price = tokenData.quote.USD.price;
+
+    // Update cache
+    this.priceCache.set(symbol, {
+      price,
+      timestamp: Date.now(),
+    });
+
+    return price;
   }
 }
