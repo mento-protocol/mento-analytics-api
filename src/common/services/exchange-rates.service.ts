@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { STABLE_TOKEN_FIAT_MAPPING } from '@mento-protocol/mento-sdk';
 import * as Sentry from '@sentry/nestjs';
+import { withRetry } from '@/utils';
 interface ExchangeRatesResponse {
   success: boolean;
   rates: Record<string, number>;
@@ -79,7 +80,11 @@ export class ExchangeRatesService {
   }
 
   async getRate(currency: string): Promise<number> {
-    const rates = await this.fetchRates();
+    const rates = await withRetry(async () => await this.fetchRates(), 'Failed to fetch exchange rates', {
+      maxRetries: 3,
+      baseDelay: 5000,
+    });
+
     const rate = rates[currency.toUpperCase()];
 
     if (rate === undefined) {
@@ -98,7 +103,11 @@ export class ExchangeRatesService {
   }
 
   async convert(amount: number, from: string, to: string): Promise<number> {
-    const rates = await this.fetchRates();
+    const rates = await withRetry(async () => await this.fetchRates(), 'Failed to fetch exchange rates', {
+      maxRetries: 3,
+      baseDelay: 5000,
+    });
+
     const fromRate = rates[from.toUpperCase()];
     const toRate = rates[to.toUpperCase()];
 
