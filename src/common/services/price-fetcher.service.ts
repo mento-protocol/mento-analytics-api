@@ -84,8 +84,8 @@ export class PriceFetcherService {
       },
       `Failed to fetch price for ${symbol}`,
       {
-        maxRetries: 3,
-        baseDelay: 5000,
+        maxRetries: 5,
+        baseDelay: 10000,
       },
     );
   }
