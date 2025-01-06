@@ -74,7 +74,7 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            const errorMessage = `Balance is 0 for asset (${symbol}) ${assetConfig.address}`;
+            const errorMessage = `Balance is 0 for asset ${symbol} (${assetConfig.address}) on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
             const errorContext = {
               reserve_address: reserveAddressConfig.address,
               chain: reserveAddressConfig.chain,

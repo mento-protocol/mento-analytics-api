@@ -13,6 +13,10 @@ export class ERC20BalanceFetcher {
    * @returns The balance of the token
    */
   async fetchBalance(tokenAddress: string | null, holderAddress: string): Promise<string> {
+    // Double provider access needed due to JsonRpcProvider wrapping the underlying provider
+    const network = await this.provider.provider.getNetwork();
+    const chain = network.name;
+
     const balance = await retryWithCondition(
       async () => {
         // Handle native token (ETH) case
@@ -31,7 +35,7 @@ export class ERC20BalanceFetcher {
         maxRetries: 3,
         logger: new Logger('ERC20BalanceFetcher'),
         baseDelay: 1000,
-        warningMessage: `Low balance detected for holder ${holderAddress} with token ${tokenAddress}`,
+        warningMessage: `Low balance detected for asset ${tokenAddress} on ${chain} at ${holderAddress}`,
       },
     );
 
