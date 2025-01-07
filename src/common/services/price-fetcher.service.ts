@@ -29,7 +29,6 @@ export class PriceFetcherService {
   private readonly baseUrl: string;
 
   private readonly priceCache: Map<string, { price: number; timestamp: number }> = new Map();
-  private readonly CACHE_DURATION = 15 * 60 * 1000;
   private readonly pendingRequests: Map<string, Promise<number>> = new Map();
 
   // Rate limiter: 30 requests per minute - In line with CMC basic tier :(
@@ -51,46 +50,64 @@ export class PriceFetcherService {
   }
 
   async getPrice(symbol: string): Promise<number> {
-    const normalizedSymbol = symbol.toUpperCase();
-
-    const cached = this.priceCache.get(normalizedSymbol);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      return cached.price;
-    }
-
-    const pending = this.pendingRequests.get(normalizedSymbol);
+    // Check if there's already a pending request for this symbol
+    const pending = this.pendingRequests.get(symbol);
     if (pending) {
       return pending;
     }
 
-    const pricePromise = this.fetchPriceWithRetry(normalizedSymbol);
-    this.pendingRequests.set(normalizedSymbol, pricePromise);
-
-    try {
-      const price = await pricePromise;
-      this.pendingRequests.delete(normalizedSymbol);
-      return price;
-    } catch (error) {
-      this.pendingRequests.delete(normalizedSymbol);
-      throw error;
-    }
-  }
-
-  private async fetchPriceWithRetry(symbol: string): Promise<number> {
-    return withRetry(
-      async () => {
-        const price = await this.fetchPrice(symbol);
+    // Create a new request promise and store it
+    const requestPromise = (async () => {
+      try {
+        // First attempt to get fresh price data
+        const price = await this.fetchFreshPrice(symbol);
         return price;
-      },
-      `Failed to fetch price for ${symbol}`,
-      {
-        maxRetries: 5,
-        baseDelay: 10000,
-      },
-    );
+      } catch (error) {
+        // If fresh price fetch fails, try to get from cache
+        const cachedPrice = await this.priceCache.get(symbol);
+        if (cachedPrice) {
+          const ageInHours = (Date.now() - cachedPrice.timestamp) / (1000 * 60 * 60);
+          this.logger.warn(
+            `Failed to fetch fresh price for ${symbol}, using ${ageInHours} hours old cached price: ${cachedPrice.price}`,
+          );
+          return cachedPrice.price;
+        }
+
+        // If no cached price exists, rethrow the error
+        this.logger.error(error, `Failed to fetch price for ${symbol} and no cached price available`);
+        throw error;
+      } finally {
+        // Clean up the pending request
+        this.pendingRequests.delete(symbol);
+      }
+    })();
+
+    // Store the promise
+    this.pendingRequests.set(symbol, requestPromise);
+    return requestPromise;
   }
 
-  private async fetchPrice(symbol: string): Promise<number> {
+  private async fetchFreshPrice(symbol: string): Promise<number> {
+    const retryOptions = {
+      maxRetries: 5,
+      baseDelay: 10000,
+    };
+
+    const price = await withRetry(
+      async () => this.fetchCMCPrice(symbol),
+      `Failed to fetch price for ${symbol}`,
+      retryOptions,
+    );
+
+    // Cache the successfully fetched price
+    this.priceCache.set(symbol, {
+      price,
+      timestamp: Date.now(),
+    });
+    return price;
+  }
+
+  private async fetchCMCPrice(symbol: string): Promise<number> {
     await this.rateLimiter.removeTokens(1);
 
     const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
@@ -130,12 +147,6 @@ export class PriceFetcherService {
     }
 
     const price = tokenData.quote.USD.price;
-
-    // Update cache
-    this.priceCache.set(symbol, {
-      price,
-      timestamp: Date.now(),
-    });
 
     return price;
   }
