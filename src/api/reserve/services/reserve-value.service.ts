@@ -3,7 +3,7 @@ import { AssetConfig } from 'src/types';
 import { ethers } from 'ethers';
 import { PriceFetcherService } from '@common/services/price-fetcher.service';
 import BigNumber from 'bignumber.js';
-
+import * as Sentry from '@sentry/nestjs';
 @Injectable()
 export class ReserveValueService {
   private readonly logger = new Logger(ReserveValueService.name);
@@ -37,6 +37,13 @@ export class ReserveValueService {
       };
 
       this.logger.error({ ...errorContext }, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          ...errorContext,
+          description: errorMessage,
+        },
+      });
       return 0;
     }
   }

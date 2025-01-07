@@ -2,6 +2,7 @@ import { Contract, Provider } from 'ethers';
 import { ERC20_ABI } from '@mento-protocol/mento-sdk';
 import { Logger } from '@nestjs/common';
 import { retryWithCondition } from '@/utils';
+import { Chain } from '@/types';
 
 export class ERC20BalanceFetcher {
   constructor(private provider: Provider) {}
@@ -12,7 +13,7 @@ export class ERC20BalanceFetcher {
    * @param holderAddress - The address of the holder
    * @returns The balance of the token
    */
-  async fetchBalance(tokenAddress: string | null, holderAddress: string): Promise<string> {
+  async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<string> {
     const balance = await retryWithCondition(
       async () => {
         // Handle native token (ETH) case
@@ -26,12 +27,12 @@ export class ERC20BalanceFetcher {
         const balance = await contract.balanceOf(holderAddress);
         return balance.toString();
       },
-      (balance) => BigInt(balance) >= BigInt(50),
+      (balance) => BigInt(balance) >= BigInt(1000000),
       {
         maxRetries: 3,
         logger: new Logger('ERC20BalanceFetcher'),
         baseDelay: 1000,
-        warningMessage: `Low balance detected for holder ${holderAddress} with token ${tokenAddress}`,
+        warningMessage: `Low balance detected for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
       },
     );
 

@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && pnpm sentry:sourcemaps",
     "clean": "rm -rf dist/",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -18,7 +18,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org mento-labs --project mento-analytics-api-mc ./dist && sentry-cli sourcemaps upload --org mento-labs --project mento-analytics-api-mc ./dist"
   },
   "dependencies": {
     "@mento-protocol/mento-sdk": "2.0.0-beta.4",
@@ -29,6 +30,9 @@
     "@nestjs/platform-express": "^10.4.1",
     "@nestjs/schedule": "^4.1.1",
     "@nestjs/swagger": "^8.0.5",
+    "@sentry/cli": "^2.39.1",
+    "@sentry/nestjs": "^8.47.0",
+    "@sentry/profiling-node": "^8.47.0",
     "bignumber.js": "^9.1.2",
     "cache-manager": "5.7.6",
     "ethers": "^6.13.4",

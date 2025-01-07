@@ -5,7 +5,7 @@ import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainProvidersService } from '@common/services/chain-provider.service';
 import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
 import { UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_FACTORY_ADDRESS } from '../../constants';
-
+import * as Sentry from '@sentry/nestjs';
 @Injectable()
 export class CeloBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(CeloBalanceFetcher.name);
@@ -31,17 +31,37 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(error, `Failed to fetch Celo balance for ${accountAddress}`);
+      const errorMessage = `Failed to fetch Celo balance for ${accountAddress}`;
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          address: accountAddress,
+          chain: Chain.CELO,
+          category: category,
+          description: errorMessage,
+        },
+      });
       return '0';
     }
   }
 
   private async fetchMentoReserveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
     try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress);
+      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
       return balance;
     } catch (error) {
-      this.logger.error(error, `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`);
+      const errorMessage = `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`;
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          address: accountAddress,
+          chain: Chain.CELO,
+          category: AddressCategory.MENTO_RESERVE,
+          description: errorMessage,
+        },
+      });
       throw error;
     }
   }
@@ -59,7 +79,17 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       const holdings = await calculator.getAmount(tokenAddress);
       return (holdings || '0').toString();
     } catch (error) {
-      this.logger.error(error, `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`);
+      const errorMessage = `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`;
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          address: accountAddress,
+          chain: Chain.CELO,
+          category: AddressCategory.UNIV3_POOL,
+          description: errorMessage,
+        },
+      });
       throw error;
     }
   }

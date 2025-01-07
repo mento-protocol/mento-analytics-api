@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { STABLE_TOKEN_FIAT_MAPPING } from '@mento-protocol/mento-sdk';
-
+import * as Sentry from '@sentry/nestjs';
+import { withRetry } from '@/utils';
 interface ExchangeRatesResponse {
   success: boolean;
   rates: Record<string, number>;
@@ -68,17 +69,33 @@ export class ExchangeRatesService {
     } catch (error) {
       const errorMessage = 'Failed to fetch exchange rates';
       this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          description: errorMessage,
+        },
+      });
       throw error;
     }
   }
 
   async getRate(currency: string): Promise<number> {
-    const rates = await this.fetchRates();
+    const rates = await withRetry(async () => await this.fetchRates(), 'Failed to fetch exchange rates', {
+      maxRetries: 3,
+      baseDelay: 5000,
+    });
+
     const rate = rates[currency.toUpperCase()];
 
     if (rate === undefined) {
       const errorMessage = `Exchange rate not found for currency: ${currency}`;
       this.logger.error(errorMessage);
+      Sentry.captureException(new Error(errorMessage), {
+        level: 'error',
+        extra: {
+          description: errorMessage,
+        },
+      });
       throw new Error(errorMessage);
     }
 
@@ -86,13 +103,23 @@ export class ExchangeRatesService {
   }
 
   async convert(amount: number, from: string, to: string): Promise<number> {
-    const rates = await this.fetchRates();
+    const rates = await withRetry(async () => await this.fetchRates(), 'Failed to fetch exchange rates', {
+      maxRetries: 3,
+      baseDelay: 5000,
+    });
+
     const fromRate = rates[from.toUpperCase()];
     const toRate = rates[to.toUpperCase()];
 
     if (fromRate === undefined || toRate === undefined) {
       const errorMessage = `Exchange rate not found for conversion ${from} to ${to}`;
       this.logger.error(errorMessage);
+      Sentry.captureException(new Error(errorMessage), {
+        level: 'error',
+        extra: {
+          description: errorMessage,
+        },
+      });
       throw new Error(errorMessage);
     }
 
