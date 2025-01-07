@@ -1,3 +1,4 @@
+import { withRetry } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
@@ -21,28 +22,13 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
-    try {
-      switch (category) {
-        case AddressCategory.MENTO_RESERVE:
-          return await this.fetchMentoReserveBalance(tokenAddress, accountAddress);
-        case AddressCategory.UNIV3_POOL:
-          return await this.fetchUniv3PoolBalance(tokenAddress, accountAddress);
-        default:
-          throw new Error(`Unsupported address category: ${category}`);
-      }
-    } catch (error) {
-      const errorMessage = `Failed to fetch Celo balance for ${accountAddress}`;
-      this.logger.error(error, errorMessage);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          address: accountAddress,
-          chain: Chain.CELO,
-          category: category,
-          description: errorMessage,
-        },
-      });
-      return '0';
+    switch (category) {
+      case AddressCategory.MENTO_RESERVE:
+        return await this.fetchMentoReserveBalance(tokenAddress, accountAddress);
+      case AddressCategory.UNIV3_POOL:
+        return await this.fetchUniv3PoolBalance(tokenAddress, accountAddress);
+      default:
+        throw new Error(`Unsupported address category: ${category}`);
     }
   }
 
@@ -76,18 +62,26 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
         accountAddress,
       );
 
-      const holdings = await calculator.getAmount(tokenAddress);
+      const retryOptions = {
+        maxRetries: 5,
+        delay: 1000,
+      };
+
+      const holdings = await withRetry(
+        async () => await calculator.getAmount(tokenAddress),
+        `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`,
+        retryOptions,
+      );
       return (holdings || '0').toString();
     } catch (error) {
-      const errorMessage = `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`;
-      this.logger.error(error, errorMessage);
+      this.logger.error(error);
       Sentry.captureException(error, {
         level: 'error',
         extra: {
           address: accountAddress,
           chain: Chain.CELO,
           category: AddressCategory.UNIV3_POOL,
-          description: errorMessage,
+          description: error.message,
         },
       });
       throw error;

@@ -19,26 +19,11 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
-    try {
-      switch (category) {
-        case AddressCategory.MENTO_RESERVE:
-          return await this.fetchMentoReserveBalance(tokenAddress, accountAddress);
-        default:
-          throw new Error(`Unsupported address category: ${category}`);
-      }
-    } catch (error) {
-      const errorMessage = `Failed to fetch Ethereum balance for ${accountAddress}:`;
-      this.logger.error(error, errorMessage);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          address: accountAddress,
-          chain: Chain.ETHEREUM,
-          category: AddressCategory.MENTO_RESERVE,
-          description: errorMessage,
-        },
-      });
-      return '0';
+    switch (category) {
+      case AddressCategory.MENTO_RESERVE:
+        return await this.fetchMentoReserveBalance(tokenAddress, accountAddress);
+      default:
+        throw new Error(`Unsupported address category: ${category}`);
     }
   }
 
