@@ -1,52 +1,8 @@
 # Mento Analytics API
 
-A NestJS-based API for retrieving Mento Analytics Data
+The Mento Analytics API is a service designed to provide real-time analytics for the Mento Protocol's stablecoins and reserve assets across multiple blockchains (Celo, Ethereum, and Bitcoin). It serves as the data backbone for the Mento Reserve dashboard, offering insights into reserve holdings and stablecoin metrics.
 
-## Project Structure
-
-```bash
-src/
-├── app.module.ts                # Root module
-├── main.ts                      # Entry point
-│
-├── api/                         # API features
-│   ├── stablecoins/            # Stablecoin-related endpoints
-│   │   ├── stablecoins.controller.ts
-│   │   ├── stablecoins.service.ts
-│   │   ├── stablecoins.module.ts
-│   │   └── dto/
-│   │       └── stablecoin.dto.ts
-│   │
-│   ├── reserve/                # Reserve-related endpoints
-│   │   ├── reserve.controller.ts
-│   │   ├── reserve.service.ts
-│   │   ├── reserve.module.ts
-│   │   └── dto/
-│   │       ├── reserve-holdings.dto.ts
-│   │       └── reserve-composition.dto.ts
-│   │
-│   └── health/                 # Health check endpoints
-│       ├── health.controller.ts
-│       └── health.module.ts
-│
-├── common/                      
-│   └── services/                # Shared services
-│       └── mento.service.ts     
-│
-├── types/                       # Shared types/interfaces
-│   └── api.types.ts
-│
-└── utils/                       # Utility functions
-    ├── responses.util.ts
-    └── validation.util.ts
-```
-
-## Features
-
-- **Stablecoins API**: Endpoints for retrieving stablecoin information
-- **Reserve API**: Access to reserve holdings and composition data
-- **Health Checks**: Service health monitoring
-- **Error Handling**: Standardized error responses
+The API can be used by consumers to fetch information about the Mento Stables, the Reserve and it's composition.
 
 ## Getting Started
 
@@ -75,13 +31,109 @@ pnpm run start:prod
 
 Create a `.env` file in the root directory:
 
-```env
-cp .env.example sample
+``` bash
+cp .env.example .env
 ```
+
+You'll need to obtain API keys for the Coinmarket cap & exchange rates API then add them to your env file
+
+
+## Key Features
+
+- **Stablecoin Analytics:** Tracks the total supply of all Mento stables
+- **Multi-Chain Reserve Tracking:** Monitors reserve assets across Celo, Ethereum and Bitcoin networks
+- **Reserve Composition Analysis:** Detailed breakdown of reserve holdings and their USD values
+- **Collateralization Metrics**: Real-time tracking of reserve-to-stablecoin ratios
+- **Automated Cache Management**: Optimized data delivery with cache warming
+- **Health Monitoring**: System health checks across all integrated services
+
+## Project Structure
+
+Below is the project structure:
+
+```bash
+src/
+├── app.module.ts            # Root module
+├── main.ts                  # Entry point
+├── api/                     # API features
+│   ├── stablecoins/         # Stablecoin-related endpoints
+│   ├── reserve/             # Reserve-related endpoints
+│   └── health/              # Health check endpoints
+├── common/                      
+│   └── services/            # Shared services   
+├── types/                   # Shared types/interfaces
+└── utils/                   # Utility functions
+```
+
+## System Architecture
+
+The Mento Analytics API is hosted on Google Cloud Platform (GCP) using Cloud Run with logging handled by Cloud Logging. The diagram below illustrates the high-level architecture and data flow:
+
+![Mento Analytics API Overview](docs/architecture.png)
 
 ## API Documentation
 
-API documentation is available at `/docs` when running the server (Swagger UI).
+Detailed documentaion for the API endpoints is available at `/docs` when running the application.
+
+## Data Sources & Updates
+
+### Data Sources
+- On-chain data from multiple networks:
+  - Celo: Mento SDK beta + Infura
+  - Ethereum: Mento SDK beta + Infura
+  - Bitcoin: Blockchain.info & Blockstream
+- Price feeds: CoinmarketCap API for real-time asset pricing
+- Exchange rate data: API Layer exchange rates API
+
+### Data Update Frequency
+
+Data provided by the API will be < 1 hour old. Data is only updated on an hourly schedule.
+
+### Cache Management
+
+The API implements a cache warming strategy to ensure data availability:
+
+1. Initial warmup on service start
+2. Scheduled refreshes every hour
+3. Manual invalidation via admin endpoints - To Be Added
+
+## Configuration Guide
+
+### Adding New Stablecoins
+
+Stablecoins are fetched directly from the blockchain using the Mento SDK. Additional information is requred for the price and image.
+
+1. Add a fiat ticker for the stablecoin in the [SDK repo](https://github.com/mento-protocol/mento-sdk/blob/7656050794eef5609193cbafd53ea23f04df4d09/src/constants/stableTokenMetadata.ts#L13)
+2. Publish the new sdk package version and update the verion in the API repo
+3. Add an svg image for the stablecoin to the [tokens directory](https://github.com/mento-protocol/mento-analytics-api/tree/main/public/tokens), ensuring the filename matches the symbol.
+4. Deploy changes and verify in `/stablecoins` endpoint
+
+### Managing Reserve Addresses
+
+1. Update addresses in `api/reserve/config/addresses.config.ts`
+2. Deploy changes and verify in `/reserve` endpoints
+
+### Adding Reserve Assets
+
+Reserve assets are fetched directly from the blockchain using the Mento SDK. However the metadata is needed to enrich the data. This is hardcoded to reduce the number of external calls.
+
+1. Add asset configuration to `api/reserve/config/assets.config.ts`
+2. Deploy changes and verify in `/reserve` endpoints
+
+## Monitoring & Logs
+
+### Application Logs
+- GCP Cloud Logging: [View Logs](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/logs?invt=AbmVMA&project=mento-prod)
+- Log levels:
+  - INFO: Regular operation events
+  - WARN: Potential issues requiring attention
+  - ERROR: Critical issues affecting operation
+  - DEBUG: Detailed information for development
+
+### Monitoring Dashboard
+- System metrics: [Cloud Monitoring](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/metrics?invt=AbmVMA&project=mento-prod)
+- Sentry error tracking: [View Issues](https://mento-labs.sentry.io/issues/?project=4508518701268992&statsPeriod=14d)
+- Health checks: `/health` endpoint
 
 ## Contributing
 
