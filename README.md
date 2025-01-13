@@ -45,7 +45,7 @@ You'll need to obtain API keys for the Coinmarket cap & exchange rates API then 
 - **Reserve Composition Analysis:** Detailed breakdown of reserve holdings and their USD values
 - **Collateralization Metrics**: Real-time tracking of reserve-to-stablecoin ratios
 - **Automated Cache Management**: Optimized data delivery with cache warming
-- **Health Monitoring**: system health checks across all integrated services
+- **Health Monitoring**: System health checks across all integrated services
 
 ## Project Structure
 
