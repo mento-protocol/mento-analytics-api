@@ -46,7 +46,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: '???????',
-    assets: ['CELO', 'USDC'],
+    assets: ['CELO', 'USDC', 'USDT'],
     description: '??????',
   },
   {
