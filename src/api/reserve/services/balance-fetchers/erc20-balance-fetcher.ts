@@ -27,12 +27,12 @@ export class ERC20BalanceFetcher {
         const balance = await contract.balanceOf(holderAddress);
         return balance.toString();
       },
-      (balance) => BigInt(balance) >= BigInt(1000000),
+      (balance) => balance !== undefined && balance !== null,
       {
         maxRetries: 3,
         logger: new Logger('ERC20BalanceFetcher'),
         baseDelay: 1000,
-        warningMessage: `Low balance detected for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
+        warningMessage: `Failed to fetch balance for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
       },
     );
 
