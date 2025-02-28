@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "clean": "rm -rf dist/",
+    "dev": "pnpm run clean && nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "pnpm run clean && nest start --watch",
