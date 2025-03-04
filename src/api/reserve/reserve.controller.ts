@@ -13,7 +13,7 @@ import { RESERVE_ADDRESS_CONFIGS } from './config/addresses.config';
 import { StablecoinsService } from '../stablecoins/stablecoins.service';
 import { CacheService } from '@common/services/cache.service';
 import { CACHE_KEYS } from '@common/constants';
-import { CACHE_CONFIG, createCacheKey } from '@common/config/cache.config';
+import { createCacheKey } from '@common/config/cache.config';
 
 @ApiTags('reserve')
 @Controller('api/v1/reserve')
@@ -41,7 +41,7 @@ export class ReserveController {
     const total_holdings_usd = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
     const response = { total_holdings_usd, assets: holdings };
 
-    await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS, response, CACHE_CONFIG.TTL.MEDIUM);
+    await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS, response);
     return response;
   }
 
@@ -67,7 +67,7 @@ export class ReserveController {
     }));
 
     const response = { composition };
-    await this.cacheService.set(CACHE_KEYS.RESERVE_COMPOSITION, response, CACHE_CONFIG.TTL.MEDIUM);
+    await this.cacheService.set(CACHE_KEYS.RESERVE_COMPOSITION, response);
     return response;
   }
 
@@ -108,8 +108,7 @@ export class ReserveController {
       addresses: Object.values(groupedAddresses),
     };
 
-    // This is more static data, so cache it for longer
-    await this.cacheService.set(cacheKey, response, CACHE_CONFIG.TTL.LONG);
+    await this.cacheService.set(cacheKey, response);
     return response;
   }
 
@@ -127,7 +126,7 @@ export class ReserveController {
     }
 
     const response = await this.reserveService.getGroupedReserveHoldings();
-    await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS_GROUPED, response, CACHE_CONFIG.TTL.MEDIUM);
+    await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS_GROUPED, response);
     return response;
   }
 
@@ -153,7 +152,7 @@ export class ReserveController {
       timestamp: new Date().toISOString(),
     };
 
-    await this.cacheService.set(CACHE_KEYS.RESERVE_STATS, response, CACHE_CONFIG.TTL.MEDIUM);
+    await this.cacheService.set(CACHE_KEYS.RESERVE_STATS, response);
     return response;
   }
 }

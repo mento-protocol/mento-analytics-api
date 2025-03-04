@@ -4,7 +4,6 @@ import { StablecoinsService } from './stablecoins.service';
 import { StablecoinsResponseDto } from './dto/stablecoin.dto';
 import { CacheService } from '@common/services/cache.service';
 import { CACHE_KEYS } from '@common/constants';
-import { CACHE_CONFIG } from '@common/config/cache.config';
 
 @ApiTags('stablecoins')
 @Controller('api/v1/stablecoins')
@@ -28,7 +27,7 @@ export class StablecoinsController {
     }
 
     const response = await this.stablecoinsService.getStablecoins();
-    await this.cacheService.set(CACHE_KEYS.STABLECOINS, response, CACHE_CONFIG.TTL.MEDIUM);
+    await this.cacheService.set(CACHE_KEYS.STABLECOINS, response);
     return response;
   }
 }
