@@ -42,9 +42,8 @@ export class CacheController {
   })
   async clearCacheKey(@Param('key') key: string): Promise<CacheClearResponse> {
     const knownKeys = this.cacheService.getKnownCacheKeys();
-    const processedKey = this.cacheService.processKey(key);
 
-    if (!knownKeys.includes(processedKey)) {
+    if (!knownKeys.includes(key)) {
       return {
         success: false,
         message: `Unknown cache key. Available keys: ${knownKeys.join(', ')}`,
