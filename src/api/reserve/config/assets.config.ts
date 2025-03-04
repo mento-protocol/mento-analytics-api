@@ -96,12 +96,17 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       name: 'Ether',
       decimals: 18,
     },
-
     sDAI: {
       symbol: 'sDAI',
       name: 'Savings Dai',
       decimals: 18,
       address: '0x83F20F44975D03b1b09e64809B757c47f942BEeA',
+    },
+    USDC: {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+      address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     },
   },
   [Chain.BITCOIN]: {
