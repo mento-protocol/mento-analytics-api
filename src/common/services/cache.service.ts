@@ -95,6 +95,14 @@ export class CacheService {
   }
 
   /**
+   * Check if a key is a known cache key
+   */
+  public isKnownCacheKey(key: string): boolean {
+    const processedKey = this.processKey(key);
+    return ALL_CACHE_KEYS.includes(processedKey);
+  }
+
+  /**
    * Get all known cache keys
    */
   getKnownCacheKeys(): string[] {

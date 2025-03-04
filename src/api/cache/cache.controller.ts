@@ -41,12 +41,10 @@ export class CacheController {
     type: CacheClearResponse,
   })
   async clearCacheKey(@Param('key') key: string): Promise<CacheClearResponse> {
-    const knownKeys = this.cacheService.getKnownCacheKeys();
-
-    if (!knownKeys.includes(key)) {
+    if (!this.cacheService.isKnownCacheKey(key)) {
       return {
         success: false,
-        message: `Unknown cache key. Available keys: ${knownKeys.join(', ')}`,
+        message: `Unknown cache key: ${key}. Available keys: ${this.cacheService.getKnownCacheKeys().join(', ')}`,
       };
     }
 
