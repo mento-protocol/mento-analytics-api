@@ -1,4 +1,4 @@
-import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ReserveService } from './services/reserve.service';
 import {
@@ -7,26 +7,24 @@ import {
   ReserveAddressesResponseDto,
   GroupedReserveHoldingsResponseDto,
   ReserveStatsResponseDto,
+  AddressGroup,
 } from './dto/reserve.dto';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { RESERVE_ADDRESS_CONFIGS } from './config/addresses.config';
 import { StablecoinsService } from '../stablecoins/stablecoins.service';
-import { Cache } from 'cache-manager';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
+import { CacheService } from '@common/services/cache.service';
+import { CACHE_KEYS } from '@common/constants';
+import { CACHE_CONFIG, createCacheKey } from '@common/config/cache.config';
 
 @ApiTags('reserve')
 @Controller('api/v1/reserve')
-@UseInterceptors(CacheInterceptor)
 export class ReserveController {
   constructor(
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   @Get('holdings')
-  @CacheTTL(300)
   @ApiOperation({ summary: 'Get detailed information on the reserve holdings' })
   @ApiResponse({
     status: 200,
@@ -34,20 +32,20 @@ export class ReserveController {
     type: ReserveHoldingsResponseDto,
   })
   async getReserveHoldings(): Promise<ReserveHoldingsResponseDto> {
-    const cached = await this.cacheManager.get('reserve-holdings');
+    const cached = await this.cacheService.get<ReserveHoldingsResponseDto>(CACHE_KEYS.RESERVE_HOLDINGS);
     if (cached) {
-      return cached as ReserveHoldingsResponseDto;
+      return cached;
     }
 
     const holdings = await this.reserveService.getReserveHoldings();
     const total_holdings_usd = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
     const response = { total_holdings_usd, assets: holdings };
 
+    await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS, response, CACHE_CONFIG.TTL.MEDIUM);
     return response;
   }
 
   @Get('composition')
-  @CacheTTL(300)
   @ApiOperation({ summary: 'Get reserve composition percentages' })
   @ApiResponse({
     status: 200,
@@ -55,9 +53,9 @@ export class ReserveController {
     type: ReserveCompositionResponseDto,
   })
   async getReserveComposition(): Promise<ReserveCompositionResponseDto> {
-    const cached = await this.cacheManager.get('reserve-composition');
+    const cached = await this.cacheService.get<ReserveCompositionResponseDto>(CACHE_KEYS.RESERVE_COMPOSITION);
     if (cached) {
-      return cached as ReserveCompositionResponseDto;
+      return cached;
     }
 
     const { total_holdings_usd, assets } = await this.reserveService.getGroupedReserveHoldings();
@@ -68,19 +66,27 @@ export class ReserveController {
       usd_value: asset.usdValue,
     }));
 
-    return { composition };
+    const response = { composition };
+    await this.cacheService.set(CACHE_KEYS.RESERVE_COMPOSITION, response, CACHE_CONFIG.TTL.MEDIUM);
+    return response;
   }
 
   @Get('addresses')
-  @CacheTTL(300)
   @ApiOperation({ summary: 'Get all reserve addresses' })
   @ApiResponse({
     status: 200,
     description: 'List of all reserve addresses by chain and category',
     type: ReserveAddressesResponseDto,
   })
-  getReserveAddresses(): ReserveAddressesResponseDto {
-    const groupedAddresses = RESERVE_ADDRESS_CONFIGS.reduce((acc, addr) => {
+  async getReserveAddresses(): Promise<ReserveAddressesResponseDto> {
+    // Use a separate cache key for addresses
+    const cacheKey = createCacheKey('reserve-addresses');
+    const cached = await this.cacheService.get<ReserveAddressesResponseDto>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const groupedAddresses = RESERVE_ADDRESS_CONFIGS.reduce<Record<string, AddressGroup>>((acc, addr) => {
       const key = `${addr.chain}-${addr.category}`;
 
       if (!acc[key]) {
@@ -98,13 +104,16 @@ export class ReserveController {
       return acc;
     }, {});
 
-    return {
+    const response = {
       addresses: Object.values(groupedAddresses),
     };
+
+    // This is more static data, so cache it for longer
+    await this.cacheService.set(cacheKey, response, CACHE_CONFIG.TTL.LONG);
+    return response;
   }
 
   @Get('holdings/grouped')
-  @CacheTTL(300)
   @ApiOperation({ summary: 'Get grouped reserve holdings by asset' })
   @ApiResponse({
     status: 200,
@@ -112,35 +121,39 @@ export class ReserveController {
     type: GroupedReserveHoldingsResponseDto,
   })
   async getGroupedReserveHoldings(): Promise<GroupedReserveHoldingsResponseDto> {
-    const cached = await this.cacheManager.get('reserve-holdings-grouped');
+    const cached = await this.cacheService.get<GroupedReserveHoldingsResponseDto>(CACHE_KEYS.RESERVE_HOLDINGS_GROUPED);
     if (cached) {
-      return cached as GroupedReserveHoldingsResponseDto;
+      return cached;
     }
 
-    return await this.reserveService.getGroupedReserveHoldings();
+    const response = await this.reserveService.getGroupedReserveHoldings();
+    await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS_GROUPED, response, CACHE_CONFIG.TTL.MEDIUM);
+    return response;
   }
 
   @Get('stats')
-  @CacheTTL(300)
   @ApiOperation({ summary: 'Get reserve statistics including value and collateralization ratio' })
   @ApiResponse({
     status: 200,
     type: ReserveStatsResponseDto,
   })
   async getReserveStats(): Promise<ReserveStatsResponseDto> {
-    const cached = await this.cacheManager.get('reserve-stats');
+    const cached = await this.cacheService.get<ReserveStatsResponseDto>(CACHE_KEYS.RESERVE_STATS);
     if (cached) {
-      return cached as ReserveStatsResponseDto;
+      return cached;
     }
 
     const { total_holdings_usd: total_reserve_value_usd } = await this.reserveService.getGroupedReserveHoldings();
     const { total_supply_usd: total_outstanding_stables_usd } = await this.stablecoinsService.getStablecoins();
 
-    return {
+    const response = {
       total_reserve_value_usd,
       total_outstanding_stables_usd,
       collateralization_ratio: total_reserve_value_usd / total_outstanding_stables_usd,
       timestamp: new Date().toISOString(),
     };
+
+    await this.cacheService.set(CACHE_KEYS.RESERVE_STATS, response, CACHE_CONFIG.TTL.MEDIUM);
+    return response;
   }
 }

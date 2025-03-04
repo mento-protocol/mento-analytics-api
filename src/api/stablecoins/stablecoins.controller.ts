@@ -1,19 +1,17 @@
-import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { StablecoinsService } from './stablecoins.service';
 import { StablecoinsResponseDto } from './dto/stablecoin.dto';
-import { CacheInterceptor } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
+import { CacheService } from '@common/services/cache.service';
+import { CACHE_KEYS } from '@common/constants';
+import { CACHE_CONFIG } from '@common/config/cache.config';
 
 @ApiTags('stablecoins')
 @Controller('api/v1/stablecoins')
-@UseInterceptors(CacheInterceptor)
 export class StablecoinsController {
   constructor(
     private readonly stablecoinsService: StablecoinsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   @Get()
@@ -24,12 +22,13 @@ export class StablecoinsController {
     type: StablecoinsResponseDto,
   })
   async getStablecoins(): Promise<StablecoinsResponseDto> {
-    const cached = await this.cacheManager.get('stablecoins');
+    const cached = await this.cacheService.get<StablecoinsResponseDto>(CACHE_KEYS.STABLECOINS);
     if (cached) {
-      return cached as StablecoinsResponseDto;
+      return cached;
     }
 
     const response = await this.stablecoinsService.getStablecoins();
+    await this.cacheService.set(CACHE_KEYS.STABLECOINS, response, CACHE_CONFIG.TTL.MEDIUM);
     return response;
   }
 }
