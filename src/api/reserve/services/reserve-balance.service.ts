@@ -58,7 +58,7 @@ export class ReserveBalanceService {
         // Get the asset config for the symbol.
         const assetConfig = ASSETS_CONFIGS[reserveAddressConfig.chain][symbol];
         if (!assetConfig) {
-          this.logger.warn(`Asset config for ${symbol} not found`);
+          this.logger.warn(`Asset config for ${symbol} on ${reserveAddressConfig.chain} not found`);
           return null;
         }
 
