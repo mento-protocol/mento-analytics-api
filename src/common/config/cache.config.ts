@@ -6,10 +6,10 @@ export const CACHE_CONFIG = {
    * Standard TTLs in milliseconds
    */
   TTL: {
-    DEFAULT: 5 * 60 * 1000, // 5 minutes
-    SHORT: 1 * 60 * 1000, // 1 minute
-    MEDIUM: 15 * 60 * 1000, // 15 minutes
-    LONG: 60 * 60 * 1000, // 1 hour
+    DEFAULT: 60 * 60 * 1000, // 1 hour
+    SHORT: 30 * 60 * 1000, // 30 minutes
+    MEDIUM: 45 * 60 * 1000, // 45 minutes
+    LONG: 2 * 60 * 60 * 1000, // 2 hours
     WARM: 3 * 60 * 60 * 1000 + 15 * 60 * 1000, // 3h15m (warming TTL)
   },
   /**
