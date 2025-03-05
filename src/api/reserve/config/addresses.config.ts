@@ -46,7 +46,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Operational account',
-    assets: ['CELO', 'USDC', 'USDT', 'EURC', 'axlEUROC', 'axlUSDC'],
+    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC'],
     description: 'Holds reserve assets for operational and rebalancing purposes',
   },
   {
@@ -54,7 +54,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Operational account',
-    assets: ['CELO', 'USDC', 'USDT', 'EURC'],
+    assets: ['USDC', 'USDT', 'EURC'],
     description: 'Holds reserve assets for operational and rebalancing purposes',
   },
   {
