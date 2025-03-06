@@ -1,11 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
 import { ReserveService } from '@api/reserve/services/reserve.service';
 import { StablecoinsService } from '@api/stablecoins/stablecoins.service';
-import { Cache } from 'cache-manager';
-import { CACHE_TTL } from '../constants';
+import { CACHE_KEYS } from '../constants';
+import { CACHE_CONFIG } from '../config/cache.config';
+import { CacheService } from './cache.service';
 import * as Sentry from '@sentry/nestjs';
 /**
  * Warms the cache for reserve and stablecoins endpoints on a schedule.
@@ -17,7 +16,7 @@ export class CacheWarmerService implements OnModuleInit {
   private readonly logger = new Logger(CacheWarmerService.name);
 
   constructor(
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cacheService: CacheService,
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
   ) {}
@@ -53,13 +52,13 @@ export class CacheWarmerService implements OnModuleInit {
   private async warmReserveEndpoints() {
     // The endpoints to be cached as well as the functions to fetch the data
     const endpoints = {
-      'reserve-holdings': async () => {
+      [CACHE_KEYS.RESERVE_HOLDINGS]: async () => {
         const holdings = await this.reserveService.getReserveHoldings();
         const total_holdings_usd = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
         const response = { total_holdings_usd, assets: holdings };
         return response;
       },
-      'reserve-composition': async () => {
+      [CACHE_KEYS.RESERVE_COMPOSITION]: async () => {
         const { total_holdings_usd, assets } = await this.reserveService.getGroupedReserveHoldings();
         const composition = assets.map((asset) => ({
           symbol: asset.symbol,
@@ -68,8 +67,8 @@ export class CacheWarmerService implements OnModuleInit {
         }));
         return { composition };
       },
-      'reserve-holdings-grouped': () => this.reserveService.getGroupedReserveHoldings(),
-      'reserve-stats': async () => {
+      [CACHE_KEYS.RESERVE_HOLDINGS_GROUPED]: () => this.reserveService.getGroupedReserveHoldings(),
+      [CACHE_KEYS.RESERVE_STATS]: async () => {
         const { total_holdings_usd } = await this.reserveService.getGroupedReserveHoldings();
         const { total_supply_usd } = await this.stablecoinsService.getStablecoins();
         return {
@@ -86,7 +85,7 @@ export class CacheWarmerService implements OnModuleInit {
       Object.entries(endpoints).map(async ([key, fetcher]) => {
         try {
           const data = await fetcher();
-          await this.cacheManager.set(key, data, CACHE_TTL);
+          await this.cacheService.set(key, data, CACHE_CONFIG.TTL.WARM);
           this.logger.log(`Cached ${key} successfully`);
         } catch (error) {
           this.logger.error(error, `Failed to cache ${key}`);
@@ -98,7 +97,7 @@ export class CacheWarmerService implements OnModuleInit {
   private async warmStablecoinsEndpoints() {
     try {
       const stablecoins = await this.stablecoinsService.getStablecoins();
-      await this.cacheManager.set('stablecoins', stablecoins, CACHE_TTL);
+      await this.cacheService.set(CACHE_KEYS.STABLECOINS, stablecoins, CACHE_CONFIG.TTL.WARM);
       this.logger.log('Cached stablecoins successfully');
     } catch (error) {
       const errorMessage = 'Failed to cache stablecoins';
