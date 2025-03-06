@@ -121,6 +121,19 @@ Reserve assets are fetched directly from the blockchain using the Mento SDK. How
 1. Add asset configuration to `api/reserve/config/assets.config.ts`
 2. Deploy changes and verify in `/reserve` endpoints
 
+## Deployment
+
+The Mento Analytics API is automatically deployed to Google Cloud Run when changes are committed to the `main` branch.
+
+### Deployment Process
+
+1. When code is pushed or merged to the `main` branch, a CI/CD pipeline is triggered
+2. The pipeline builds a Docker container using the Dockerfile in the repository
+3. The container is pushed to Google Container Registry
+4. The new container is deployed to Cloud Run, replacing the previous version
+5. Deployment status can be monitored in the Google Cloud Console
+
+
 ## Monitoring & Logs
 
 ### Application Logs
