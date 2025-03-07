@@ -38,8 +38,11 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
 
   private async fetchMentoReserveBalance(tokenAddress: string | null, accountAddress: string): Promise<string> {
     try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
-      return balance;
+      const result = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+      if (!result.success) {
+        throw new Error(`Failed to fetch balance of token ${tokenAddress || 'ETH'} for account ${accountAddress}`);
+      }
+      return result.balance;
     } catch (error) {
       const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';
       const errorMessage = `Failed to fetch balance for token ${tokenDisplay}`;

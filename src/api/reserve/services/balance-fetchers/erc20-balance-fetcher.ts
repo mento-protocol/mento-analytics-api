@@ -5,13 +5,18 @@ import { Logger } from '@nestjs/common';
 import { Provider } from 'ethers';
 
 const MAX_BATCH_SIZE = 10; // Maximum number of calls in a single multicall
-const BATCH_WINDOW = 200; // Time to wait for collecting calls into a batch
+const BATCH_WINDOW_MS = 200; // Time in ms to wait for collecting calls into a batch
+
+interface BalanceResult {
+  balance: string;
+  success: boolean;
+}
 
 export class ERC20BalanceFetcher {
   private readonly logger = new Logger(ERC20BalanceFetcher.name);
   private batchedCalls: Map<
     Chain,
-    Array<{ token: string; account: string; resolve: (value: string) => void; reject: (error: any) => void }>
+    Array<{ token: string; account: string; resolve: (value: BalanceResult) => void; reject: (error: any) => void }>
   > = new Map();
   private batchTimeout: NodeJS.Timeout | null = null;
 
@@ -25,12 +30,13 @@ export class ERC20BalanceFetcher {
    * Fetch the balance of a token for a given holder address
    * @param tokenAddress - The address of the token (or null for native token)
    * @param holderAddress - The address of the holder
-   * @returns The balance of the token
+   * @returns Object containing the balance and whether the call was successful
    */
-  async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<string> {
+  async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<BalanceResult> {
     // Handle native token case directly
     if (!tokenAddress) {
-      return this.fetchNativeBalance(holderAddress);
+      const balance = await this.fetchNativeBalance(holderAddress);
+      return { balance, success: true };
     }
 
     // For ERC20 tokens, use batching
@@ -56,7 +62,7 @@ export class ERC20BalanceFetcher {
       if (this.batchTimeout) {
         clearTimeout(this.batchTimeout);
       }
-      this.batchTimeout = setTimeout(() => this.processBatch(chain), BATCH_WINDOW);
+      this.batchTimeout = setTimeout(() => this.processBatch(chain), BATCH_WINDOW_MS);
     });
   }
 
@@ -92,24 +98,26 @@ export class ERC20BalanceFetcher {
     this.batchedCalls.set(chain, []);
 
     try {
-      const balances = await retryWithCondition(
-        () =>
-          this.multicall.batchBalanceOf(
-            chain,
-            batch.map(({ token, account }) => ({ token, account })),
-          ),
-        (result) => Array.isArray(result) && result.length === batch.length,
-        {
-          maxRetries: 5,
-          logger: this.logger,
-          baseDelay: 2000,
-          warningMessage: `Rate limit hit while fetching batch balances for chain ${chain}`,
-        },
+      const results = await this.multicall.batchBalanceOf(
+        chain,
+        batch.map(({ token, account }) => ({ token, account })),
       );
 
-      // Resolve all promises with their respective balances
-      batch.forEach(({ resolve }, index) => {
-        resolve(balances[index].returnData);
+      // Resolve all promises with their respective balances and success status
+      batch.forEach(({ resolve, token, account }, index) => {
+        const result = results[index];
+        if (!result.success) {
+          this.logger.warn(`Failed to fetch balance of token ${token} for account ${account} in this batch`);
+          resolve({
+            balance: '0',
+            success: false,
+          });
+        } else {
+          resolve({
+            balance: result.returnData,
+            success: true,
+          });
+        }
       });
     } catch (error) {
       // If batch request fails, reject all promises
