@@ -1,24 +1,33 @@
 import { withRetry } from '@/utils';
+import { ChainProvidersService } from '@common/services/chain-provider.service';
+import { MulticallService } from '@common/services/multicall.service';
+import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
 import { Injectable, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
+import { UNIV3_FACTORY_ADDRESS, UNIV3_POSITION_MANAGER_ADDRESS } from '../../constants';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
-import { ChainProvidersService } from '@common/services/chain-provider.service';
-import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
-import { UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_FACTORY_ADDRESS } from '../../constants';
-import * as Sentry from '@sentry/nestjs';
+
 @Injectable()
 export class CeloBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(CeloBalanceFetcher.name);
   private readonly erc20Fetcher: ERC20BalanceFetcher;
 
-  constructor(private readonly chainProviders: ChainProvidersService) {
+  constructor(
+    private readonly chainProviders: ChainProvidersService,
+    private readonly multicall: MulticallService,
+  ) {
     const config: BalanceFetcherConfig = {
       chain: Chain.CELO,
       supportedCategories: [AddressCategory.MENTO_RESERVE, AddressCategory.UNIV3_POOL],
     };
     super(config);
-    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO));
+    this.erc20Fetcher = new ERC20BalanceFetcher(
+      this.chainProviders.getProvider(Chain.CELO),
+      this.multicall,
+      Chain.CELO,
+    );
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
@@ -34,11 +43,29 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
 
   private async fetchMentoReserveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
     try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
-      return balance;
+      const result = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
+      if (!result.success) {
+        throw new Error(`Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`);
+      }
+      return result.balance;
     } catch (error) {
-      const errorMessage = `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`;
-      this.logger.error(error, errorMessage);
+      const errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
+
+      // Handle different types of provider errors
+      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+      const isPaymentRequired =
+        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+      if (isRateLimit || isPaymentRequired) {
+        const message = isPaymentRequired
+          ? `Payment required error while fetching balance of token ${tokenAddress} - daily limit reached`
+          : `Rate limit exceeded while fetching balance of token ${tokenAddress}`;
+
+        this.logger.warn(message);
+      } else {
+        this.logger.error(error, errorMessage);
+      }
+
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -74,7 +101,13 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       );
       return (holdings || '0').toString();
     } catch (error) {
-      this.logger.error(error);
+      // Only log the full error for non-rate-limit errors
+      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+        this.logger.error(`Rate limit exceeded while fetching UniV3 balance for token ${tokenAddress}...`);
+      } else {
+        this.logger.error(error);
+      }
+
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -82,6 +115,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
           chain: Chain.CELO,
           category: AddressCategory.UNIV3_POOL,
           description: error.message,
+          tokenAddress: tokenAddress,
         },
       });
       throw error;

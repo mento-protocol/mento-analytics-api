@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { JsonRpcProvider, Provider } from 'ethers';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@types';
+import { JsonRpcProvider, Provider } from 'ethers';
 
 @Injectable()
 export class ChainProvidersService {
@@ -22,7 +22,7 @@ export class ChainProvidersService {
       throw new Error('ETH_RPC_URL is not set');
     }
 
-    this.providers.set(Chain.CELO, new JsonRpcProvider(celoRpcUrl, 4220, { staticNetwork: true }));
+    this.providers.set(Chain.CELO, new JsonRpcProvider(celoRpcUrl, 42220, { staticNetwork: true }));
     this.providers.set(Chain.ETHEREUM, new JsonRpcProvider(ethereumRpcUrl, 1, { staticNetwork: true }));
   }
 

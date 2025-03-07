@@ -1,41 +1,162 @@
-import { Contract, Provider } from 'ethers';
-import { ERC20_ABI } from '@mento-protocol/mento-sdk';
-import { Logger } from '@nestjs/common';
-import { retryWithCondition } from '@/utils';
 import { Chain } from '@/types';
+import { retryWithCondition } from '@/utils';
+import { MulticallService } from '@common/services/multicall.service';
+import { Logger } from '@nestjs/common';
+import { Provider } from 'ethers';
+
+const MAX_BATCH_SIZE = 10; // Maximum number of calls in a single multicall
+const BATCH_WINDOW_MS = 200; // Time in ms to wait for collecting calls into a batch
+
+interface BalanceResult {
+  balance: string;
+  success: boolean;
+}
 
 export class ERC20BalanceFetcher {
-  constructor(private provider: Provider) {}
+  private readonly logger = new Logger(ERC20BalanceFetcher.name);
+  private batchedCalls: Map<
+    Chain,
+    Array<{ token: string; account: string; resolve: (value: BalanceResult) => void; reject: (error: any) => void }>
+  > = new Map();
+  private batchTimeouts: Map<Chain, NodeJS.Timeout> = new Map();
+
+  constructor(
+    private provider: Provider,
+    private multicall: MulticallService,
+    private chain: Chain,
+  ) {}
 
   /**
    * Fetch the balance of a token for a given holder address
    * @param tokenAddress - The address of the token (or null for native token)
    * @param holderAddress - The address of the holder
-   * @returns The balance of the token
+   * @returns Object containing the balance and whether the call was successful
    */
-  async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<string> {
-    const balance = await retryWithCondition(
+  async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<BalanceResult> {
+    // Handle native token case directly
+    if (!tokenAddress) {
+      const balance = await this.fetchNativeBalance(holderAddress);
+      return { balance, success: true };
+    }
+
+    // For ERC20 tokens, use batching
+    return new Promise((resolve, reject) => {
+      if (!this.batchedCalls.has(chain)) {
+        this.batchedCalls.set(chain, []);
+      }
+
+      const batch = this.batchedCalls.get(chain);
+      batch.push({ token: tokenAddress, account: holderAddress, resolve, reject });
+
+      // If we've hit the max batch size, process immediately
+      if (batch.length >= MAX_BATCH_SIZE) {
+        const existingTimeout = this.batchTimeouts.get(chain);
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+          this.batchTimeouts.delete(chain);
+        }
+        this.processBatch(chain);
+        return;
+      }
+
+      // Otherwise, set/reset the timeout to collect more calls
+      const existingTimeout = this.batchTimeouts.get(chain);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      const newTimeout = setTimeout(() => this.processBatch(chain), BATCH_WINDOW_MS);
+      this.batchTimeouts.set(chain, newTimeout);
+    });
+  }
+
+  private async fetchNativeBalance(holderAddress: string): Promise<string> {
+    return retryWithCondition(
       async () => {
-        // Handle native token (ETH) case
-        if (!tokenAddress) {
+        try {
           const balance = await this.provider.getBalance(holderAddress);
           return balance.toString();
-        }
+        } catch (error) {
+          // Handle different types of provider errors
+          const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+          const isPaymentRequired =
+            error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
-        // Handle ERC20 tokens
-        const contract = new Contract(tokenAddress, ERC20_ABI, this.provider);
-        const balance = await contract.balanceOf(holderAddress);
-        return balance.toString();
+          if (isRateLimit || isPaymentRequired) {
+            const message = isPaymentRequired
+              ? `Payment required error while fetching native balance for ${holderAddress} - daily limit reached`
+              : `Rate limit exceeded while fetching native balance for ${holderAddress}`;
+
+            this.logger.warn(message);
+          } else {
+            this.logger.error(
+              `Failed to fetch native balance for holder=${holderAddress}, chain=${this.chain}, error=${error.message}`,
+            );
+          }
+          throw error;
+        }
       },
       (balance) => balance !== undefined && balance !== null,
       {
-        maxRetries: 3,
-        logger: new Logger('ERC20BalanceFetcher'),
-        baseDelay: 1000,
-        warningMessage: `Failed to fetch balance for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
+        maxRetries: 5,
+        logger: this.logger,
+        baseDelay: 2000,
+        warningMessage: `Failed to fetch native balance for ${holderAddress}`,
       },
     );
+  }
 
-    return balance;
+  private async processBatch(chain: Chain) {
+    const batch = this.batchedCalls.get(chain);
+    if (!batch?.length) return;
+
+    // Clear the timeout and batch for this specific chain
+    const existingTimeout = this.batchTimeouts.get(chain);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.batchTimeouts.delete(chain);
+    }
+    this.batchedCalls.set(chain, []);
+
+    try {
+      const results = await this.multicall.batchBalanceOf(
+        chain,
+        batch.map(({ token, account }) => ({ token, account })),
+      );
+
+      // Resolve all promises with their respective balances and success status
+      batch.forEach(({ resolve, token, account }, index) => {
+        const result = results[index];
+        if (!result.success) {
+          this.logger.warn(`Failed to fetch balance of token ${token} for account ${account} in this batch`);
+          resolve({
+            balance: '0',
+            success: false,
+          });
+        } else {
+          resolve({
+            balance: result.returnData,
+            success: true,
+          });
+        }
+      });
+    } catch (error) {
+      // Handle different types of provider errors
+      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+      const isPaymentRequired =
+        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+      if (isRateLimit || isPaymentRequired) {
+        const message = isPaymentRequired
+          ? `Payment required error for chain ${chain} - daily limit reached`
+          : `Rate limit exceeded for chain ${chain}`;
+
+        this.logger.warn(message);
+      } else {
+        this.logger.error(`Batch balance fetch failed for chain ${chain}: ${error.message}`);
+      }
+
+      batch.forEach(({ reject }) => reject(error));
+    }
   }
 }

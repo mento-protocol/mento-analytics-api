@@ -84,5 +84,17 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "volta": {
+    "node": "22.14.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@scarf/scarf",
+      "@sentry/cli",
+      "@sentry/profiling-node",
+      "nestjs-pino"
+    ]
   }
 }
