@@ -46,8 +46,16 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
       return balance;
     } catch (error) {
-      const errorMessage = `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`;
-      this.logger.error(error, errorMessage);
+      const errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
+      // Only log the full error for non-rate-limit errors
+      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+        this.logger.error(
+          `Rate limit exceeded while fetching balance of token ${tokenAddress} for address ${accountAddress}`,
+        );
+      } else {
+        this.logger.error(error, errorMessage);
+      }
+
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -83,7 +91,13 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       );
       return (holdings || '0').toString();
     } catch (error) {
-      this.logger.error(error);
+      // Only log the full error for non-rate-limit errors
+      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+        this.logger.error(`Rate limit exceeded while fetching UniV3 balance for token ${tokenAddress}...`);
+      } else {
+        this.logger.error(error);
+      }
+
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -91,6 +105,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
           chain: Chain.CELO,
           category: AddressCategory.UNIV3_POOL,
           description: error.message,
+          tokenAddress: tokenAddress,
         },
       });
       throw error;

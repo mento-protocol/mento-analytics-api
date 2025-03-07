@@ -20,7 +20,11 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       supportedCategories: [AddressCategory.MENTO_RESERVE],
     };
     super(config);
-    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.ETHEREUM));
+    this.erc20Fetcher = new ERC20BalanceFetcher(
+      this.chainProviders.getProvider(Chain.ETHEREUM),
+      this.multicall,
+      Chain.ETHEREUM,
+    );
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
@@ -37,8 +41,16 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
       return balance;
     } catch (error) {
-      const errorMessage = `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`;
-      this.logger.error(error, errorMessage);
+      const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';
+      const errorMessage = `Failed to fetch balance for token ${tokenDisplay}`;
+
+      // Only log the full error for non-rate-limit errors
+      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+        this.logger.error(`Rate limit exceeded while fetching balance for token ${tokenDisplay}`);
+      } else {
+        this.logger.error(error, errorMessage);
+      }
+
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -46,6 +58,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
           chain: Chain.ETHEREUM,
           category: AddressCategory.MENTO_RESERVE,
           description: errorMessage,
+          tokenAddress: tokenAddress,
         },
       });
       throw error;

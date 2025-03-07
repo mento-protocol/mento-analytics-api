@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Chain, AssetBalance, ReserveAddressConfig, AssetConfig } from '@types';
-import { ReserveValueService } from './reserve-value.service';
+import * as Sentry from '@sentry/nestjs';
+import { AssetBalance, AssetConfig, Chain, ReserveAddressConfig } from '@types';
+import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
-import { BaseBalanceFetcher } from './balance-fetchers';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { BALANCE_FETCHERS } from '../constants';
-import BigNumber from 'bignumber.js';
-import * as Sentry from '@sentry/nestjs';
+import { BaseBalanceFetcher } from './balance-fetchers';
+import { ReserveValueService } from './reserve-value.service';
 
 /**
  * Service for fetching and formatting asset balances across different chains.
@@ -104,7 +104,14 @@ export class ReserveBalanceService {
           };
         } catch (error) {
           const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
-          this.logger.error(error, errorMessage);
+          // Only log the full error for non-rate-limit errors
+          if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+            this.logger.error(
+              `Rate limit exceeded while fetching balance for token ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`,
+            );
+          } else {
+            this.logger.error(error, errorMessage);
+          }
 
           Sentry.captureException(error, {
             level: 'error',
