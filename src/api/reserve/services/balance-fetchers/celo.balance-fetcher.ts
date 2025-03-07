@@ -1,24 +1,33 @@
 import { withRetry } from '@/utils';
+import { ChainProvidersService } from '@common/services/chain-provider.service';
+import { MulticallService } from '@common/services/multicall.service';
+import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
 import { Injectable, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
+import { UNIV3_FACTORY_ADDRESS, UNIV3_POSITION_MANAGER_ADDRESS } from '../../constants';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
-import { ChainProvidersService } from '@common/services/chain-provider.service';
-import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
-import { UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_FACTORY_ADDRESS } from '../../constants';
-import * as Sentry from '@sentry/nestjs';
+
 @Injectable()
 export class CeloBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(CeloBalanceFetcher.name);
   private readonly erc20Fetcher: ERC20BalanceFetcher;
 
-  constructor(private readonly chainProviders: ChainProvidersService) {
+  constructor(
+    private readonly chainProviders: ChainProvidersService,
+    private readonly multicall: MulticallService,
+  ) {
     const config: BalanceFetcherConfig = {
       chain: Chain.CELO,
       supportedCategories: [AddressCategory.MENTO_RESERVE, AddressCategory.UNIV3_POOL],
     };
     super(config);
-    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO));
+    this.erc20Fetcher = new ERC20BalanceFetcher(
+      this.chainProviders.getProvider(Chain.CELO),
+      this.multicall,
+      Chain.CELO,
+    );
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {

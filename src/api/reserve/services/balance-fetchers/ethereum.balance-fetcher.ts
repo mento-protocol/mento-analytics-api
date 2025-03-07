@@ -1,15 +1,20 @@
+import { ChainProvidersService } from '@common/services/chain-provider.service';
+import { MulticallService } from '@common/services/multicall.service';
 import { Injectable, Logger } from '@nestjs/common';
-import { AddressCategory, Chain } from 'src/types';
+import * as Sentry from '@sentry/nestjs';
+import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
-import { ChainProvidersService } from '@common/services/chain-provider.service';
-import * as Sentry from '@sentry/nestjs';
+
 @Injectable()
 export class EthereumBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(EthereumBalanceFetcher.name);
   private readonly erc20Fetcher: ERC20BalanceFetcher;
 
-  constructor(private readonly chainProviders: ChainProvidersService) {
+  constructor(
+    private readonly chainProviders: ChainProvidersService,
+    private readonly multicall: MulticallService,
+  ) {
     const config: BalanceFetcherConfig = {
       chain: Chain.ETHEREUM,
       supportedCategories: [AddressCategory.MENTO_RESERVE],
