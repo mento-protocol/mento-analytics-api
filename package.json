@@ -10,6 +10,7 @@
     "clean": "rm -rf dist/",
     "dev": "pnpm run clean && nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "logs": "./bin/get-logs.sh",
     "start": "nest start",
     "start:dev": "pnpm run clean && nest start --watch",
     "start:debug": "nest start --debug --watch",

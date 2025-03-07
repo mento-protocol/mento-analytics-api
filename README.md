@@ -4,7 +4,6 @@ The Mento Analytics API is a service designed to provide real-time analytics for
 
 The API can be used by consumers to fetch information about the Mento Stables, the Reserve and it's composition.
 
-
 ## Getting Started
 
 ### Prerequisites
@@ -37,7 +36,6 @@ cp .env.example .env
 ```
 
 You'll need to obtain API keys for the Coinmarket cap & exchange rates API then add them to your env file
-
 
 ## Key Features
 
@@ -79,6 +77,7 @@ Detailed documentaion for the API endpoints is available at `/docs` when running
 ## Data Sources & Updates
 
 ### Data Sources
+
 - On-chain data from multiple networks:
   - Celo: Mento SDK beta + Infura
   - Ethereum: Mento SDK beta + Infura
@@ -133,10 +132,11 @@ The Mento Analytics API is automatically deployed to Google Cloud Run when chang
 4. The new container is deployed to Cloud Run, replacing the previous version
 5. Deployment status can be monitored in the Google Cloud Console
 
-
 ## Monitoring & Logs
 
 ### Application Logs
+
+- Get logs from the command line: `npm run logs` (which is just a shortcut for `./bin/get-logs.sh`)
 - GCP Cloud Logging: [View Logs](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/logs?invt=AbmVMA&project=mento-prod)
 - Log levels:
   - INFO: Regular operation events
@@ -145,6 +145,7 @@ The Mento Analytics API is automatically deployed to Google Cloud Run when chang
   - DEBUG: Detailed information for development
 
 ### Monitoring Dashboard
+
 - System metrics: [Cloud Monitoring](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/metrics?invt=AbmVMA&project=mento-prod)
 - Sentry error tracking: [View Issues](https://mento-labs.sentry.io/issues/?project=4508518701268992&statsPeriod=14d)
 - Health checks: `/health` endpoint
