@@ -18,7 +18,7 @@ export class ERC20BalanceFetcher {
     Chain,
     Array<{ token: string; account: string; resolve: (value: BalanceResult) => void; reject: (error: any) => void }>
   > = new Map();
-  private batchTimeout: NodeJS.Timeout | null = null;
+  private batchTimeouts: Map<Chain, NodeJS.Timeout> = new Map();
 
   constructor(
     private provider: Provider,
@@ -50,19 +50,23 @@ export class ERC20BalanceFetcher {
 
       // If we've hit the max batch size, process immediately
       if (batch.length >= MAX_BATCH_SIZE) {
-        if (this.batchTimeout) {
-          clearTimeout(this.batchTimeout);
-          this.batchTimeout = null;
+        const existingTimeout = this.batchTimeouts.get(chain);
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+          this.batchTimeouts.delete(chain);
         }
         this.processBatch(chain);
         return;
       }
 
       // Otherwise, set/reset the timeout to collect more calls
-      if (this.batchTimeout) {
-        clearTimeout(this.batchTimeout);
+      const existingTimeout = this.batchTimeouts.get(chain);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
       }
-      this.batchTimeout = setTimeout(() => this.processBatch(chain), BATCH_WINDOW_MS);
+
+      const newTimeout = setTimeout(() => this.processBatch(chain), BATCH_WINDOW_MS);
+      this.batchTimeouts.set(chain, newTimeout);
     });
   }
 
@@ -106,8 +110,12 @@ export class ERC20BalanceFetcher {
     const batch = this.batchedCalls.get(chain);
     if (!batch?.length) return;
 
-    // Clear the timeout and batch
-    this.batchTimeout = null;
+    // Clear the timeout and batch for this specific chain
+    const existingTimeout = this.batchTimeouts.get(chain);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.batchTimeouts.delete(chain);
+    }
     this.batchedCalls.set(chain, []);
 
     try {
