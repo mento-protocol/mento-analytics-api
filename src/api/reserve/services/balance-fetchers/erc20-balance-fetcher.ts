@@ -73,9 +73,22 @@ export class ERC20BalanceFetcher {
           const balance = await this.provider.getBalance(holderAddress);
           return balance.toString();
         } catch (error) {
-          this.logger.error(
-            `Failed to fetch native balance for holder=${holderAddress}, chain=${this.chain}, error=${error.message}`,
-          );
+          // Handle different types of provider errors
+          const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+          const isPaymentRequired =
+            error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+          if (isRateLimit || isPaymentRequired) {
+            const message = isPaymentRequired
+              ? `Payment required error while fetching native balance for ${holderAddress} - daily limit reached`
+              : `Rate limit exceeded while fetching native balance for ${holderAddress}`;
+
+            this.logger.warn(message);
+          } else {
+            this.logger.error(
+              `Failed to fetch native balance for holder=${holderAddress}, chain=${this.chain}, error=${error.message}`,
+            );
+          }
           throw error;
         }
       },
@@ -120,13 +133,21 @@ export class ERC20BalanceFetcher {
         }
       });
     } catch (error) {
-      // If batch request fails, reject all promises
+      // Handle different types of provider errors
       const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
-      this.logger.error(
-        isRateLimit
-          ? `Rate limit exceeded for chain ${chain}`
-          : `Batch balance fetch failed for chain ${chain}: ${error.message}`,
-      );
+      const isPaymentRequired =
+        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+      if (isRateLimit || isPaymentRequired) {
+        const message = isPaymentRequired
+          ? `Payment required error for chain ${chain} - daily limit reached`
+          : `Rate limit exceeded for chain ${chain}`;
+
+        this.logger.warn(message);
+      } else {
+        this.logger.error(`Batch balance fetch failed for chain ${chain}: ${error.message}`);
+      }
+
       batch.forEach(({ reject }) => reject(error));
     }
   }

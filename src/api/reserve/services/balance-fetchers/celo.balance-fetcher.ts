@@ -50,11 +50,18 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       return result.balance;
     } catch (error) {
       const errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
-      // Only log the full error for non-rate-limit errors
-      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
-        this.logger.error(
-          `Rate limit exceeded while fetching balance of token ${tokenAddress} for address ${accountAddress}`,
-        );
+
+      // Handle different types of provider errors
+      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+      const isPaymentRequired =
+        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+      if (isRateLimit || isPaymentRequired) {
+        const message = isPaymentRequired
+          ? `Payment required error while fetching balance of token ${tokenAddress} - daily limit reached`
+          : `Rate limit exceeded while fetching balance of token ${tokenAddress}`;
+
+        this.logger.warn(message);
       } else {
         this.logger.error(error, errorMessage);
       }

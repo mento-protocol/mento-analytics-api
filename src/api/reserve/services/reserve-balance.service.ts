@@ -104,11 +104,18 @@ export class ReserveBalanceService {
           };
         } catch (error) {
           const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
-          // Only log the full error for non-rate-limit errors
-          if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
-            this.logger.error(
-              `Rate limit exceeded while fetching balance for token ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`,
-            );
+
+          // Handle different types of provider errors
+          const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+          const isPaymentRequired =
+            error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+          if (isRateLimit || isPaymentRequired) {
+            const message = isPaymentRequired
+              ? `Payment required error while fetching balance for ${symbol} on ${reserveAddressConfig.chain} - daily limit reached`
+              : `Rate limit exceeded while fetching balance for ${symbol} on ${reserveAddressConfig.chain}`;
+
+            this.logger.warn(message);
           } else {
             this.logger.error(error, errorMessage);
           }
