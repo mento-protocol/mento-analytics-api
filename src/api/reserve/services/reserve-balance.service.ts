@@ -74,11 +74,10 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            const errorMessage = `Balance is 0 for ${symbol} in the ${reserveAddressConfig.label} on ${reserveAddressConfig.chain.charAt(0).toUpperCase() + reserveAddressConfig.chain.slice(1)}
-- [${symbol}] ${assetConfig.address}
-- [${reserveAddressConfig.label}] ${reserveAddressConfig.address}`;
+            const errorMessage = `Balance is 0 for ${symbol} in the ${reserveAddressConfig.label} on ${reserveAddressConfig.chain.charAt(0).toUpperCase() + reserveAddressConfig.chain.slice(1)}`;
             const errorContext = {
               reserve_address: reserveAddressConfig.address,
+              asset_address: assetConfig.address,
               chain: reserveAddressConfig.chain,
               category: reserveAddressConfig.category,
             };
