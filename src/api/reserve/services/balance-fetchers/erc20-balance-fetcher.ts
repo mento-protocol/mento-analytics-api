@@ -5,6 +5,8 @@ import { Contract, Provider } from 'ethers';
 
 interface BalanceResult {
   balance: string;
+
+  // The success flag is to distinguish between a failed fetch and a legitimately zero balance
   success: boolean;
 }
 
