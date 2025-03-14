@@ -1,6 +1,5 @@
 import { Chain } from '@/types';
 import { retryWithCondition } from '@/utils';
-import { MulticallService } from '@common/services/multicall.service';
 import { Logger } from '@nestjs/common';
 import { Contract, Provider } from 'ethers';
 
@@ -15,7 +14,6 @@ export class ERC20BalanceFetcher {
 
   constructor(
     private provider: Provider,
-    private multicall: MulticallService,
     private chain: Chain,
   ) {}
 
