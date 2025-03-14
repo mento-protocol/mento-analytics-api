@@ -19,7 +19,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       supportedCategories: [AddressCategory.MENTO_RESERVE, AddressCategory.UNIV3_POOL],
     };
     super(config);
-    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO), Chain.CELO);
+    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainProviders.getProvider(Chain.CELO));
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {

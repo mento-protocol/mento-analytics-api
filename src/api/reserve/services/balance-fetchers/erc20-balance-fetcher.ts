@@ -12,10 +12,7 @@ export class ERC20BalanceFetcher {
   private readonly logger = new Logger(ERC20BalanceFetcher.name);
   private readonly erc20Abi = ['function balanceOf(address) view returns (uint256)'];
 
-  constructor(
-    private provider: Provider,
-    private chain: Chain,
-  ) {}
+  constructor(private provider: Provider) {}
 
   /**
    * Fetch the balance of a token for a given holder address
@@ -26,7 +23,7 @@ export class ERC20BalanceFetcher {
   async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<BalanceResult> {
     // Handle native token case directly
     if (!tokenAddress) {
-      const balance = await this.fetchNativeBalance(holderAddress);
+      const balance = await this.fetchNativeBalance(holderAddress, chain);
       return { balance, success: true };
     }
 
@@ -65,7 +62,7 @@ export class ERC20BalanceFetcher {
     }
   }
 
-  private async fetchNativeBalance(holderAddress: string): Promise<string> {
+  private async fetchNativeBalance(holderAddress: string, chain: Chain): Promise<string> {
     return retryWithCondition(
       async () => {
         try {
@@ -85,7 +82,7 @@ export class ERC20BalanceFetcher {
             this.logger.warn(message);
           } else {
             this.logger.error(
-              `Failed to fetch native balance for holder=${holderAddress}, chain=${this.chain}, error=${error.message}`,
+              `Failed to fetch native balance for holder=${holderAddress}, chain=${chain}, error=${error.message}`,
             );
           }
           throw error;
