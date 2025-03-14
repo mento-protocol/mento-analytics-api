@@ -90,9 +90,9 @@ export class ERC20BalanceFetcher {
       },
       (balance) => balance !== undefined && balance !== null,
       {
-        maxRetries: 5,
+        maxRetries: 3,
         logger: this.logger,
-        baseDelay: 2000,
+        baseDelay: 1000,
         warningMessage: `Failed to fetch native balance for ${holderAddress}`,
       },
     );
