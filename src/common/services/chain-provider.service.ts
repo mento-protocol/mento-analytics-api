@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@types';
 import { JsonRpcProvider, Provider } from 'ethers';
+import { MulticallWrapper } from 'ethers-multicall-provider';
 
 @Injectable()
 export class ChainProvidersService {
@@ -22,14 +23,19 @@ export class ChainProvidersService {
       throw new Error('ETH_RPC_URL is not set');
     }
 
-    this.providers.set(Chain.CELO, new JsonRpcProvider(celoRpcUrl, 42220, { staticNetwork: true }));
-    this.providers.set(Chain.ETHEREUM, new JsonRpcProvider(ethereumRpcUrl, 1, { staticNetwork: true }));
+    // Create base providers
+    const celoProvider = new JsonRpcProvider(celoRpcUrl, 42220, { staticNetwork: true });
+    const ethereumProvider = new JsonRpcProvider(ethereumRpcUrl, 1, { staticNetwork: true });
+
+    // Wrap with MulticallWrapper
+    this.providers.set(Chain.CELO, MulticallWrapper.wrap(celoProvider));
+    this.providers.set(Chain.ETHEREUM, MulticallWrapper.wrap(ethereumProvider));
   }
 
   /**
    * Get a provider for a given chain
    * @param chain - The chain to get the provider for
-   * @returns The provider for the chain
+   * @returns The provider for the chain (wrapped with MulticallWrapper)
    */
   getProvider(chain: Chain): Provider {
     const provider = this.providers.get(chain);

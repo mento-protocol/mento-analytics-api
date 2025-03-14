@@ -1,7 +1,6 @@
 import { Chain } from '@/types';
 import { Injectable, Logger } from '@nestjs/common';
-import { Contract, Interface } from 'ethers';
-import { MulticallWrapper } from 'ethers-multicall-provider';
+import { Contract } from 'ethers';
 import { ChainProvidersService } from './chain-provider.service';
 
 /**
@@ -17,9 +16,10 @@ interface MulticallResult {
 /**
  * Service for batching multiple ERC20 balance queries into a single RPC call.
  *
- * This service uses the ethers-multicall-provider package which automatically batches
- * simultaneous contract calls into a single RPC request, reducing the number of network
- * requests and helping to avoid rate limits.
+ * This service leverages the MulticallWrapper-wrapped providers from ChainProvidersService
+ * to automatically batch contract calls. The providers are already wrapped with MulticallWrapper
+ * in ChainProvidersService, so this service simply provides a convenient interface for
+ * batching balance queries.
  *
  * Key benefits:
  * 1. Automatic batching of simultaneous calls
@@ -31,30 +31,8 @@ interface MulticallResult {
 @Injectable()
 export class MulticallService {
   private readonly logger = new Logger(MulticallService.name);
-  private readonly wrappedProviders: Partial<Record<Chain, any>> = {};
-  private readonly erc20Interface = new Interface(['function balanceOf(address owner) view returns (uint256)']);
 
-  constructor(private readonly chainProviders: ChainProvidersService) {
-    // Initialize wrapped providers for each chain
-    this.initializeWrappedProviders();
-  }
-
-  private initializeWrappedProviders() {
-    try {
-      // Create wrapped providers for each supported chain
-      const celoProvider = this.chainProviders.getProvider(Chain.CELO);
-      // Using any type to avoid type conflicts between ethers Provider and AbstractProvider
-      this.wrappedProviders[Chain.CELO] = MulticallWrapper.wrap(celoProvider as any);
-
-      const ethereumProvider = this.chainProviders.getProvider(Chain.ETHEREUM);
-      this.wrappedProviders[Chain.ETHEREUM] = MulticallWrapper.wrap(ethereumProvider as any);
-
-      this.logger.log('Multicall providers initialized successfully');
-    } catch (err) {
-      this.logger.error('Failed to initialize multicall providers', err);
-      throw err;
-    }
-  }
+  constructor(private readonly chainProviders: ChainProvidersService) {}
 
   /**
    * Batch multiple ERC20 balanceOf calls into a single RPC request.
@@ -68,21 +46,18 @@ export class MulticallService {
    * @param chain - The chain to query (e.g., CELO, ETHEREUM)
    * @param calls - Array of {token, account} pairs to get balances for
    * @returns Array of results containing success status and decoded balance
-   * @throws Error if the multicall provider is not available for the chain
+   * @throws Error if the provider is not available for the chain
    */
   async batchBalanceOf(chain: Chain, calls: { token: string; account: string }[]): Promise<MulticallResult[]> {
-    const wrappedProvider = this.wrappedProviders[chain];
-    if (!wrappedProvider) {
-      throw new Error(`No multicall provider available for chain ${chain}`);
-    }
-
     try {
+      const provider = this.chainProviders.getProvider(chain);
+
       // Create contract instances for each token
       const contracts = calls.map(
-        ({ token }) => new Contract(token, ['function balanceOf(address) view returns (uint256)'], wrappedProvider),
+        ({ token }) => new Contract(token, ['function balanceOf(address) view returns (uint256)'], provider),
       );
 
-      // Execute all calls - they will be automatically batched
+      // Execute all calls - they will be automatically batched by the wrapped provider
       const balancePromises = contracts.map((contract, index) =>
         contract
           .balanceOf(calls[index].account)
