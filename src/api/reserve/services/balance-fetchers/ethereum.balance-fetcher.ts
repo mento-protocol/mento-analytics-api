@@ -44,11 +44,11 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       const isPaymentRequired =
         error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
-      if (isRateLimit || isPaymentRequired) {
-        const message = isPaymentRequired
-          ? `Payment required error while fetching balance for token ${tokenDisplay} - daily limit reached`
-          : `Rate limit exceeded while fetching balance for token ${tokenDisplay}`;
-
+      if (isRateLimit) {
+        const message = `Rate limit exceeded while fetching balance for token ${tokenDisplay}`;
+        this.logger.warn(message);
+      } else if (isPaymentRequired) {
+        const message = `Payment required error while fetching balance for token ${tokenDisplay} - daily limit reached`;
         this.logger.warn(message);
       } else {
         this.logger.error(error, errorMessage);

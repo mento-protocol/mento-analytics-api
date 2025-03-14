@@ -77,11 +77,11 @@ export class ERC20BalanceFetcher {
           const isPaymentRequired =
             error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
-          if (isRateLimit || isPaymentRequired) {
-            const message = isPaymentRequired
-              ? `Payment required error while fetching native balance for ${holderAddress} - daily limit reached`
-              : `Rate limit exceeded while fetching native balance for ${holderAddress}`;
-
+          if (isRateLimit) {
+            const message = `Rate limit exceeded while fetching native balance for ${holderAddress}`;
+            this.logger.warn(message);
+          } else if (isPaymentRequired) {
+            const message = `Payment required error while fetching native balance for ${holderAddress} - daily limit reached`;
             this.logger.warn(message);
           } else {
             this.logger.error(

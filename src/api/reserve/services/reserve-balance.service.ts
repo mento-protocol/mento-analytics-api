@@ -111,11 +111,11 @@ export class ReserveBalanceService {
           const isPaymentRequired =
             error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
-          if (isRateLimit || isPaymentRequired) {
-            const message = isPaymentRequired
-              ? `Payment required error while fetching balance for ${symbol} on ${reserveAddressConfig.chain} - daily limit reached`
-              : `Rate limit exceeded while fetching balance for ${symbol} on ${reserveAddressConfig.chain}`;
-
+          if (isRateLimit) {
+            const message = `Rate limit exceeded while fetching balance for ${symbol} on ${reserveAddressConfig.chain}`;
+            this.logger.warn(message);
+          } else if (isPaymentRequired) {
+            const message = `Payment required error while fetching balance for ${symbol} on ${reserveAddressConfig.chain} - daily limit reached`;
             this.logger.warn(message);
           } else {
             this.logger.error(error, errorMessage);
