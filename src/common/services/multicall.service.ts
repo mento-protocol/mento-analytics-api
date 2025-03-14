@@ -1,38 +1,13 @@
 import { Chain } from '@/types';
 import { Injectable, Logger } from '@nestjs/common';
 import { Contract, Interface } from 'ethers';
+import { MulticallWrapper } from 'ethers-multicall-provider';
 import { ChainProvidersService } from './chain-provider.service';
 
 /**
- * ABI for the Multicall3 contract's aggregate3 function.
- * This is a read-only (view) function that allows batching multiple contract calls into a single RPC request.
- * Each call can be configured to allow failure, making it more resilient than the regular aggregate function.
- * See: https://www.multicall3.com/abi#ethers-js
- */
-const MULTICALL3_ABI = [
-  'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[] returnData)',
-];
-
-/**
- * Addresses of the Multicall3 contract deployed on different chains.
- * Multicall3 is typically deployed at the same address on most EVM chains through CREATE2.
- * See: https://www.multicall3.com/deployments
- */
-const MULTICALL3_ADDRESSES: Partial<Record<Chain, string>> = {
-  [Chain.CELO]: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  [Chain.ETHEREUM]: '0xcA11bde05977b3631167028862bE2a173976CA11',
-};
-
-/**
- * Interface for the ERC20 balanceOf function.
- * Used to encode function calls and decode return data.
- */
-const ERC20_INTERFACE = new Interface(['function balanceOf(address owner) view returns (uint256)']);
-
-/**
- * Result structure returned by the Multicall3 contract.
+ * Result structure returned by the multicall operations.
  * @property success - Whether the call was successful
- * @property returnData - The encoded return data from the call
+ * @property returnData - The decoded return data from the call
  */
 interface MulticallResult {
   success: boolean;
@@ -40,34 +15,45 @@ interface MulticallResult {
 }
 
 /**
- * Service for batching multiple ERC20 balance queries into a single RPC call using Multicall3.
+ * Service for batching multiple ERC20 balance queries into a single RPC call.
  *
- * This service helps reduce RPC calls and avoid rate limits by:
- * 1. Batching multiple token balance queries into a single request
- * 2. Supporting failed calls within a batch (they return 0 instead of failing the entire batch)
- * 3. Using read-only calls to minimize RPC usage
+ * This service uses the ethers-multicall-provider package which automatically batches
+ * simultaneous contract calls into a single RPC request, reducing the number of network
+ * requests and helping to avoid rate limits.
  *
- * The service uses the Multicall3 contract, which is deployed at the same address on most EVM chains.
- * See: https://multicall3.com/
+ * Key benefits:
+ * 1. Automatic batching of simultaneous calls
+ * 2. No changes needed to contract interaction code
+ * 3. Reduced RPC usage and faster response times
+ *
+ * See: https://www.npmjs.com/package/ethers-multicall-provider
  */
 @Injectable()
 export class MulticallService {
   private readonly logger = new Logger(MulticallService.name);
-  private readonly contracts: Partial<Record<Chain, Contract>>;
+  private readonly wrappedProviders: Partial<Record<Chain, any>> = {};
+  private readonly erc20Interface = new Interface(['function balanceOf(address owner) view returns (uint256)']);
 
   constructor(private readonly chainProviders: ChainProvidersService) {
-    this.contracts = {
-      [Chain.CELO]: new Contract(
-        MULTICALL3_ADDRESSES[Chain.CELO],
-        MULTICALL3_ABI,
-        this.chainProviders.getProvider(Chain.CELO),
-      ),
-      [Chain.ETHEREUM]: new Contract(
-        MULTICALL3_ADDRESSES[Chain.ETHEREUM],
-        MULTICALL3_ABI,
-        this.chainProviders.getProvider(Chain.ETHEREUM),
-      ),
-    };
+    // Initialize wrapped providers for each chain
+    this.initializeWrappedProviders();
+  }
+
+  private initializeWrappedProviders() {
+    try {
+      // Create wrapped providers for each supported chain
+      const celoProvider = this.chainProviders.getProvider(Chain.CELO);
+      // Using any type to avoid type conflicts between ethers Provider and AbstractProvider
+      this.wrappedProviders[Chain.CELO] = MulticallWrapper.wrap(celoProvider as any);
+
+      const ethereumProvider = this.chainProviders.getProvider(Chain.ETHEREUM);
+      this.wrappedProviders[Chain.ETHEREUM] = MulticallWrapper.wrap(ethereumProvider as any);
+
+      this.logger.log('Multicall providers initialized successfully');
+    } catch (err) {
+      this.logger.error('Failed to initialize multicall providers', err);
+      throw err;
+    }
   }
 
   /**
@@ -75,42 +61,51 @@ export class MulticallService {
    *
    * This method:
    * 1. Takes an array of token addresses and account addresses
-   * 2. Encodes all balanceOf calls
-   * 3. Executes them in a single multicall
-   * 4. Decodes the results
-   *
-   * Failed calls within the batch will return '0' instead of throwing an error.
-   * This makes the method more resilient to individual token contract issues.
+   * 2. Creates contract instances for each token using the wrapped provider
+   * 3. Executes all balanceOf calls, which are automatically batched
+   * 4. Formats the results
    *
    * @param chain - The chain to query (e.g., CELO, ETHEREUM)
    * @param calls - Array of {token, account} pairs to get balances for
    * @returns Array of results containing success status and decoded balance
-   * @throws Error if the multicall contract is not available for the chain
-   * @throws Error if the batch request fails entirely
+   * @throws Error if the multicall provider is not available for the chain
    */
   async batchBalanceOf(chain: Chain, calls: { token: string; account: string }[]): Promise<MulticallResult[]> {
-    const multicall = this.contracts[chain];
-    if (!multicall) {
-      throw new Error(`No multicall contract available for chain ${chain}`);
+    const wrappedProvider = this.wrappedProviders[chain];
+    if (!wrappedProvider) {
+      throw new Error(`No multicall provider available for chain ${chain}`);
     }
 
-    const callData = calls.map(({ token, account }) => ({
-      target: token,
-      allowFailure: true,
-      callData: ERC20_INTERFACE.encodeFunctionData('balanceOf', [account]),
-    }));
-
     try {
-      const results = await multicall.aggregate3.staticCall(callData);
-      return results.map((result: MulticallResult) => ({
-        success: result.success,
-        returnData: result.success
-          ? ERC20_INTERFACE.decodeFunctionResult('balanceOf', result.returnData)[0].toString()
-          : '0',
-      }));
-    } catch (error) {
-      this.logger.error(`Failed to batch balance requests for chain ${chain}:`, error);
-      throw error;
+      // Create contract instances for each token
+      const contracts = calls.map(
+        ({ token }) => new Contract(token, ['function balanceOf(address) view returns (uint256)'], wrappedProvider),
+      );
+
+      // Execute all calls - they will be automatically batched
+      const balancePromises = contracts.map((contract, index) =>
+        contract
+          .balanceOf(calls[index].account)
+          .then((balance: any) => ({
+            success: true,
+            returnData: balance.toString(),
+          }))
+          .catch((err: any) => {
+            this.logger.warn(
+              `Failed to get balance for token ${calls[index].token} and account ${calls[index].account}: ${err.message}`,
+            );
+            return {
+              success: false,
+              returnData: '0',
+            };
+          }),
+      );
+
+      // Wait for all promises to resolve
+      return Promise.all(balancePromises);
+    } catch (err) {
+      this.logger.error(`Failed to batch balance requests for chain ${chain}: ${err.message}`);
+      throw err;
     }
   }
 }

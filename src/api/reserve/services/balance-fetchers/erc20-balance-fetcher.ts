@@ -119,26 +119,19 @@ export class ERC20BalanceFetcher {
     this.batchedCalls.set(chain, []);
 
     try {
+      // Use the multicall service to batch the balance calls
       const results = await this.multicall.batchBalanceOf(
         chain,
         batch.map(({ token, account }) => ({ token, account })),
       );
 
       // Resolve all promises with their respective balances and success status
-      batch.forEach(({ resolve, token, account }, index) => {
+      batch.forEach(({ resolve }, index) => {
         const result = results[index];
-        if (!result.success) {
-          this.logger.warn(`Failed to fetch balance of token ${token} for account ${account} in this batch`);
-          resolve({
-            balance: '0',
-            success: false,
-          });
-        } else {
-          resolve({
-            balance: result.returnData,
-            success: true,
-          });
-        }
+        resolve({
+          balance: result.returnData,
+          success: result.success,
+        });
       });
     } catch (error) {
       // Handle different types of provider errors
@@ -146,16 +139,17 @@ export class ERC20BalanceFetcher {
       const isPaymentRequired =
         error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
-      if (isRateLimit || isPaymentRequired) {
-        const message = isPaymentRequired
-          ? `Payment required error for chain ${chain} - daily limit reached`
-          : `Rate limit exceeded for chain ${chain}`;
-
+      if (isRateLimit) {
+        const message = `Rate limit exceeded for chain ${chain}`;
+        this.logger.warn(message);
+      } else if (isPaymentRequired) {
+        const message = `Payment required error for chain ${chain} - daily limit reached`;
         this.logger.warn(message);
       } else {
         this.logger.error(`Batch balance fetch failed for chain ${chain}: ${error.message}`);
       }
 
+      // Reject all promises in the batch
       batch.forEach(({ reject }) => reject(error));
     }
   }
