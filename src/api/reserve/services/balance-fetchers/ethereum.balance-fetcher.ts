@@ -35,6 +35,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       if (!result.success) {
         throw new Error(`Failed to fetch balance of token ${tokenAddress || 'ETH'} for account ${accountAddress}`);
       }
+
       return result.balance;
     } catch (error) {
       const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';

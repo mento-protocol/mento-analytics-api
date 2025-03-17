@@ -62,6 +62,9 @@ export class ERC20BalanceFetcher {
   }
 
   private async fetchNativeBalance(holderAddress: string, chain: Chain): Promise<string> {
+    // Get the appropriate native token symbol based on chain
+    const nativeTokenSymbol = this.getNativeTokenSymbol(chain);
+
     return retryWithCondition(
       async () => {
         try {
@@ -70,7 +73,7 @@ export class ERC20BalanceFetcher {
         } catch (error) {
           const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
             accountAddress: holderAddress,
-            tokenAddress: 'ETH',
+            tokenAddress: nativeTokenSymbol,
           });
 
           if (isRateLimit || isPaymentRequired) {
@@ -88,8 +91,26 @@ export class ERC20BalanceFetcher {
         maxRetries: 3,
         logger: this.logger,
         baseDelay: 1000,
-        warningMessage: `Failed to fetch native balance for ${holderAddress}`,
+        warningMessage: `Failed to fetch ${nativeTokenSymbol} balance for ${holderAddress}`,
       },
     );
+  }
+
+  /**
+   * Get the native token symbol for a given chain
+   * @param chain - The blockchain chain
+   * @returns The native token symbol (e.g., 'ETH', 'CELO')
+   */
+  private getNativeTokenSymbol(chain: Chain): string {
+    switch (chain) {
+      case Chain.ETHEREUM:
+        return 'ETH';
+      case Chain.CELO:
+        return 'CELO';
+      case Chain.BITCOIN:
+        return 'BTC';
+      default:
+        return 'NATIVE';
+    }
   }
 }
