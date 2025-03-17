@@ -67,7 +67,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
           chain: Chain.ETHEREUM,
           category: AddressCategory.MENTO_RESERVE,
           description: errorMessage,
-          tokenAddress: tokenAddress,
+          tokenAddress,
         },
       });
       throw error;
