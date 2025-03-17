@@ -1,4 +1,4 @@
-import { withRetry } from '@/utils';
+import { handleFetchError, withRetry } from '@/utils';
 import { ChainProvidersService } from '@common/services/chain-provider.service';
 import { EthersAdapter, UniV3SupplyCalculator } from '@mento-protocol/mento-sdk';
 import { Injectable, Logger } from '@nestjs/common';
@@ -43,16 +43,12 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     } catch (error) {
       const errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
 
-      // Handle different types of provider errors
-      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
-      const isPaymentRequired =
-        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+        tokenAddress,
+        accountAddress,
+      });
 
       if (isRateLimit || isPaymentRequired) {
-        const message = isPaymentRequired
-          ? `Payment required error while fetching balance of token ${tokenAddress} - daily limit reached`
-          : `Rate limit exceeded while fetching balance of token ${tokenAddress}`;
-
         this.logger.warn(message);
       } else {
         this.logger.error(error, errorMessage);
@@ -93,9 +89,13 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       );
       return (holdings || '0').toString();
     } catch (error) {
-      // Only log the full error for non-rate-limit errors
-      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
-        this.logger.error(`Rate limit exceeded while fetching UniV3 balance for token ${tokenAddress}...`);
+      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+        tokenAddress,
+        accountAddress,
+      });
+
+      if (isRateLimit || isPaymentRequired) {
+        this.logger.warn(message);
       } else {
         this.logger.error(error);
       }

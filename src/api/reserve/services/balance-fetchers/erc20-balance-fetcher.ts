@@ -1,5 +1,5 @@
 import { Chain } from '@/types';
-import { retryWithCondition } from '@/utils';
+import { handleFetchError, retryWithCondition } from '@/utils';
 import { Logger } from '@nestjs/common';
 import { Contract, Provider } from 'ethers';
 
@@ -19,13 +19,13 @@ export class ERC20BalanceFetcher {
   /**
    * Fetch the balance of a token for a given holder address
    * @param tokenAddress - The address of the token (or null for native token)
-   * @param holderAddress - The address of the holder
+   * @param accountAddress - The address of the holder
    * @returns Object containing the balance and whether the call was successful
    */
-  async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<BalanceResult> {
+  async fetchBalance(tokenAddress: string | null, accountAddress: string, chain: Chain): Promise<BalanceResult> {
     // Handle native token case directly
     if (!tokenAddress) {
-      const balance = await this.fetchNativeBalance(holderAddress, chain);
+      const balance = await this.fetchNativeBalance(accountAddress, chain);
       return { balance, success: true };
     }
 
@@ -34,26 +34,22 @@ export class ERC20BalanceFetcher {
       const contract = new Contract(tokenAddress, this.erc20Abi, this.provider);
 
       // Call balanceOf - this will be automatically batched with other calls
-      const balance = await contract.balanceOf(holderAddress);
+      const balance = await contract.balanceOf(accountAddress);
       return {
         balance: balance.toString(),
         success: true,
       };
     } catch (error) {
-      // Handle different types of provider errors
-      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
-      const isPaymentRequired =
-        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+        tokenAddress,
+        accountAddress,
+      });
 
-      if (isRateLimit) {
-        const message = `Rate limit exceeded while fetching balance for token ${tokenAddress}`;
-        this.logger.warn(message);
-      } else if (isPaymentRequired) {
-        const message = `Payment required error while fetching balance for token ${tokenAddress} - daily limit reached`;
+      if (isRateLimit || isPaymentRequired) {
         this.logger.warn(message);
       } else {
         this.logger.error(
-          `Failed to fetch balance for token=${tokenAddress}, holder=${holderAddress}, chain=${chain}, error=${error.message}`,
+          `Failed to fetch balance for token=${tokenAddress}, holder=${accountAddress}, chain=${chain}, error=${error.message}`,
         );
       }
 
@@ -71,16 +67,12 @@ export class ERC20BalanceFetcher {
           const balance = await this.provider.getBalance(holderAddress);
           return balance.toString();
         } catch (error) {
-          // Handle different types of provider errors
-          const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
-          const isPaymentRequired =
-            error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+          const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+            accountAddress: holderAddress,
+            tokenAddress: 'ETH',
+          });
 
-          if (isRateLimit) {
-            const message = `Rate limit exceeded while fetching native balance for ${holderAddress}`;
-            this.logger.warn(message);
-          } else if (isPaymentRequired) {
-            const message = `Payment required error while fetching native balance for ${holderAddress} - daily limit reached`;
+          if (isRateLimit || isPaymentRequired) {
             this.logger.warn(message);
           } else {
             this.logger.error(

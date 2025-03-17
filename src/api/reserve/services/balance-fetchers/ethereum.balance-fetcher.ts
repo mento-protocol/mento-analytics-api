@@ -1,3 +1,4 @@
+import { handleFetchError } from '@/utils';
 import { ChainProvidersService } from '@common/services/chain-provider.service';
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
@@ -39,16 +40,12 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';
       const errorMessage = `Failed to fetch balance for token ${tokenDisplay}`;
 
-      // Handle different types of provider errors
-      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
-      const isPaymentRequired =
-        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+        tokenAddress: tokenDisplay,
+        accountAddress,
+      });
 
-      if (isRateLimit) {
-        const message = `Rate limit exceeded while fetching balance for token ${tokenDisplay}`;
-        this.logger.warn(message);
-      } else if (isPaymentRequired) {
-        const message = `Payment required error while fetching balance for token ${tokenDisplay} - daily limit reached`;
+      if (isRateLimit || isPaymentRequired) {
         this.logger.warn(message);
       } else {
         this.logger.error(error, errorMessage);
