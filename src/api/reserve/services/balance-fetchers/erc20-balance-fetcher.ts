@@ -35,6 +35,7 @@ export class ERC20BalanceFetcher {
 
       // Call balanceOf - this will be automatically batched with other calls
       const balance = await contract.balanceOf(accountAddress);
+
       return {
         balance: balance.toString(),
         success: true,

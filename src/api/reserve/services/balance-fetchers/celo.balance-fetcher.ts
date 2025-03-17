@@ -39,6 +39,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       if (!result.success) {
         throw new Error(`Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`);
       }
+
       return result.balance;
     } catch (error) {
       const errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
