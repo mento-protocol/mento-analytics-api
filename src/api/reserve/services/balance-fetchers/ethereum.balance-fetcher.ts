@@ -29,6 +29,14 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
     }
   }
 
+  /**
+   * Fetches the balance of a specific token for a given account address on Ethereum.
+   * This method is specific to fetching balances for the MENTO_RESERVE category.
+   *
+   * @param tokenAddress - The address of the token to fetch the balance of. If null, it defaults to ETH.
+   * @param accountAddress - The address of the account to fetch the balance of.
+   * @returns The balance of the token for the given account address.
+   */
   private async fetchMentoReserveBalance(tokenAddress: string | null, accountAddress: string): Promise<string> {
     try {
       const result = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
