@@ -18,10 +18,10 @@ The API can be used by consumers to fetch information about the Mento Stables, t
 pnpm install
 
 # Start development server
-pnpm run start:dev
+pnpm dev
 
 # Build for production
-pnpm run build
+pnpm build
 
 # Start production server
 pnpm run start:prod
