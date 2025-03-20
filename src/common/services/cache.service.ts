@@ -18,7 +18,7 @@ export class CacheService {
     try {
       return await this.cacheManager.get<T>(processedKey);
     } catch (error) {
-      this.logger.error(`Failed to get cache for key '${processedKey}'`, error);
+      this.logger.error(`Failed to get cache for key '${processedKey}': ${error.message}`, error.stack);
       return undefined;
     }
   }
@@ -32,7 +32,7 @@ export class CacheService {
       await this.cacheManager.set(processedKey, value, ttl);
       this.logger.debug(`Cache set for key '${processedKey}'`);
     } catch (error) {
-      this.logger.error(`Failed to set cache for key '${processedKey}'`, error);
+      this.logger.error(`Failed to set cache for key '${processedKey}': ${error.message}`, error.stack);
     }
   }
 
@@ -53,7 +53,7 @@ export class CacheService {
 
       return true;
     } catch (error) {
-      this.logger.error(`Failed to clear cache key '${processedKey}'`, error);
+      this.logger.error(`Failed to clear cache key '${processedKey}': ${error.message}`, error.stack);
       return false;
     }
   }
@@ -73,7 +73,7 @@ export class CacheService {
           clearedKeys.push(key);
         } catch (error) {
           hasError = true;
-          this.logger.error(`Failed to clear cache key '${key}'`, error);
+          this.logger.error(`Failed to clear cache key '${key}': ${error.message}`, error.stack);
         }
       }),
     );

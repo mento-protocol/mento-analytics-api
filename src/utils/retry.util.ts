@@ -33,22 +33,41 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       attempt++;
-      // Format rate limit errors more concisely
-      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+
+      const isDnsError = error?.code === 'EAI_AGAIN' && error?.message?.includes('getaddrinfo');
+      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+      const isPaymentRequired =
+        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+      if (isDnsError) {
+        logger.warn(`DNS resolution error. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
+      } else if (isRateLimit) {
         logger.warn(`Rate limit exceeded. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
+      } else if (isPaymentRequired) {
+        logger.warn(
+          `Payment required error. Daily rate limit reached. Attempt ${attempt}/${maxRetries}. Waiting before retry...`,
+        );
       } else {
         logger.warn(`${errorMessage} after ${attempt} attempts. Retrying...`);
       }
 
       if (attempt === maxRetries) {
         // For the final error, log more details but still keep it readable
-        if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
-          logger.error(`Rate limit exceeded. All ${maxRetries} retry attempts failed.`);
+        if (isDnsError) {
+          logger.error(`DNS resolution failed after ${maxRetries} attempts. Last error: ${error.message}`, error.stack);
+        } else if (isRateLimit) {
+          logger.error(`Rate limit exceeded. All ${maxRetries} retry attempts failed.`, error.stack);
+        } else if (isPaymentRequired) {
+          logger.error(
+            `Payment required error. Daily rate limit reached. All ${maxRetries} retry attempts failed.`,
+            error.stack,
+          );
         } else {
-          logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
+          logger.error(`${errorMessage} after ${maxRetries} attempts: ${error.message}`, error.stack);
         }
         throw error;
       }
+
       // Exponential backoff
       await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay));
     }

@@ -1,9 +1,9 @@
+import { withRetry } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/nestjs';
 import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
-import { ConfigService } from '@nestjs/config';
-import { withRetry } from '@/utils';
-import * as Sentry from '@sentry/nestjs';
 interface BlockchainInfoResponse {
   [address: string]: {
     final_balance: number;
@@ -54,7 +54,7 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(error, `Failed to fetch Bitcoin balance for ${accountAddress}`);
+      this.logger.error(`Failed to fetch Bitcoin balance for ${accountAddress}: ${error.message}`, error.stack);
       Sentry.captureException(error, {
         level: 'error',
         extra: {

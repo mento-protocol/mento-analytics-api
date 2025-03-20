@@ -1,8 +1,8 @@
+import { withRetry } from '@/utils';
+import { STABLE_TOKEN_FIAT_MAPPING } from '@mento-protocol/mento-sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { STABLE_TOKEN_FIAT_MAPPING } from '@mento-protocol/mento-sdk';
 import * as Sentry from '@sentry/nestjs';
-import { withRetry } from '@/utils';
 interface ExchangeRatesResponse {
   success: boolean;
   rates: Record<string, number>;
@@ -68,7 +68,7 @@ export class ExchangeRatesService {
       return data.rates;
     } catch (error) {
       const errorMessage = 'Failed to fetch exchange rates';
-      this.logger.error(error, errorMessage);
+      this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       Sentry.captureException(error, {
         level: 'error',
         extra: {
