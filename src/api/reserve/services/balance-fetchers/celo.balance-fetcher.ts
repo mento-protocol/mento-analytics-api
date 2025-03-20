@@ -63,16 +63,18 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
 
       return result.balance;
     } catch (error) {
-      const errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
-
-      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
-        tokenAddress,
+      const { isDnsError, isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+        tokenAddressOrSymbol: tokenAddress,
         accountAddress,
+        chain: Chain.CELO,
       });
 
-      if (isRateLimit || isPaymentRequired) {
-        this.logger.warn(message);
+      let errorMessage;
+      if (isDnsError || isRateLimit || isPaymentRequired) {
+        errorMessage = message;
+        this.logger.error(message, error.stack);
       } else {
+        errorMessage = `Failed to fetch balance of token ${tokenAddress} for address ${accountAddress}`;
         this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       }
 
@@ -129,13 +131,16 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       );
       return (holdings || '0').toString();
     } catch (error) {
-      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
-        tokenAddress,
+      const { isRateLimit, isPaymentRequired, isDnsError, message } = handleFetchError(error, {
+        tokenAddressOrSymbol: tokenAddress,
         accountAddress,
+        chain: Chain.CELO,
       });
 
-      if (isRateLimit || isPaymentRequired) {
-        this.logger.warn(message);
+      let errorMessage;
+      if (isRateLimit || isPaymentRequired || isDnsError) {
+        errorMessage = message;
+        this.logger.error(errorMessage, error.stack);
       } else {
         this.logger.error(
           `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}: ${error.message}`,

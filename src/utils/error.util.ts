@@ -7,21 +7,32 @@
 export function handleFetchError(
   error: any,
   context: {
-    tokenAddress: string;
+    tokenAddressOrSymbol: string;
     accountAddress: string;
+    chain: string;
   },
 ) {
-  const { tokenAddress, accountAddress } = context;
+  const { tokenAddressOrSymbol, accountAddress, chain } = context;
+
+  const isDnsError = error?.code === 'EAI_AGAIN' && !!error?.message?.includes('getaddrinfo');
   const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
   const isPaymentRequired = error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
-  // Generate appropriate messages based on error type and context
-  const rateLimitMessage = `Rate limit exceeded while fetching balance for ${tokenAddress} for ${accountAddress}`;
-  const paymentRequiredMessage = `Payment required error while fetching balance for ${tokenAddress} for ${accountAddress} - daily limit reached`;
+  const dnsErrorMessage = `DNS resolution error while fetching balance of ${tokenAddressOrSymbol} for ${accountAddress} on ${chain}`;
+  const rateLimitMessage = `Rate limit exceeded while fetching balance of ${tokenAddressOrSymbol} for ${accountAddress} on ${chain}`;
+  const paymentRequiredMessage = `Payment required error while fetching balance of ${tokenAddressOrSymbol} for ${accountAddress} on ${chain} - daily limit reached`;
 
-  const message = isPaymentRequired ? paymentRequiredMessage : isRateLimit ? rateLimitMessage : null;
+  let message;
+  if (isDnsError) {
+    message = dnsErrorMessage;
+  } else if (isRateLimit) {
+    message = rateLimitMessage;
+  } else if (isPaymentRequired) {
+    message = paymentRequiredMessage;
+  }
 
   return {
+    isDnsError,
     isRateLimit,
     isPaymentRequired,
     message,

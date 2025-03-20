@@ -41,16 +41,18 @@ export class ERC20BalanceFetcher {
         success: true,
       };
     } catch (error) {
-      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
-        tokenAddress,
+      const { isRateLimit, isPaymentRequired, isDnsError, message } = handleFetchError(error, {
+        tokenAddressOrSymbol: tokenAddress,
         accountAddress,
+        chain,
       });
 
-      if (isRateLimit || isPaymentRequired) {
-        this.logger.warn(message);
+      if (isRateLimit || isPaymentRequired || isDnsError) {
+        this.logger.error(message, error.stack);
       } else {
         this.logger.error(
           `Failed to fetch balance for token=${tokenAddress}, holder=${accountAddress}, chain=${chain}, error=${error.message}`,
+          error.stack,
         );
       }
 
@@ -83,16 +85,18 @@ export class ERC20BalanceFetcher {
           const balance = await this.provider.getBalance(holderAddress);
           return balance.toString();
         } catch (error) {
-          const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+          const { isRateLimit, isPaymentRequired, isDnsError, message } = handleFetchError(error, {
             accountAddress: holderAddress,
-            tokenAddress: nativeTokenSymbol,
+            tokenAddressOrSymbol: nativeTokenSymbol,
+            chain,
           });
 
-          if (isRateLimit || isPaymentRequired) {
-            this.logger.warn(message);
+          if (isRateLimit || isPaymentRequired || isDnsError) {
+            this.logger.error(message, error.stack);
           } else {
             this.logger.error(
               `Failed to fetch native balance for holder=${holderAddress}, chain=${chain}, error=${error.message}`,
+              error.stack,
             );
           }
           throw error;

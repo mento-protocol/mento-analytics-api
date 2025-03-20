@@ -1,3 +1,4 @@
+import { handleFetchError } from '@/utils/error.util';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import { AssetBalance, AssetConfig, Chain, ReserveAddressConfig } from '@types';
@@ -74,14 +75,9 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            const errorMessage = `Balance is 0 for ${symbol} in the ${reserveAddressConfig.label} on ${reserveAddressConfig.chain.charAt(0).toUpperCase() + reserveAddressConfig.chain.slice(1)}`;
-            const errorContext = {
-              reserve_address: reserveAddressConfig.address,
-              asset_address: assetConfig.address,
-              chain: reserveAddressConfig.chain,
-              category: reserveAddressConfig.category,
-            };
-            this.logger.warn(errorContext, errorMessage);
+            const formattedChain = `${reserveAddressConfig.chain.charAt(0).toUpperCase() + reserveAddressConfig.chain.slice(1)}`;
+            const errorMessage = `[${formattedChain}::${reserveAddressConfig.category}] Balance of ${symbol} is 0 for the ${reserveAddressConfig.label} (${reserveAddressConfig.address})`;
+            this.logger.warn(errorMessage);
           } else {
             // Get the usd value for the balance.
             usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);
@@ -104,20 +100,18 @@ export class ReserveBalanceService {
             type: reserveAddressConfig.category,
           };
         } catch (error) {
-          const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
+          const { isRateLimit, isPaymentRequired, isDnsError, message } = handleFetchError(error, {
+            accountAddress: reserveAddressConfig.address,
+            tokenAddressOrSymbol: symbol,
+            chain: reserveAddressConfig.chain,
+          });
 
-          // Handle different types of provider errors
-          const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
-          const isPaymentRequired =
-            error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
-
-          if (isRateLimit) {
-            const message = `Rate limit exceeded while fetching balance for ${symbol} on ${reserveAddressConfig.chain}`;
-            this.logger.warn(message);
-          } else if (isPaymentRequired) {
-            const message = `Payment required error while fetching balance for ${symbol} on ${reserveAddressConfig.chain} - daily limit reached`;
-            this.logger.warn(message);
+          let errorMessage;
+          if (isRateLimit || isPaymentRequired || isDnsError) {
+            errorMessage = message;
+            this.logger.error(message, error.stack);
           } else {
+            errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
             this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
           }
 

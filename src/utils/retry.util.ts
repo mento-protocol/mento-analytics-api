@@ -34,13 +34,19 @@ export async function withRetry<T>(
     } catch (error) {
       attempt++;
 
-      // Check for DNS-related errors first
       const isDnsError = error?.code === 'EAI_AGAIN' && error?.message?.includes('getaddrinfo');
+      const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+      const isPaymentRequired =
+        error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
 
       if (isDnsError) {
         logger.warn(`DNS resolution error. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
-      } else if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+      } else if (isRateLimit) {
         logger.warn(`Rate limit exceeded. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
+      } else if (isPaymentRequired) {
+        logger.warn(
+          `Payment required error. Daily rate limit reached. Attempt ${attempt}/${maxRetries}. Waiting before retry...`,
+        );
       } else {
         logger.warn(`${errorMessage} after ${attempt} attempts. Retrying...`);
       }
@@ -49,8 +55,13 @@ export async function withRetry<T>(
         // For the final error, log more details but still keep it readable
         if (isDnsError) {
           logger.error(`DNS resolution failed after ${maxRetries} attempts. Last error: ${error.message}`, error.stack);
-        } else if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+        } else if (isRateLimit) {
           logger.error(`Rate limit exceeded. All ${maxRetries} retry attempts failed.`, error.stack);
+        } else if (isPaymentRequired) {
+          logger.error(
+            `Payment required error. Daily rate limit reached. All ${maxRetries} retry attempts failed.`,
+            error.stack,
+          );
         } else {
           logger.error(`${errorMessage} after ${maxRetries} attempts: ${error.message}`, error.stack);
         }

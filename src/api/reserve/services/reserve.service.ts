@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { AssetBalance, AssetSymbol, GroupedAssetBalance } from '@types';
 import { RESERVE_ADDRESS_CONFIGS } from '../config/addresses.config';
 import { ASSET_GROUPS } from '../config/assets.config';
 import { ReserveBalanceService } from './reserve-balance.service';
-import * as Sentry from '@sentry/nestjs';
 @Injectable()
 export class ReserveService {
   private readonly logger = new Logger(ReserveService.name);
@@ -22,7 +22,7 @@ export class ReserveService {
 
       return allBalances.flat();
     } catch (error) {
-      this.logger.error('Failed to fetch reserve holdings:', error);
+      this.logger.error(`Failed to fetch reserve holdings: ${error.message}`, error.stack);
       Sentry.captureException(error);
       return [];
     }

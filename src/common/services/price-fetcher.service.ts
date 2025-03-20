@@ -1,8 +1,8 @@
+import { withRetry } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { withRetry } from '@/utils';
-import { RateLimiter } from 'limiter';
 import * as Sentry from '@sentry/nestjs';
+import { RateLimiter } from 'limiter';
 interface CMCQuote {
   data?: Record<
     string,
@@ -112,15 +112,18 @@ export class PriceFetcherService {
         error_message: data.status.error_message,
       };
 
-      this.logger.error(errorMessage, errorContext);
-      Sentry.captureException(new Error(errorMessage), {
+      const error = new Error(errorMessage);
+
+      this.logger.error(errorMessage, error.stack, errorContext);
+      Sentry.captureException(error, {
         level: 'error',
         extra: {
           ...errorContext,
           description: errorMessage,
         },
       });
-      throw new Error(errorMessage);
+
+      throw error;
     }
 
     const tokenData = Object.values(data.data || {}).find((token) => token.symbol.toUpperCase() === symbol);

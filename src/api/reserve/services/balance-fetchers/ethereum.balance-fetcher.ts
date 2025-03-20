@@ -47,16 +47,19 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       return result.balance;
     } catch (error) {
       const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';
-      const errorMessage = `Failed to fetch balance for token ${tokenDisplay} on Ethereum`;
 
-      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
-        tokenAddress: tokenDisplay,
+      const { isRateLimit, isPaymentRequired, isDnsError, message } = handleFetchError(error, {
+        tokenAddressOrSymbol: tokenDisplay,
         accountAddress,
+        chain: Chain.ETHEREUM,
       });
 
-      if (isRateLimit || isPaymentRequired) {
-        this.logger.warn(message);
+      let errorMessage;
+      if (isRateLimit || isPaymentRequired || isDnsError) {
+        errorMessage = message;
+        this.logger.error(errorMessage, error.stack);
       } else {
+        errorMessage = `Failed to fetch balance for token ${tokenDisplay} on Ethereum`;
         this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       }
 

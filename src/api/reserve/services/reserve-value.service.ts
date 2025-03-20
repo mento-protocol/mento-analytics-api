@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { AssetConfig } from 'src/types';
-import { ethers } from 'ethers';
 import { PriceFetcherService } from '@common/services/price-fetcher.service';
-import BigNumber from 'bignumber.js';
+import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
+import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
+import { AssetConfig } from 'src/types';
 @Injectable()
 export class ReserveValueService {
   private readonly logger = new Logger(ReserveValueService.name);
@@ -36,7 +36,7 @@ export class ReserveValueService {
         price: price,
       };
 
-      this.logger.error(`${errorMessage} — ${JSON.stringify(errorContext)}`, error.stack);
+      this.logger.error(errorMessage, error.stack, errorContext);
       Sentry.captureException(error, {
         level: 'error',
         extra: {
