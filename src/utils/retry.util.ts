@@ -33,8 +33,13 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       attempt++;
-      // Format rate limit errors more concisely
-      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+
+      // Check for DNS-related errors first
+      const isDnsError = error?.code === 'EAI_AGAIN' && error?.message?.includes('getaddrinfo');
+
+      if (isDnsError) {
+        logger.warn(`DNS resolution error. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
+      } else if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
         logger.warn(`Rate limit exceeded. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
       } else {
         logger.warn(`${errorMessage} after ${attempt} attempts. Retrying...`);
@@ -42,13 +47,16 @@ export async function withRetry<T>(
 
       if (attempt === maxRetries) {
         // For the final error, log more details but still keep it readable
-        if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
-          logger.error(`Rate limit exceeded. All ${maxRetries} retry attempts failed.`);
+        if (isDnsError) {
+          logger.error(`DNS resolution failed after ${maxRetries} attempts. Last error: ${error.message}`, error.stack);
+        } else if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+          logger.error(`Rate limit exceeded. All ${maxRetries} retry attempts failed.`, error.stack);
         } else {
-          logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
+          logger.error(`${errorMessage} after ${maxRetries} attempts: ${error.message}`, error.stack);
         }
         throw error;
       }
+
       // Exponential backoff
       await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay));
     }
@@ -73,19 +81,45 @@ export async function retryWithCondition<T>(
   let attempt = 0;
 
   while (attempt < maxRetries) {
-    const result = await operation();
+    try {
+      const result = await operation();
 
-    if (condition(result)) {
-      return result;
+      if (condition(result)) {
+        return result;
+      }
+
+      attempt++;
+      if (attempt === maxRetries) {
+        logger.warn(`${warningMessage} after ${maxRetries} attempts`);
+        return result;
+      }
+
+      // Exponential backoff
+      await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay));
+    } catch (error) {
+      attempt++;
+
+      // Check for DNS-related errors
+      const isDnsError =
+        error?.message?.includes('getaddrinfo') || error?.message?.includes('DNS') || error?.code === 'EAI_AGAIN';
+
+      if (isDnsError) {
+        logger.warn(`DNS resolution error. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
+        // Use longer delay for DNS errors
+        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay * 2));
+      } else {
+        logger.warn(`${warningMessage} after ${attempt} attempts. Retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay));
+      }
+
+      if (attempt === maxRetries) {
+        if (isDnsError) {
+          logger.error(`DNS resolution failed after ${maxRetries} attempts. Last error: ${error.message}`, error.stack);
+        } else {
+          logger.error(`${warningMessage} after ${maxRetries} attempts: ${error.message}`, error.stack);
+        }
+        throw error;
+      }
     }
-
-    attempt++;
-    if (attempt === maxRetries) {
-      logger.warn(`${warningMessage} after ${maxRetries} attempts`);
-      return result;
-    }
-
-    // Exponential backoff
-    await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * baseDelay));
   }
 }
