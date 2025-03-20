@@ -118,7 +118,7 @@ export class ReserveBalanceService {
             const message = `Payment required error while fetching balance for ${symbol} on ${reserveAddressConfig.chain} - daily limit reached`;
             this.logger.warn(message);
           } else {
-            this.logger.error(error, errorMessage);
+            this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
           }
 
           Sentry.captureException(error, {

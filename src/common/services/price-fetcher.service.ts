@@ -112,7 +112,7 @@ export class PriceFetcherService {
         error_message: data.status.error_message,
       };
 
-      this.logger.error({ ...errorContext }, errorMessage);
+      this.logger.error(errorMessage, errorContext);
       Sentry.captureException(new Error(errorMessage), {
         level: 'error',
         extra: {

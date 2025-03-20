@@ -73,7 +73,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       if (isRateLimit || isPaymentRequired) {
         this.logger.warn(message);
       } else {
-        this.logger.error(error, errorMessage);
+        this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       }
 
       Sentry.captureException(error, {
@@ -137,7 +137,10 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       if (isRateLimit || isPaymentRequired) {
         this.logger.warn(message);
       } else {
-        this.logger.error(error);
+        this.logger.error(
+          `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}: ${error.message}`,
+          error.stack,
+        );
       }
 
       Sentry.captureException(error, {

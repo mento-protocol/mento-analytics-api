@@ -31,7 +31,7 @@ export class CacheWarmerService implements OnModuleInit {
       this.logger.log('Cache warm-up completed successfully');
     } catch (error) {
       const errorMessage = 'Cache warm-up failed';
-      this.logger.error(error, errorMessage);
+      this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -88,7 +88,7 @@ export class CacheWarmerService implements OnModuleInit {
           await this.cacheService.set(key, data, CACHE_CONFIG.TTL.WARM);
           this.logger.log(`Cached ${key} successfully`);
         } catch (error) {
-          this.logger.error(error, `Failed to cache ${key}`);
+          this.logger.error(`Failed to cache ${key}: ${error.message}`, error.stack);
         }
       }),
     );
@@ -101,7 +101,7 @@ export class CacheWarmerService implements OnModuleInit {
       this.logger.log('Cached stablecoins successfully');
     } catch (error) {
       const errorMessage = 'Failed to cache stablecoins';
-      this.logger.error(error, errorMessage);
+      this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       Sentry.captureException(error, {
         level: 'error',
         extra: {

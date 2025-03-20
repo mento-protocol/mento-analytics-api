@@ -47,7 +47,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       return result.balance;
     } catch (error) {
       const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';
-      const errorMessage = `Failed to fetch balance for token ${tokenDisplay}`;
+      const errorMessage = `Failed to fetch balance for token ${tokenDisplay} on Ethereum`;
 
       const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
         tokenAddress: tokenDisplay,
@@ -57,7 +57,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       if (isRateLimit || isPaymentRequired) {
         this.logger.warn(message);
       } else {
-        this.logger.error(error, errorMessage);
+        this.logger.error(`${errorMessage}: ${error.message}`, error.stack);
       }
 
       Sentry.captureException(error, {

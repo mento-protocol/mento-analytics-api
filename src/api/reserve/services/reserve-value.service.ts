@@ -36,7 +36,7 @@ export class ReserveValueService {
         price: price,
       };
 
-      this.logger.error({ ...errorContext }, errorMessage);
+      this.logger.error(`${errorMessage} — ${JSON.stringify(errorContext)}`, error.stack);
       Sentry.captureException(error, {
         level: 'error',
         extra: {

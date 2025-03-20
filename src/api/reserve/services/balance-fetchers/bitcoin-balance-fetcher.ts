@@ -54,7 +54,7 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
           throw new Error(`Unsupported address category: ${category}`);
       }
     } catch (error) {
-      this.logger.error(error, `Failed to fetch Bitcoin balance for ${accountAddress}`);
+      this.logger.error(`Failed to fetch Bitcoin balance for ${accountAddress}: ${error.message}`, error.stack);
       Sentry.captureException(error, {
         level: 'error',
         extra: {
