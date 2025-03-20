@@ -1,9 +1,11 @@
+import { handleFetchError } from '@/utils';
+import { ChainProvidersService } from '@common/services/chain-provider.service';
 import { Injectable, Logger } from '@nestjs/common';
-import { AddressCategory, Chain } from 'src/types';
+import * as Sentry from '@sentry/nestjs';
+import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
-import { ChainProvidersService } from '@common/services/chain-provider.service';
-import * as Sentry from '@sentry/nestjs';
+
 @Injectable()
 export class EthereumBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(EthereumBalanceFetcher.name);
@@ -27,13 +29,37 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
     }
   }
 
+  /**
+   * Fetches the balance of a specific token for a given account address on Ethereum.
+   * This method is specific to fetching balances for the MENTO_RESERVE category.
+   *
+   * @param tokenAddress - The address of the token to fetch the balance of. If null, it defaults to ETH.
+   * @param accountAddress - The address of the account to fetch the balance of.
+   * @returns The balance of the token for the given account address.
+   */
   private async fetchMentoReserveBalance(tokenAddress: string | null, accountAddress: string): Promise<string> {
     try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
-      return balance;
+      const result = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+      if (!result.success) {
+        throw new Error(`Failed to fetch balance of token ${tokenAddress || 'ETH'} for account ${accountAddress}`);
+      }
+
+      return result.balance;
     } catch (error) {
-      const errorMessage = `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`;
-      this.logger.error(error, errorMessage);
+      const tokenDisplay = tokenAddress ? tokenAddress : 'ETH';
+      const errorMessage = `Failed to fetch balance for token ${tokenDisplay}`;
+
+      const { isRateLimit, isPaymentRequired, message } = handleFetchError(error, {
+        tokenAddress: tokenDisplay,
+        accountAddress,
+      });
+
+      if (isRateLimit || isPaymentRequired) {
+        this.logger.warn(message);
+      } else {
+        this.logger.error(error, errorMessage);
+      }
+
       Sentry.captureException(error, {
         level: 'error',
         extra: {
@@ -41,6 +67,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
           chain: Chain.ETHEREUM,
           category: AddressCategory.MENTO_RESERVE,
           description: errorMessage,
+          tokenAddress,
         },
       });
       throw error;

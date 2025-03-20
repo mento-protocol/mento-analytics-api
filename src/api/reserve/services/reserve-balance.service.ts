@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Chain, AssetBalance, ReserveAddressConfig, AssetConfig } from '@types';
-import { ReserveValueService } from './reserve-value.service';
+import * as Sentry from '@sentry/nestjs';
+import { AssetBalance, AssetConfig, Chain, ReserveAddressConfig } from '@types';
+import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
-import { BaseBalanceFetcher } from './balance-fetchers';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { BALANCE_FETCHERS } from '../constants';
-import BigNumber from 'bignumber.js';
-import * as Sentry from '@sentry/nestjs';
+import { BaseBalanceFetcher } from './balance-fetchers';
+import { ReserveValueService } from './reserve-value.service';
 
 /**
  * Service for fetching and formatting asset balances across different chains.
@@ -74,9 +74,10 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            const errorMessage = `Balance is 0 for asset ${symbol} (${assetConfig.address}) on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
+            const errorMessage = `Balance is 0 for ${symbol} in the ${reserveAddressConfig.label} on ${reserveAddressConfig.chain.charAt(0).toUpperCase() + reserveAddressConfig.chain.slice(1)}`;
             const errorContext = {
               reserve_address: reserveAddressConfig.address,
+              asset_address: assetConfig.address,
               chain: reserveAddressConfig.chain,
               category: reserveAddressConfig.category,
             };
@@ -104,7 +105,21 @@ export class ReserveBalanceService {
           };
         } catch (error) {
           const errorMessage = `Failed to fetch balance for ${symbol} on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
-          this.logger.error(error, errorMessage);
+
+          // Handle different types of provider errors
+          const isRateLimit = error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005;
+          const isPaymentRequired =
+            error?.code === 'SERVER_ERROR' && error?.info?.responseStatus === '402 Payment Required';
+
+          if (isRateLimit) {
+            const message = `Rate limit exceeded while fetching balance for ${symbol} on ${reserveAddressConfig.chain}`;
+            this.logger.warn(message);
+          } else if (isPaymentRequired) {
+            const message = `Payment required error while fetching balance for ${symbol} on ${reserveAddressConfig.chain} - daily limit reached`;
+            this.logger.warn(message);
+          } else {
+            this.logger.error(error, errorMessage);
+          }
 
           Sentry.captureException(error, {
             level: 'error',
