@@ -38,7 +38,6 @@
     "bignumber.js": "^9.1.2",
     "cache-manager": "5.7.6",
     "ethers": "^6.13.4",
-    "ethers-multicall-provider": "^6.5.0",
     "limiter": "^2.1.0",
     "nestjs-pino": "^4.1.0",
     "pino": "^9.5.0",
@@ -85,17 +84,5 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  },
-  "volta": {
-    "node": "22.14.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@nestjs/core",
-      "@scarf/scarf",
-      "@sentry/cli",
-      "@sentry/profiling-node",
-      "nestjs-pino"
-    ]
   }
 }

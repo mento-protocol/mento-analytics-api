@@ -1,4 +1,4 @@
-import { AddressCategory, Chain, ReserveAddressConfig } from '@types';
+import { Chain, AddressCategory, ReserveAddressConfig } from '@types';
 
 /**
  * The list of addresses that hold reserve assets.
@@ -21,7 +21,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
     chain: Chain.CELO,
     category: AddressCategory.UNIV3_POOL,
-    label: 'Reserve Multisig on Celo',
+    label: 'Reserve multisig on Celo',
     assets: ['CELO', 'WETH', 'USDT'],
     description: 'A reserve owned multisig with positions in Uniswap V3 on Celo',
   },
@@ -29,7 +29,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
-    label: 'Reserve Multisig on Celo',
+    label: 'Reserve multisig on Celo',
     assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
     description: `A reserve owned multisig holding assets on Celo`,
   },
@@ -37,7 +37,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     address: '0x13a9803d547332c81Ebc6060F739821264DBcf1E',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
-    label: 'Reserve Address',
+    label: 'Reserve address',
     assets: ['CELO'],
     description: 'Holds reserve owned funds on CELO',
   },
@@ -45,7 +45,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     address: '0xDA7BFEF937F0944551a24b4C68B054bfA7127570',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
-    label: 'Operational Account',
+    label: 'Operational account',
     assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC'],
     description: 'Holds reserve assets for operational and rebalancing purposes',
   },
@@ -53,7 +53,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     address: '0xDA7BFEF937F0944551a24b4C68B054bfA7127570',
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
-    label: 'Operational Account',
+    label: 'Operational account',
     assets: ['USDC', 'USDT', 'EURC'],
     description: 'Holds reserve assets for operational and rebalancing purposes',
   },
