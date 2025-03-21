@@ -33,9 +33,20 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       attempt++;
-      logger.warn(error, `${errorMessage} after ${attempt} attempts. Retrying...`);
+      // Format rate limit errors more concisely
+      if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+        logger.warn(`Rate limit exceeded. Attempt ${attempt}/${maxRetries}. Waiting before retry...`);
+      } else {
+        logger.warn(`${errorMessage} after ${attempt} attempts. Retrying...`);
+      }
+
       if (attempt === maxRetries) {
-        logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
+        // For the final error, log more details but still keep it readable
+        if (error?.code === 'BAD_DATA' && error?.value?.[0]?.code === -32005) {
+          logger.error(`Rate limit exceeded. All ${maxRetries} retry attempts failed.`);
+        } else {
+          logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
+        }
         throw error;
       }
       // Exponential backoff
