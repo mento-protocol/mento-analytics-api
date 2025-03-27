@@ -6,23 +6,34 @@ import { CACHE_KEYS } from '../constants';
 import { CACHE_CONFIG } from '../config/cache.config';
 import { CacheService } from './cache.service';
 import * as Sentry from '@sentry/nestjs';
+import { ConfigService } from '@nestjs/config';
 /**
  * Warms the cache for reserve and stablecoins endpoints on a schedule.
  * Data is cached for 15 minutes more than the refresh interval
  * to ensure data availability during cache updates.
+ * Cache warming is disabled in development environment.
  */
 @Injectable()
 export class CacheWarmerService implements OnModuleInit {
   private readonly logger = new Logger(CacheWarmerService.name);
+  private readonly isCacheWarmingEnabled: boolean;
 
   constructor(
     private readonly cacheService: CacheService,
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED');
+  }
 
   @Cron(CronExpression.EVERY_3_HOURS)
   async warmCache() {
+    if (!this.isCacheWarmingEnabled) {
+      this.logger.log('Cache warming is disabled. Skipping scheduled cache warm-up.');
+      return;
+    }
+
     this.logger.log('Starting cache warm-up...');
 
     try {
@@ -43,6 +54,12 @@ export class CacheWarmerService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log('Initializing cache warmer...');
+
+    if (!this.isCacheWarmingEnabled) {
+      this.logger.log('Cache warming is disabled. Skipping initial cache warm-up.');
+      return;
+    }
+
     await this.warmCache();
   }
 

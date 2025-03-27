@@ -26,7 +26,9 @@ RUN pnpm run build
 # Production stage
 FROM node:18-alpine AS production
 
-ENV NODE_ENV=production PORT=8080
+# Default to production, but allow override via --build-arg or at runtime
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV} PORT=8080
 
 WORKDIR /app
 
