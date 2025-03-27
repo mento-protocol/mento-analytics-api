@@ -16,7 +16,7 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class CacheWarmerService implements OnModuleInit {
   private readonly logger = new Logger(CacheWarmerService.name);
-  private readonly isDevEnvironment: boolean;
+  private readonly isCacheWarmingEnabled: boolean;
 
   constructor(
     private readonly cacheService: CacheService,
@@ -24,16 +24,13 @@ export class CacheWarmerService implements OnModuleInit {
     private readonly stablecoinsService: StablecoinsService,
     private readonly configService: ConfigService,
   ) {
-    this.isDevEnvironment = this.configService.get('NODE_ENV') === 'development';
-    if (this.isDevEnvironment) {
-      this.logger.log('Running in development environment. Cache warming is disabled.');
-    }
+    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED');
   }
 
   @Cron(CronExpression.EVERY_3_HOURS)
   async warmCache() {
-    if (this.isDevEnvironment) {
-      this.logger.debug('Skipping scheduled cache warm-up in development environment');
+    if (!this.isCacheWarmingEnabled) {
+      this.logger.log('Cache warming is disabled. Skipping scheduled cache warm-up.');
       return;
     }
 
@@ -58,8 +55,8 @@ export class CacheWarmerService implements OnModuleInit {
   async onModuleInit() {
     this.logger.log('Initializing cache warmer...');
 
-    if (this.isDevEnvironment) {
-      this.logger.log('Development environment detected. Skipping initial cache warm-up.');
+    if (!this.isCacheWarmingEnabled) {
+      this.logger.log('Cache warming is disabled. Skipping initial cache warm-up.');
       return;
     }
 
