@@ -1,25 +1,23 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Mento } from '@mento-protocol/mento-sdk';
-import { JsonRpcProvider } from 'ethers';
+import { ChainClientService } from './chain-provider.service';
+import { Chain } from '@/types';
+import { PublicClient } from 'viem';
 
 @Injectable()
 export class MentoService implements OnModuleInit {
   private mento: Mento;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private chainClientService: ChainClientService) {}
 
   async onModuleInit() {
-    const rpcUrl = this.configService.get<string>('CELO_RPC_URL');
-    if (!rpcUrl) {
-      throw new Error('CELO_RPC_URL is not defined. Verify it is set in environment variables.');
+    const client: PublicClient = this.chainClientService.getClient(Chain.CELO);
+    if (!client) {
+      throw new Error('Celo client was not found');
     }
 
-    const provider = new JsonRpcProvider(rpcUrl);
-    await provider.ready;
-
     this.mento = await Mento.create({
-      provider,
+      provider: client,
     });
   }
 
