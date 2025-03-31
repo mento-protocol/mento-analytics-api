@@ -3,7 +3,7 @@ import { MentoService } from '@common/services/mento.service';
 import { StablecoinDto, StablecoinsResponseDto } from './dto/stablecoin.dto';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { ICONS_BASE_URL } from './constants';
-import { ethers } from 'ethers';
+import { formatUnits } from 'viem';
 import { withRetry } from '@/utils';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class StablecoinsService {
         const stablecoins: StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
             const fiatTicker = token.fiatTicker;
-            const formattedTotalSupply = Number(ethers.formatUnits(token.totalSupply, token.decimals));
+            const formattedTotalSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
             const rawUsdValue = await this.exchangeRatesService.convert(formattedTotalSupply, fiatTicker, 'USD');
 
             return {

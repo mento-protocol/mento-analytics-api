@@ -1,40 +1,90 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { ReserveService } from '@api/reserve/services/reserve.service';
 import { StablecoinsService } from '@api/stablecoins/stablecoins.service';
 import { CACHE_KEYS } from '../constants';
 import { CACHE_CONFIG } from '../config/cache.config';
 import { CacheService } from './cache.service';
+import { ChainClientService } from './chain-client.service';
+import { Chain } from '@types';
 import * as Sentry from '@sentry/nestjs';
 import { ConfigService } from '@nestjs/config';
+
+const BLOCK_THRESHOLDS: Partial<Record<Chain, number>> = {
+  [Chain.CELO]: CACHE_CONFIG.TTL.WARM / 5, // TTL in blocks - Celo block time is 5 seconds https://celoscan.io/chart/blocktime
+  [Chain.ETHEREUM]: CACHE_CONFIG.TTL.WARM / 12, // TTL in blocks - Ethereum block time is 12 seconds https://etherscan.io/chart/blocktime
+};
+
 /**
- * Warms the cache for reserve and stablecoins endpoints on a schedule.
- * Data is cached for 15 minutes more than the refresh interval
- * to ensure data availability during cache updates.
+ * Warms the cache for reserve and stablecoins endpoints on blockchain updates.
+ * Listens for new blocks on Celo and Ethereum chains and updates data accordingly.
  * Cache warming is disabled in development environment.
  */
 @Injectable()
 export class CacheWarmerService implements OnModuleInit {
   private readonly logger = new Logger(CacheWarmerService.name);
   private readonly isCacheWarmingEnabled: boolean;
+  private lastProcessedBlock: Map<Chain, number> = new Map();
 
   constructor(
     private readonly cacheService: CacheService,
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
+    private readonly chainClientService: ChainClientService,
     private readonly configService: ConfigService,
   ) {
-    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED');
+    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') === 'true';
+
+    this.lastProcessedBlock.set(Chain.CELO, 0);
+    this.lastProcessedBlock.set(Chain.ETHEREUM, 0);
   }
 
-  @Cron(CronExpression.EVERY_3_HOURS)
-  async warmCache() {
+  async onModuleInit() {
+    this.logger.log('Initializing cache warmer...');
+
     if (!this.isCacheWarmingEnabled) {
-      this.logger.log('Cache warming is disabled. Skipping scheduled cache warm-up.');
+      this.logger.log('Cache warming is disabled. Skipping initialization.');
       return;
     }
 
-    this.logger.log('Starting cache warm-up...');
+    // Initial cache warm-up
+    await this.warmCache();
+
+    this.setupBlockWatchers();
+  }
+
+  private setupBlockWatchers() {
+    // Watch Celo blocks
+    this.chainClientService.watchBlocks(Chain.CELO, (blockNumber) => {
+      this.handleNewBlock(Chain.CELO, blockNumber);
+    });
+
+    // Watch Ethereum blocks
+    this.chainClientService.watchBlocks(Chain.ETHEREUM, (blockNumber) => {
+      this.handleNewBlock(Chain.ETHEREUM, blockNumber);
+    });
+  }
+
+  private async handleNewBlock(chain: Chain, blockNumber: bigint) {
+    const lastBlock = this.lastProcessedBlock.get(chain) || 0;
+    const currentBlock = Number(blockNumber);
+    const threshold = BLOCK_THRESHOLDS[chain];
+
+    // Only process if we've moved enough blocks to avoid excessive updating
+    if (currentBlock - lastBlock >= threshold) {
+      this.logger.log(`New ${chain} block ${currentBlock}, triggering cache update`);
+      this.lastProcessedBlock.set(chain, currentBlock);
+
+      await this.warmCache();
+    }
+  }
+
+  async warmCache() {
+    if (!this.isCacheWarmingEnabled) {
+      this.logger.log('Cache warming is disabled. Skipping update.');
+      return;
+    }
+
+    this.logger.log('Starting cache warm-up based on new blocks...');
 
     try {
       await Promise.all([this.warmReserveEndpoints(), this.warmStablecoinsEndpoints()]);
@@ -50,17 +100,6 @@ export class CacheWarmerService implements OnModuleInit {
         },
       });
     }
-  }
-
-  async onModuleInit() {
-    this.logger.log('Initializing cache warmer...');
-
-    if (!this.isCacheWarmingEnabled) {
-      this.logger.log('Cache warming is disabled. Skipping initial cache warm-up.');
-      return;
-    }
-
-    await this.warmCache();
   }
 
   /**

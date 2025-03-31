@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Mento } from '@mento-protocol/mento-sdk';
-import { ChainClientService } from './chain-provider.service';
+import { ChainClientService } from './chain-client.service';
 import { Chain } from '@/types';
 import { PublicClient } from 'viem';
 
