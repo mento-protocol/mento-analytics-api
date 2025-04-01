@@ -24,7 +24,8 @@ export class CacheWarmerService implements OnModuleInit {
     private readonly stablecoinsService: StablecoinsService,
     private readonly configService: ConfigService,
   ) {
-    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED');
+    // Only enable cache warming if the env var is exactly 'true'. Will be false if not set.
+    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') === 'true';
   }
 
   @Cron(CronExpression.EVERY_3_HOURS)
