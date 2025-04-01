@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CacheModule } from '@nestjs/cache-manager';
-import { CacheWarmerService } from '@common/services/cache-warmer.service';
+import { CacheWarmerService } from '@/common/services/cache-warmer.service';
 import { CommonModule } from '@common/common.module';
 import { StablecoinsModule } from '@api/stablecoins/stablecoins.module';
 import { ReserveModule } from '@api/reserve/reserve.module';

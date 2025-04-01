@@ -1,11 +1,13 @@
-import { Contract, Provider } from 'ethers';
-import { ERC20_ABI } from '@mento-protocol/mento-sdk';
 import { Logger } from '@nestjs/common';
 import { retryWithCondition } from '@/utils';
 import { Chain } from '@/types';
+import { PublicClient, parseAbi } from 'viem';
+import { ERC20_ABI } from '@mento-protocol/mento-sdk';
 
 export class ERC20BalanceFetcher {
-  constructor(private provider: Provider) {}
+  private readonly logger = new Logger(ERC20BalanceFetcher.name);
+
+  constructor(private client: PublicClient) {}
 
   /**
    * Fetch the balance of a token for a given holder address
@@ -16,21 +18,27 @@ export class ERC20BalanceFetcher {
   async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<string> {
     const balance = await retryWithCondition(
       async () => {
-        // Handle native token (ETH) case
+        // Handle native token case
         if (!tokenAddress) {
-          const balance = await this.provider.getBalance(holderAddress);
+          const balance = await this.client.getBalance({
+            address: holderAddress as `0x${string}`,
+          });
           return balance.toString();
         }
 
-        // Handle ERC20 tokens
-        const contract = new Contract(tokenAddress, ERC20_ABI, this.provider);
-        const balance = await contract.balanceOf(holderAddress);
+        const balance = await this.client.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: parseAbi(ERC20_ABI),
+          functionName: 'balanceOf',
+          args: [holderAddress as `0x${string}`],
+        });
+
         return balance.toString();
       },
       (balance) => balance !== undefined && balance !== null,
       {
         maxRetries: 3,
-        logger: new Logger('ERC20BalanceFetcher'),
+        logger: this.logger,
         baseDelay: 1000,
         warningMessage: `Failed to fetch balance for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
       },
