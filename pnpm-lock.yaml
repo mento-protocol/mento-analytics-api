@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mento-protocol/mento-sdk':
-        specifier: 2.0.0-beta.6
-        version: 2.0.0-beta.6(ethers@6.13.4)(viem@2.24.2(typescript@5.7.2))
+        specifier: 2.0.0-beta.7
+        version: 2.0.0-beta.7(ethers@6.13.4)(viem@2.24.2(typescript@5.7.2))
       '@nestjs/cache-manager':
         specifier: 2.3.0
         version: 2.3.0(@nestjs/common@10.4.11(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.4.11)(cache-manager@5.7.6)(rxjs@7.8.1)
@@ -473,12 +473,12 @@ packages:
   '@mento-protocol/mento-core-ts@0.2.3':
     resolution: {integrity: sha512-Fjj0t2a6xqpHTbhfafioqjkY9ZDBsq3oy/DkRizihDI2zul/PFQJfQwyy7WDSSc/cNAflevBeSJyqTPTv9HD/Q==}
 
-  '@mento-protocol/mento-sdk@2.0.0-beta.6':
-    resolution: {integrity: sha512-5s0k6sHcD+4KWosJ9MTaSbTGWa3r36BcDoQEOzM6UiKlsvQrzOGAzP1V7Ms4MC4bIffgAPAAknVH6L90xMfQSQ==}
+  '@mento-protocol/mento-sdk@2.0.0-beta.7':
+    resolution: {integrity: sha512-XCjDxHy0jVrjeQJ+6sY372PzRfw8nlsQP/3kazwd6qkACaMPbAfNTFL/VEXXzKgTQ2tqLF6pGSPM1+am6G64xg==}
     engines: {node: '>=18', pnpm: '>=9'}
     peerDependencies:
       ethers: ^6.13.4
-      ethers-v5: npm:ethers@^5.7.2
+      ethers-v5: npm:ethers@^5.7
       viem: ^2.21.44
     peerDependenciesMeta:
       ethers:
@@ -3937,7 +3937,7 @@ snapshots:
 
   '@mento-protocol/mento-core-ts@0.2.3': {}
 
-  '@mento-protocol/mento-sdk@2.0.0-beta.6(ethers@6.13.4)(viem@2.24.2(typescript@5.7.2))':
+  '@mento-protocol/mento-sdk@2.0.0-beta.7(ethers@6.13.4)(viem@2.24.2(typescript@5.7.2))':
     dependencies:
       '@mento-protocol/mento-core-ts': 0.2.3
       bignumber.js: 9.1.2
