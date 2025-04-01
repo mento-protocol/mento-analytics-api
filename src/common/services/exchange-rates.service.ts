@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { STABLE_TOKEN_FIAT_MAPPING } from '@mento-protocol/mento-sdk';
 import * as Sentry from '@sentry/nestjs';
 import { withRetry } from '@/utils';
+import { STABLE_TOKEN_FIAT_MAPPING } from '@common/constants';
+
 interface ExchangeRatesResponse {
   success: boolean;
   rates: Record<string, number>;
@@ -34,7 +35,6 @@ export class ExchangeRatesService {
       throw new Error('EXCHANGE_RATES_API_URL is not defined in environment variables');
     }
 
-    // Get all the fiat symbols from the sdk
     this.fiatSymbols = Object.values(STABLE_TOKEN_FIAT_MAPPING);
   }
 
