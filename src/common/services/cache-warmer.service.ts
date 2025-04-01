@@ -41,7 +41,8 @@ export class CacheWarmerService implements OnModuleInit {
     private readonly chainClientService: ChainClientService,
     private readonly configService: ConfigService,
   ) {
-    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') !== 'false';
+    // Only enable cache warming if the env var is exactly 'true'. Will be false if not set.
+    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') === 'true';
 
     // Initialize maps for tracked chains
     Object.keys(BLOCK_THRESHOLDS).forEach((chain) => {
