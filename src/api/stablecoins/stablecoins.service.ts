@@ -5,6 +5,7 @@ import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { ICONS_BASE_URL } from './constants';
 import { formatUnits } from 'viem';
 import { withRetry } from '@/utils';
+import { STABLE_TOKEN_FIAT_MAPPING } from '@common/constants';
 
 @Injectable()
 export class StablecoinsService {
@@ -23,9 +24,12 @@ export class StablecoinsService {
 
         const stablecoins: StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
-            const fiatTicker = token.fiatTicker;
+            const fiatTicker = STABLE_TOKEN_FIAT_MAPPING[token.symbol];
             const formattedTotalSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
             const rawUsdValue = await this.exchangeRatesService.convert(formattedTotalSupply, fiatTicker, 'USD');
+
+            // Get the icon URL with fallback
+            const iconUrl = await this.getIconUrl(token.symbol);
 
             return {
               symbol: token.symbol,
@@ -36,7 +40,7 @@ export class StablecoinsService {
                 usd_value: Number(rawUsdValue),
               },
               decimals: token.decimals,
-              icon_url: `${ICONS_BASE_URL}/${token.symbol}.svg`,
+              icon_url: iconUrl,
               fiat_symbol: fiatTicker,
             };
           }),
@@ -52,5 +56,35 @@ export class StablecoinsService {
       'Failed to fetch stablecoins',
       { logger: this.logger, baseDelay: 5000 },
     );
+  }
+
+  /**
+   * Check if an icon exists for a given URL.
+   * @param url The URL to check.
+   * @returns True if the icon exists, false otherwise.
+   */
+  private async iconExists(url: string): Promise<boolean> {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get the icon URL for a given symbol.
+   * @param symbol The symbol of the stablecoin.
+   * @returns The icon URL for the stablecoin.
+   */
+  private async getIconUrl(symbol: string): Promise<string> {
+    const iconUrl = `${ICONS_BASE_URL}/${symbol}.svg`;
+
+    if (await this.iconExists(iconUrl)) {
+      return iconUrl;
+    } else {
+      this.logger.warn(`Icon not found for ${symbol}, using default.svg`);
+      return `${ICONS_BASE_URL}/default.svg`;
+    }
   }
 }
