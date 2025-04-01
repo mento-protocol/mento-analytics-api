@@ -1,14 +1,50 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AssetBalance, AssetSymbol, GroupedAssetBalance } from '@types';
+import { AssetBalance, AssetSymbol, GroupedAssetBalance, Chain } from '@types';
 import { RESERVE_ADDRESS_CONFIGS } from '../config/addresses.config';
 import { ASSET_GROUPS } from '../config/assets.config';
 import { ReserveBalanceService } from './reserve-balance.service';
 import * as Sentry from '@sentry/nestjs';
+import { CacheService } from '@/common/services/cache.service';
+import { CACHE_KEYS } from '@/common/constants/cache-keys.constants';
+import { ReserveCompositionResponseDto } from '../dto/reserve.dto';
+
 @Injectable()
 export class ReserveService {
   private readonly logger = new Logger(ReserveService.name);
 
-  constructor(private readonly balanceService: ReserveBalanceService) {}
+  constructor(
+    private readonly balanceService: ReserveBalanceService,
+    private readonly cacheService: CacheService,
+  ) {}
+
+  /**
+   * Get the reserve holdings for a given chain.
+   * @param chain - The chain to get the reserve holdings for.
+   * @returns The reserve holdings for the given chain.
+   */
+  async getReserveHoldingsForChain(chain: Chain): Promise<AssetBalance[]> {
+    try {
+      const configsForChain = RESERVE_ADDRESS_CONFIGS.filter((config) => config.chain === chain);
+
+      this.logger.debug(`Fetching reserve holdings for chain ${chain} (${configsForChain.length} addresses)`);
+
+      const balances = await Promise.all(
+        configsForChain.map((config) => this.balanceService.fetchBalancesByConfig(config)),
+      );
+
+      return balances.flat();
+    } catch (error) {
+      this.logger.error(`Failed to fetch reserve holdings for chain ${chain}:`, error);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          chain,
+          description: `Failed to fetch reserve holdings for chain ${chain}`,
+        },
+      });
+      return [];
+    }
+  }
 
   /**
    * Get the balances of all reserve holdings
@@ -16,11 +52,21 @@ export class ReserveService {
    */
   async getReserveHoldings(): Promise<AssetBalance[]> {
     try {
-      const allBalances = await Promise.all(
-        RESERVE_ADDRESS_CONFIGS.map((config) => this.balanceService.fetchBalancesByConfig(config)),
-      );
+      // TODO: Remove the caching logic from here
+      // First check if we have the aggregated cache
+      const cached = await this.cacheService.get<AssetBalance[]>(CACHE_KEYS.RESERVE_HOLDINGS);
+      if (cached) {
+        return cached;
+      }
 
-      return allBalances.flat();
+      const allBalances = (
+        await Promise.all(RESERVE_ADDRESS_CONFIGS.map((config) => this.balanceService.fetchBalancesByConfig(config)))
+      ).flat();
+
+      // Cache the combined result
+      await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS, allBalances);
+
+      return allBalances;
     } catch (error) {
       this.logger.error('Failed to fetch reserve holdings:', error);
       Sentry.captureException(error);
@@ -37,6 +83,20 @@ export class ReserveService {
   }> {
     const holdings = await this.getReserveHoldings();
     return this.groupHoldings(holdings);
+  }
+
+  /**
+   * Get the reserve composition
+   * @returns The reserve composition
+   */
+  async getReserveComposition(): Promise<ReserveCompositionResponseDto> {
+    const { total_holdings_usd, assets } = await this.getGroupedReserveHoldings();
+    const composition = assets.map((asset) => ({
+      symbol: asset.symbol,
+      percentage: (asset.usdValue / total_holdings_usd) * 100,
+      usd_value: asset.usdValue,
+    }));
+    return { composition };
   }
 
   private groupHoldings(holdings: AssetBalance[]): {

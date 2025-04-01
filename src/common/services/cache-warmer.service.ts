@@ -9,9 +9,17 @@ import { Chain } from '@types';
 import * as Sentry from '@sentry/nestjs';
 import { ConfigService } from '@nestjs/config';
 
+/**
+ * The number of blocks between cache warmings for each chain.
+ * This is used to prevent the cache from being warmed too often and also
+ * protects from spamming the RPC with requests.
+ * The value is the number of blocks that must elapse before the cache is warmed again.
+ * The value is based on the block time of the chain.
+ *
+ */
 const BLOCK_THRESHOLDS: Partial<Record<Chain, number>> = {
-  [Chain.CELO]: CACHE_CONFIG.TTL.WARM / 5, // TTL in blocks - Celo block time is 5 seconds https://celoscan.io/chart/blocktime
-  [Chain.ETHEREUM]: CACHE_CONFIG.TTL.WARM / 12, // TTL in blocks - Ethereum block time is 12 seconds https://etherscan.io/chart/blocktime
+  [Chain.CELO]: CACHE_CONFIG.TTL.WARM / 1, // TTL in blocks - Celo block time is 1 seconds
+  [Chain.ETHEREUM]: CACHE_CONFIG.TTL.WARM / 12, // TTL in blocks - Ethereum block time is 12 seconds
 };
 
 /**
@@ -24,6 +32,7 @@ export class CacheWarmerService implements OnModuleInit {
   private readonly logger = new Logger(CacheWarmerService.name);
   private readonly isCacheWarmingEnabled: boolean;
   private lastProcessedBlock: Map<Chain, number> = new Map();
+  private chainUpdateInProgress: Map<Chain, boolean> = new Map();
 
   constructor(
     private readonly cacheService: CacheService,
@@ -32,10 +41,13 @@ export class CacheWarmerService implements OnModuleInit {
     private readonly chainClientService: ChainClientService,
     private readonly configService: ConfigService,
   ) {
-    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') === 'true';
+    this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') !== 'false';
 
-    this.lastProcessedBlock.set(Chain.CELO, 0);
-    this.lastProcessedBlock.set(Chain.ETHEREUM, 0);
+    // Initialize maps for tracked chains
+    Object.keys(BLOCK_THRESHOLDS).forEach((chain) => {
+      this.lastProcessedBlock.set(chain as Chain, 0);
+      this.chainUpdateInProgress.set(chain as Chain, false);
+    });
   }
 
   async onModuleInit() {
@@ -46,124 +58,158 @@ export class CacheWarmerService implements OnModuleInit {
       return;
     }
 
-    // Initial cache warm-up
-    await this.warmCache();
-
+    // Initial cache warm-up for all chains
+    await this.warmAllCaches();
     this.setupBlockWatchers();
   }
 
+  /**
+   * Sets up block watchers for all chains.
+   */
   private setupBlockWatchers() {
-    // Watch Celo blocks
-    this.chainClientService.watchBlocks(Chain.CELO, (blockNumber) => {
-      this.handleNewBlock(Chain.CELO, blockNumber);
-    });
-
-    // Watch Ethereum blocks
-    this.chainClientService.watchBlocks(Chain.ETHEREUM, (blockNumber) => {
-      this.handleNewBlock(Chain.ETHEREUM, blockNumber);
+    Object.keys(BLOCK_THRESHOLDS).forEach((chain) => {
+      this.chainClientService.watchBlocks(chain as Chain, (blockNumber) => {
+        this.handleNewBlock(chain as Chain, blockNumber);
+      });
     });
   }
 
+  /**
+   * Handles a new block event.
+   * @param chain - The chain the block belongs to.
+   * @param blockNumber - The number of the block.
+   */
   private async handleNewBlock(chain: Chain, blockNumber: bigint) {
     const lastBlock = this.lastProcessedBlock.get(chain) || 0;
     const currentBlock = Number(blockNumber);
     const threshold = BLOCK_THRESHOLDS[chain];
+    const isUpdateInProgress = this.chainUpdateInProgress.get(chain);
 
-    // Only process if we've moved enough blocks to avoid excessive updating
-    if (currentBlock - lastBlock >= threshold) {
-      this.logger.log(`New ${chain} block ${currentBlock}, triggering cache update`);
+    // If the block threshold has been met and the chain is not already being updated, warm the cache
+    if (currentBlock - lastBlock >= threshold && !isUpdateInProgress) {
+      this.logger.log(`New ${chain} block ${currentBlock}, triggering chain-specific cache update`);
       this.lastProcessedBlock.set(chain, currentBlock);
 
-      await this.warmCache();
-    }
-  }
-
-  async warmCache() {
-    if (!this.isCacheWarmingEnabled) {
-      this.logger.log('Cache warming is disabled. Skipping update.');
-      return;
-    }
-
-    this.logger.log('Starting cache warm-up based on new blocks...');
-
-    try {
-      await Promise.all([this.warmReserveEndpoints(), this.warmStablecoinsEndpoints()]);
-
-      this.logger.log('Cache warm-up completed successfully');
-    } catch (error) {
-      const errorMessage = 'Cache warm-up failed';
-      this.logger.error(error, errorMessage);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          description: errorMessage,
-        },
-      });
+      await this.warmChainSpecificCache(chain);
     }
   }
 
   /**
-   * Warms the cache for the reserve endpoints.
+   * Warms the chain-specific cache.
+   * @param chain - The chain to warm the cache for.
    */
-  private async warmReserveEndpoints() {
-    // The endpoints to be cached as well as the functions to fetch the data
-    const endpoints = {
-      [CACHE_KEYS.RESERVE_HOLDINGS]: async () => {
-        const holdings = await this.reserveService.getReserveHoldings();
-        const total_holdings_usd = holdings.reduce((sum, asset) => sum + asset.usdValue, 0);
-        const response = { total_holdings_usd, assets: holdings };
-        return response;
-      },
-      [CACHE_KEYS.RESERVE_COMPOSITION]: async () => {
-        const { total_holdings_usd, assets } = await this.reserveService.getGroupedReserveHoldings();
-        const composition = assets.map((asset) => ({
-          symbol: asset.symbol,
-          percentage: (asset.usdValue / total_holdings_usd) * 100,
-          usd_value: asset.usdValue,
-        }));
-        return { composition };
-      },
-      [CACHE_KEYS.RESERVE_HOLDINGS_GROUPED]: () => this.reserveService.getGroupedReserveHoldings(),
-      [CACHE_KEYS.RESERVE_STATS]: async () => {
-        const { total_holdings_usd } = await this.reserveService.getGroupedReserveHoldings();
-        const { total_supply_usd } = await this.stablecoinsService.getStablecoins();
-        return {
-          total_reserve_value_usd: total_holdings_usd,
-          total_outstanding_stables_usd: total_supply_usd,
-          collateralization_ratio: total_holdings_usd / total_supply_usd,
-          timestamp: new Date().toISOString(),
-        };
-      },
-    };
+  private async warmChainSpecificCache(chain: Chain) {
+    if (!this.isCacheWarmingEnabled) return;
 
-    // Now execute all the endpoints and cache the results
-    await Promise.all(
-      Object.entries(endpoints).map(async ([key, fetcher]) => {
-        try {
-          const data = await fetcher();
-          await this.cacheService.set(key, data, CACHE_CONFIG.TTL.WARM);
-          this.logger.log(`Cached ${key} successfully`);
-        } catch (error) {
-          this.logger.error(error, `Failed to cache ${key}`);
-        }
-      }),
-    );
+    this.chainUpdateInProgress.set(chain, true);
+
+    try {
+      this.logger.log(`Starting cache warm-up for ${chain}...`);
+
+      // Warm chain-specific reserve data
+      await this.warmReserveEndpointsForChain(chain);
+
+      // Only update stablecoins if we're processing Celo
+      if (chain === Chain.CELO) {
+        await this.warmStablecoinsEndpoints();
+      }
+
+      this.logger.log(`Cache warm-up for ${chain} completed successfully`);
+    } catch (error) {
+      const errorMessage = `Cache warm-up failed for ${chain}`;
+      this.logger.error(error, errorMessage);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          chain,
+          description: errorMessage,
+        },
+      });
+    } finally {
+      this.chainUpdateInProgress.set(chain, false);
+    }
+  }
+
+  /**
+   * Warms data for all chains.
+   */
+  private async warmAllCaches() {
+    await Promise.all(Object.keys(BLOCK_THRESHOLDS).map((chain) => this.warmChainSpecificCache(chain as Chain)));
+  }
+
+  /**
+   * Warms the reserve endpoints for a given chain then updates the aggregated data.
+   * @param chain - The chain to warm the reserve endpoints for.
+   */
+  private async warmReserveEndpointsForChain(chain: Chain) {
+    try {
+      // Get chain-specific holdings
+      const chainSpecificHoldings = await this.reserveService.getReserveHoldingsForChain(chain);
+
+      // Update chain-specific cache
+      await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS_FOR_CHAIN(chain), chainSpecificHoldings);
+
+      // After updating chain-specific data, update aggregated data
+      await this.updateAggregatedReserveData();
+    } catch (error) {
+      this.logger.error(`Failed to warm reserve endpoints for ${chain}`, error);
+      Sentry.captureException(error);
+    }
+  }
+
+  private async updateAggregatedReserveData() {
+    try {
+      // Get all cached chain-specific data
+      const allChainData = await Promise.all(
+        Object.keys(BLOCK_THRESHOLDS).map(async (chain) => {
+          const chainData = await this.cacheService.get(CACHE_KEYS.RESERVE_HOLDINGS_FOR_CHAIN(chain as Chain));
+          return chainData || [];
+        }),
+      );
+
+      // Combine all chain data
+      const allHoldings = allChainData.flat();
+
+      // Update the main cache with all holdings
+      await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS, allHoldings);
+
+      // Update the composition cache
+      const composition = await this.reserveService.getReserveComposition();
+      await this.cacheService.set(CACHE_KEYS.RESERVE_COMPOSITION, composition);
+
+      // Update the grouped holdings cache
+      const holdingsGrouped = await this.reserveService.getGroupedReserveHoldings();
+      await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS_GROUPED, holdingsGrouped);
+
+      // Update the stats cache
+      const stats = await this.calculateReserveStats();
+      await this.cacheService.set(CACHE_KEYS.RESERVE_STATS, stats);
+    } catch (error) {
+      this.logger.error('Failed to update aggregated reserve data', error);
+      Sentry.captureException(error);
+    }
+  }
+
+  // TODO: Move this calculation to a service
+  private async calculateReserveStats() {
+    const { total_holdings_usd: total_reserve_value_usd } = await this.reserveService.getGroupedReserveHoldings();
+    const { total_supply_usd: total_outstanding_stables_usd } = await this.stablecoinsService.getStablecoins();
+
+    return {
+      total_reserve_value_usd,
+      total_outstanding_stables_usd,
+      collateralization_ratio: total_reserve_value_usd / total_outstanding_stables_usd,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private async warmStablecoinsEndpoints() {
     try {
       const stablecoins = await this.stablecoinsService.getStablecoins();
-      await this.cacheService.set(CACHE_KEYS.STABLECOINS, stablecoins, CACHE_CONFIG.TTL.WARM);
-      this.logger.log('Cached stablecoins successfully');
+      await this.cacheService.set(CACHE_KEYS.STABLECOINS, stablecoins);
     } catch (error) {
-      const errorMessage = 'Failed to cache stablecoins';
-      this.logger.error(error, errorMessage);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          description: errorMessage,
-        },
-      });
+      this.logger.error('Failed to warm stablecoins endpoints', error);
+      Sentry.captureException(error);
     }
   }
 }

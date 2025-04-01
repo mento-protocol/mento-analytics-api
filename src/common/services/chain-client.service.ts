@@ -26,10 +26,18 @@ export class ChainClientService {
       throw new Error('ETH_RPC_URL is not set');
     }
 
+    // TODO: Investigate the implications of using keepAlive and retryCount on RPC credits
+    // const wsConfig: WebSocketTransportConfig = {
+    //   keepAlive: true,
+    //   retryCount: 5,
+    //   retryDelay: 5000,
+    //   reconnect: {
+    //     attempts: 5,
+    //     delay: 5000,
+    //   },
+    // };
+
     const wsConfig: WebSocketTransportConfig = {
-      keepAlive: true,
-      retryCount: 5,
-      retryDelay: 5000,
       reconnect: {
         attempts: 5,
         delay: 5000,
