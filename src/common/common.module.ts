@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MentoService } from './services/mento.service';
 import { ExchangeRatesService } from './services/exchange-rates.service';
 import { PriceFetcherService } from './services/price-fetcher.service';
-import { ChainProvidersService } from './services/chain-provider.service';
+import { ChainClientService } from './services/chain-client.service';
 import { CacheService } from './services/cache.service';
 
 @Global()
@@ -13,7 +13,7 @@ import { CacheService } from './services/cache.service';
       isGlobal: true,
     }),
   ],
-  providers: [MentoService, ExchangeRatesService, PriceFetcherService, ChainProvidersService, CacheService],
-  exports: [MentoService, ExchangeRatesService, PriceFetcherService, ChainProvidersService, CacheService],
+  providers: [MentoService, ExchangeRatesService, PriceFetcherService, ChainClientService, CacheService],
+  exports: [MentoService, ExchangeRatesService, PriceFetcherService, ChainClientService, CacheService],
 })
 export class CommonModule {}

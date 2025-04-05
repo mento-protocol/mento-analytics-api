@@ -142,6 +142,7 @@ export class ReserveController {
       return cached;
     }
 
+    // TODO: Move this calculation to a service so it can be reused by the cache warmer
     const { total_holdings_usd: total_reserve_value_usd } = await this.reserveService.getGroupedReserveHoldings();
     const { total_supply_usd: total_outstanding_stables_usd } = await this.stablecoinsService.getStablecoins();
 

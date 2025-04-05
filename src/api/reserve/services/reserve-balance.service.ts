@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Chain, AssetBalance, ReserveAddressConfig, AssetConfig } from '@types';
 import { ReserveValueService } from './reserve-value.service';
-import { ethers } from 'ethers';
 import { BaseBalanceFetcher } from './balance-fetchers';
 import { ASSETS_CONFIGS } from '../config/assets.config';
 import { BALANCE_FETCHERS } from '../constants';
 import BigNumber from 'bignumber.js';
 import * as Sentry from '@sentry/nestjs';
+import { formatUnits } from 'viem';
 
 /**
  * Service for fetching and formatting asset balances across different chains.
@@ -126,6 +126,6 @@ export class ReserveBalanceService {
   }
 
   private formatBalance(balance: string, assetConfig: AssetConfig): string {
-    return assetConfig.symbol === 'BTC' ? balance : ethers.formatUnits(balance, assetConfig.decimals);
+    return assetConfig.symbol === 'BTC' ? balance : formatUnits(BigInt(balance), assetConfig.decimals);
   }
 }

@@ -1,4 +1,5 @@
 import { createCacheKey } from '../config/cache.config';
+import { Chain } from '@types';
 
 /**
  * Raw key names for reference
@@ -20,6 +21,9 @@ export const CACHE_KEYS = {
   RESERVE_HOLDINGS_GROUPED: createCacheKey(RAW_KEYS.RESERVE_HOLDINGS_GROUPED),
   RESERVE_STATS: createCacheKey(RAW_KEYS.RESERVE_STATS),
   STABLECOINS: createCacheKey(RAW_KEYS.STABLECOINS),
+
+  // Chain-specific cache keys
+  RESERVE_HOLDINGS_FOR_CHAIN: (chain: Chain) => createCacheKey(`${RAW_KEYS.RESERVE_HOLDINGS}-${chain}`),
 };
 
 /**

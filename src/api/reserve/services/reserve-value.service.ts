@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AssetConfig } from 'src/types';
-import { ethers } from 'ethers';
 import { PriceFetcherService } from '@common/services/price-fetcher.service';
 import BigNumber from 'bignumber.js';
 import * as Sentry from '@sentry/nestjs';
+import { formatUnits } from 'viem';
+
 @Injectable()
 export class ReserveValueService {
   private readonly logger = new Logger(ReserveValueService.name);
@@ -24,7 +25,7 @@ export class ReserveValueService {
 
       // Handle raw numbers (wei, satoshi, etc.)
       const formattedBalance =
-        assetConfig.symbol === 'BTC' ? Number(balance) : Number(ethers.formatUnits(balance, assetConfig.decimals));
+        assetConfig.symbol === 'BTC' ? Number(balance) : Number(formatUnits(BigInt(balance), assetConfig.decimals));
 
       return formattedBalance * price;
     } catch (error) {

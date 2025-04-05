@@ -69,8 +69,8 @@ export class CacheService {
     await Promise.all(
       ALL_CACHE_KEYS.map(async (key) => {
         try {
-          await this.cacheManager.del(key);
-          clearedKeys.push(key);
+          await this.cacheManager.del(key as string);
+          clearedKeys.push(key as string);
         } catch (error) {
           hasError = true;
           this.logger.error(`Failed to clear cache key '${key}'`, error);
@@ -106,7 +106,7 @@ export class CacheService {
    * Get all known cache keys
    */
   getKnownCacheKeys(): string[] {
-    return [...ALL_CACHE_KEYS];
+    return ALL_CACHE_KEYS.map((key) => key as string);
   }
 
   /**
