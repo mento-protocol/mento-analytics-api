@@ -1,7 +1,7 @@
 {
   "name": "mento-analytics-api",
-  "version": "0.0.1",
-  "description": "",
+  "version": "1.0.0",
+  "description": "Analytics API for tracking Mento Protocol's stablecoins and reserve assets",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
