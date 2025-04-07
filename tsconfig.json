@@ -23,9 +23,7 @@
       "@api/*": ["src/api/*"],
       "@types": ["src/types"],
       "@config/*": ["src/config/*"]
-    },
-    "inlineSources": true,
-    "sourceRoot": "/"
+    }
   },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }
