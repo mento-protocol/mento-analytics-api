@@ -4,18 +4,13 @@ import { RESERVE_ADDRESS_CONFIGS } from '../config/addresses.config';
 import { ASSET_GROUPS } from '../config/assets.config';
 import { ReserveBalanceService } from './reserve-balance.service';
 import * as Sentry from '@sentry/nestjs';
-import { CacheService } from '@/common/services/cache.service';
-import { CACHE_KEYS } from '@/common/constants/cache-keys.constants';
 import { ReserveCompositionResponseDto } from '../dto/reserve.dto';
 
 @Injectable()
 export class ReserveService {
   private readonly logger = new Logger(ReserveService.name);
 
-  constructor(
-    private readonly balanceService: ReserveBalanceService,
-    private readonly cacheService: CacheService,
-  ) {}
+  constructor(private readonly balanceService: ReserveBalanceService) {}
 
   /**
    * Get the reserve holdings for a given chain.
@@ -52,19 +47,9 @@ export class ReserveService {
    */
   async getReserveHoldings(): Promise<AssetBalance[]> {
     try {
-      // TODO: Remove the caching logic from here
-      // First check if we have the aggregated cache
-      const cached = await this.cacheService.get<AssetBalance[]>(CACHE_KEYS.RESERVE_HOLDINGS);
-      if (cached) {
-        return cached;
-      }
-
       const allBalances = (
         await Promise.all(RESERVE_ADDRESS_CONFIGS.map((config) => this.balanceService.fetchBalancesByConfig(config)))
       ).flat();
-
-      // Cache the combined result
-      await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS, allBalances);
 
       return allBalances;
     } catch (error) {
