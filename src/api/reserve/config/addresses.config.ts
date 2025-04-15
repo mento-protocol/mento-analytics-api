@@ -13,8 +13,8 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     category: AddressCategory.MENTO_RESERVE,
     label: 'Main Reserve',
     assets: ['CELO', 'USDC', 'axlUSDC', 'USDT', 'axlEUROC'],
-    description: `The main reserve contract that manages reserve assets used to 
-    stabilize stablecoins through spending limits, asset allocation, 
+    description: `The main reserve contract that manages reserve assets used to
+    stabilize stablecoins through spending limits, asset allocation,
     and reserve ratio enforcement.`,
   },
   {
@@ -72,5 +72,21 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     label: 'Mento Reserve on Ethereum',
     assets: ['ETH'],
     description: 'Reserve holding collateral assets on Ethereum',
+  },
+  {
+    address: '0xDA7BFEF937F0944551a24b4C68B054bfA7127570',
+    chain: Chain.CELO,
+    category: AddressCategory.AAVE,
+    label: 'Aave assets in operational account',
+    assets: ['CELO', 'USDT'],
+    description: 'Reserve assets held in the Aave protocol',
+  },
+  {
+    address: '0x87647780180B8f55980C7D3fFeFe08a9B29e9aE1',
+    chain: Chain.CELO,
+    category: AddressCategory.AAVE,
+    label: 'Aave assets',
+    assets: ['CELO', 'USDT'],
+    description: 'Reserve assets held in the Aave protocol',
   },
 ];
