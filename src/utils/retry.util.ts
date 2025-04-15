@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 
 interface RetryOptions {
   maxRetries?: number;
@@ -36,6 +37,12 @@ export async function withRetry<T>(
       logger.warn(error, `${errorMessage} after ${attempt} attempts. Retrying...`);
       if (attempt === maxRetries) {
         logger.error(error, `${errorMessage} after ${maxRetries} attempts`);
+        Sentry.captureException(error, {
+          level: 'error',
+          extra: {
+            description: errorMessage,
+          },
+        });
         throw error;
       }
       // Exponential backoff
