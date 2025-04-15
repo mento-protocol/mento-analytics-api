@@ -3,7 +3,6 @@ import { AddressCategory, Chain } from 'src/types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainClientService } from '@/common/services/chain-client.service';
-import * as Sentry from '@sentry/nestjs';
 @Injectable()
 export class EthereumBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(EthereumBalanceFetcher.name);
@@ -28,22 +27,6 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
   }
 
   private async fetchMentoReserveBalance(tokenAddress: string | null, accountAddress: string): Promise<string> {
-    try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
-      return balance;
-    } catch (error) {
-      const errorMessage = `Failed to fetch balance for token ${tokenAddress || 'ETH'} at address ${accountAddress}:`;
-      this.logger.error(error, errorMessage);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          address: accountAddress,
-          chain: Chain.ETHEREUM,
-          category: AddressCategory.MENTO_RESERVE,
-          description: errorMessage,
-        },
-      });
-      throw error;
-    }
+    return await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
   }
 }
