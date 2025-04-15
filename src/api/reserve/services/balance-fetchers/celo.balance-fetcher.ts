@@ -6,7 +6,6 @@ import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainClientService } from '@/common/services/chain-client.service';
 import { ViemAdapter, UniV3SupplyCalculator, AAVESupplyCalculator } from '@mento-protocol/mento-sdk';
 import { UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_FACTORY_ADDRESS } from '../../constants';
-import * as Sentry from '@sentry/nestjs';
 @Injectable()
 export class CeloBalanceFetcher extends BaseBalanceFetcher {
   private readonly logger = new Logger(CeloBalanceFetcher.name);
@@ -35,90 +34,45 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
   }
 
   private async fetchMentoReserveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
-    try {
-      const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
-      return balance;
-    } catch (error) {
-      const errorMessage = `Failed to fetch balance for token ${tokenAddress} at address ${accountAddress}`;
-      this.logger.error(error, errorMessage);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          address: accountAddress,
-          chain: Chain.CELO,
-          category: AddressCategory.MENTO_RESERVE,
-          description: errorMessage,
-        },
-      });
-      throw error;
-    }
+    return this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
   }
 
   private async fetchUniv3PoolBalance(tokenAddress: string, accountAddress: string): Promise<string> {
-    try {
-      const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
-      const calculator = new UniV3SupplyCalculator(
-        adapter,
-        UNIV3_POSITION_MANAGER_ADDRESS,
-        UNIV3_FACTORY_ADDRESS,
-        accountAddress,
-      );
+    const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
+    const calculator = new UniV3SupplyCalculator(
+      adapter,
+      UNIV3_POSITION_MANAGER_ADDRESS,
+      UNIV3_FACTORY_ADDRESS,
+      accountAddress,
+    );
 
-      const retryOptions = {
+    const holdings = await withRetry(
+      async () => await calculator.getAmount(tokenAddress),
+      `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`,
+      {
         maxRetries: 5,
-        delay: 1000,
-      };
+        baseDelay: 1000,
+        logger: this.logger,
+      },
+    );
 
-      const holdings = await withRetry(
-        async () => await calculator.getAmount(tokenAddress),
-        `Failed to fetch UniV3 balance for token ${tokenAddress} at address ${accountAddress}`,
-        retryOptions,
-      );
-      return (holdings || '0').toString();
-    } catch (error) {
-      this.logger.error(error);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          address: accountAddress,
-          chain: Chain.CELO,
-          category: AddressCategory.UNIV3_POOL,
-          description: error.message,
-        },
-      });
-      throw error;
-    }
+    return (holdings || '0').toString();
   }
 
   private async fetchAaveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
-    try {
-      const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
-      const calculator = new AAVESupplyCalculator(adapter, [accountAddress]);
+    const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
+    const calculator = new AAVESupplyCalculator(adapter, [accountAddress]);
 
-      const retryOptions = {
+    const holdings = await withRetry(
+      async () => await calculator.getAmount(tokenAddress),
+      `Failed to fetch Aave balance for token ${tokenAddress} at address ${accountAddress}`,
+      {
         maxRetries: 5,
-        delay: 1000,
-      };
+        baseDelay: 1000,
+        logger: this.logger,
+      },
+    );
 
-      const holdings = await withRetry(
-        async () => await calculator.getAmount(tokenAddress),
-        `Failed to fetch Aave balance for token ${tokenAddress} at address ${accountAddress}`,
-        retryOptions,
-      );
-
-      return (holdings || '0').toString();
-    } catch (error) {
-      this.logger.error(error);
-      Sentry.captureException(error, {
-        level: 'error',
-        extra: {
-          address: accountAddress,
-          chain: Chain.CELO,
-          category: AddressCategory.AAVE,
-          description: error.message,
-        },
-      });
-      throw error;
-    }
+    return (holdings || '0').toString();
   }
 }
