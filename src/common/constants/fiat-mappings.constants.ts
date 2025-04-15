@@ -14,4 +14,7 @@ export const STABLE_TOKEN_FIAT_MAPPING = {
   cZAR: 'ZAR',
   cAUD: 'AUD',
   cCAD: 'CAD',
+  cJPY: 'JPY',
+  cNGN: 'NGN',
+  cCHF: 'CHF',
 };
