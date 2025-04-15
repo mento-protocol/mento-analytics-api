@@ -18,12 +18,14 @@ export enum Chain {
  *      Mento Reserve - The simplest form of reserve, a contract or account holding assets directly.
  *      Curve Pool - A curve pool holding assets that are owned indirectly by the reserve.
  *      Uniswap V3 Pool - A Uniswap V3 pool holding assets that are owned indirectly by the reserve.
+ *      Aave - Assets held in the Aave protocol that are owned indirectly by the reserve.
  *
  */
 export enum AddressCategory {
   MENTO_RESERVE = 'Mento Reserve',
   CURVE_POOL = 'Curve Pool',
   UNIV3_POOL = 'Uniswap V3 Pool',
+  AAVE = 'Aave',
 }
 
 /**
