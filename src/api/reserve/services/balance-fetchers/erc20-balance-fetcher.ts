@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { retryWithCondition } from '@/utils';
+import { withRetry } from '@/utils';
 import { Chain } from '@/types';
 import { PublicClient, parseAbi } from 'viem';
 import { ERC20_ABI } from '@mento-protocol/mento-sdk';
@@ -16,7 +16,7 @@ export class ERC20BalanceFetcher {
    * @returns The balance of the token
    */
   async fetchBalance(tokenAddress: string | null, holderAddress: string, chain: Chain): Promise<string> {
-    const balance = await retryWithCondition(
+    return withRetry(
       async () => {
         // Handle native token case
         if (!tokenAddress) {
@@ -35,15 +35,12 @@ export class ERC20BalanceFetcher {
 
         return balance.toString();
       },
-      (balance) => balance !== undefined && balance !== null,
+      `Failed to fetch balance for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
       {
         maxRetries: 3,
         logger: this.logger,
         baseDelay: 1000,
-        warningMessage: `Failed to fetch balance for asset ${tokenAddress} on ${chain.toString()} at ${holderAddress}`,
       },
     );
-
-    return balance;
   }
 }
