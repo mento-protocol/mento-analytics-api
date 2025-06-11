@@ -30,7 +30,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Reserve multisig on Celo',
-    assets: ['CELO', 'USDGLO', 'USDC', 'WETH', 'stEUR'],
+    assets: ['CELO', 'USDGLO', 'USDC', 'stEUR'],
     description: `A reserve owned multisig holding assets on Celo`,
   },
   {
