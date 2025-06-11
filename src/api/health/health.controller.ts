@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiProperty } from '@nestjs/swagger';
 import { MentoService } from '@common/services/mento.service';
 import { ConfigService } from '@nestjs/config';
+import * as WebSocket from 'ws';
 
 class HealthCheckResponse {
   @ApiProperty({ example: 'ok' })
@@ -80,18 +81,47 @@ export class HealthController {
     }
   }
 
+  private isWebSocketUrl(url: string): boolean {
+    return url.startsWith('ws://') || url.startsWith('wss://');
+  }
+
+  private async checkWebSocketConnection(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const ws = new WebSocket(url);
+      const timeout = setTimeout(() => {
+        ws.terminate();
+        resolve(false);
+      }, 5000); // 5 second timeout
+
+      ws.on('open', () => {
+        clearTimeout(timeout);
+        ws.close();
+        resolve(true);
+      });
+
+      ws.on('error', () => {
+        clearTimeout(timeout);
+        resolve(false);
+      });
+    });
+  }
+
   private async checkExternalApis() {
     const apiConfigs = Object.entries(this.EXTERNAL_API_CONFIG).map(([name, configKey]) => ({
       name,
       url: this.configService.get<string>(configKey),
     }));
 
-    // Just check if the API url is reachable with a simple fetch
     const results = await Promise.allSettled(
       apiConfigs.map(async ({ name, url }) => {
         try {
-          await fetch(url);
-          return { name, success: true };
+          if (this.isWebSocketUrl(url)) {
+            const isConnected = await this.checkWebSocketConnection(url);
+            return { name, success: isConnected };
+          } else {
+            await fetch(url);
+            return { name, success: true };
+          }
         } catch {
           return { name, success: false };
         }
@@ -103,7 +133,7 @@ export class HealthController {
         const { value } = result as PromiseFulfilledResult<{ success: boolean }>;
         return !value.success;
       })
-      .map((_, index) => apiConfigs[index].name);
+      .map((result: PromiseFulfilledResult<{ name: string; success: boolean }>) => result.value.name);
 
     if (failedApis.length === 0) {
       return { status: 'ok' as const };
