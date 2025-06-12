@@ -53,9 +53,9 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
     },
     WETH: {
       symbol: 'WETH',
-      name: 'Wrapped Ether (Wormhole)',
+      name: 'Wrapped Ether',
       decimals: 18,
-      address: '0x66803FB87aBd4aaC3cbB3fAd7C3aa01f6F3FB207',
+      address: '0xD221812de1BD094f35587EE8E174B07B6167D9Af',
     },
     stEUR: {
       symbol: 'stEUR',
