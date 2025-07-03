@@ -89,4 +89,20 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     assets: ['CELO', 'USDT'],
     description: 'Reserve assets held in the Aave protocol',
   },
+  {
+    address: '0xD3D2e5c5Af667DA817b2D752d86c8f40c22137E1',
+    chain: Chain.CELO,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Mento Operations Multisig',
+    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH'],
+    description: 'Holds reserve assets for rebalancing purposes',
+  },
+  {
+    address: '0xD3D2e5c5Af667DA817b2D752d86c8f40c22137E1',
+    chain: Chain.ETHEREUM,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Mento Operations Multisig',
+    assets: ['USDC', 'USDT', 'ETH', 'stETH'],
+    description: 'Holds reserve assets for rebalancing purposes',
+  },
 ];
