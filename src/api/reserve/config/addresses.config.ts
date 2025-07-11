@@ -105,4 +105,12 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     assets: ['USDC', 'USDT', 'ETH', 'stETH'],
     description: 'Holds reserve assets for rebalancing purposes',
   },
+  {
+    address: '0x9d65E69aC940dCB469fd7C46368C1e094250a400',
+    chain: Chain.CELO,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Reserve',
+    assets: ['CELO'],
+    description: 'Holds reserve assets',
+  },
 ];
