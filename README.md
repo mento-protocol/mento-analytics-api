@@ -37,23 +37,6 @@ cp .env.example .env
 
 You'll need to obtain API keys for the Coinmarket cap & exchange rates API then add them to your env file
 
-### CORS Configuration
-
-The API is configured to accept requests from the Mento website. By default, it allows requests from:
-
-- `https://mento.org`
-- `https://www.mento.org`
-
-To configure additional origins (e.g., for development), set the `CORS_ORIGINS` environment variable:
-
-```bash
-# Single origin
-CORS_ORIGINS=https://mento.org
-
-# Multiple origins (comma-separated)
-CORS_ORIGINS=http://localhost:3000,https://mento.org,https://www.mento.org
-```
-
 ## Key Features
 
 - **Stablecoin Analytics:** Tracks the total supply of all Mento stables
