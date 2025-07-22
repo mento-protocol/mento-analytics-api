@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
+import { AppModule } from './app.module';
 import './instrument';
 
 async function bootstrap() {
@@ -15,7 +15,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'https://mento.org',
     'https://www.mento.org',
-    'https://mento-analytics-api-12390052758.us-central1.run.app/',
+    'https://mento-analytics-api-12390052758.us-central1.run.app',
   ];
 
   // Add localhost for development if NODE_ENV is development
