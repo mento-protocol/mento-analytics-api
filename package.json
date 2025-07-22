@@ -10,6 +10,7 @@
     "clean": "rm -rf dist/",
     "dev": "pnpm run clean && nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "gcloud:deployments": "gcloud run revisions list --service=mento-analytics-api --region=us-central1 --limit 10 --project mento-prod",
     "logs": "./bin/get-logs.sh",
     "start": "nest start",
     "start:dev": "pnpm run clean && nest start --watch",
