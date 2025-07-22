@@ -11,6 +11,43 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   app.useStaticAssets('public');
 
+  // Configure CORS - More secure configuration for analytics API
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
+    : ['https://mento.org', 'https://www.mento.org'];
+
+  // Add localhost for development if NODE_ENV is development
+  if (process.env.NODE_ENV === 'development') {
+    allowedOrigins.push(`http://localhost:${process.env.PORT || 8080}`);
+  }
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-side requests, Postman, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS policy`), false);
+      }
+    },
+    // Only allow methods actually used by the API (all endpoints are GET)
+    methods: ['GET', 'HEAD', 'OPTIONS'],
+    // Disable credentials since this is a public analytics API
+    credentials: false,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+    // Minimal headers needed for a read-only API
+    allowedHeaders: ['Content-Type', 'Accept', 'User-Agent', 'Cache-Control'],
+    // Headers that can be exposed to the client
+    exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Per-Page', 'Cache-Control'],
+    // Cache preflight requests for 24 hours
+    maxAge: 86400,
+  });
+
   const config = new DocumentBuilder()
     .setTitle('Mento Analytics API')
     .setDescription('API for analytics data on the Mento Protocol')
