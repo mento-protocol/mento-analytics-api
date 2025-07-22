@@ -12,9 +12,11 @@ async function bootstrap() {
   app.useStaticAssets('public');
 
   // Configure CORS - More secure configuration for analytics API
-  const allowedOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
-    : ['https://mento.org', 'https://www.mento.org'];
+  const allowedOrigins = [
+    'https://mento.org',
+    'https://www.mento.org',
+    'https://mento-analytics-api-12390052758.us-central1.run.app/',
+  ];
 
   // Add localhost for development if NODE_ENV is development
   if (process.env.NODE_ENV === 'development') {
