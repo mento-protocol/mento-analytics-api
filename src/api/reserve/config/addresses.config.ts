@@ -38,7 +38,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Reserve Custody Multisig',
-    assets: ['ETH', 'WBTC', 'stETH', 'EURC', 'sDAI', 'USDC'],
+    assets: ['ETH', 'WBTC', 'stETH', 'EURC', 'USDC', 'sUSDS'],
     description: 'Main Mento reserve holding collateral assets on Ethereum',
   },
   {

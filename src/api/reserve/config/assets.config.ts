@@ -102,6 +102,19 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 18,
       address: '0x83F20F44975D03b1b09e64809B757c47f942BEeA',
     },
+    sUSDS: {
+      symbol: 'sUSDS',
+      name: 'Savings USDS',
+      decimals: 18,
+      address: '0xa3931d71877c0e7a3148cb7eb4463524fec27fbd',
+      rateSymbol: 'USDS', // TODO: change to sUSDS once added to coinmarketcap
+    },
+    USDS: {
+      symbol: 'USDS',
+      name: 'USDS Stablecoin',
+      decimals: 18,
+      address: '0xdc035d45d973e3ec169d2276ddab16f1e407384f',
+    },
     USDC: {
       symbol: 'USDC',
       name: 'USD Coin',
