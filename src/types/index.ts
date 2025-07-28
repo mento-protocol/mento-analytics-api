@@ -104,6 +104,8 @@ export const ASSET_SYMBOLS = {
   USDGLO: 'USDGLO',
   WETH: 'WETH',
   sDAI: 'sDAI',
+  sUSDS: 'sUSDS',
+  USDS: 'USDS',
   stEUR: 'stEUR',
   axlEUROC: 'axlEUROC',
 } as const;
