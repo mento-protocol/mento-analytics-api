@@ -15,6 +15,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'https://mento.org',
     'https://www.mento.org',
+    'https://staging.mento.org',
     'https://mento-analytics-api-12390052758.us-central1.run.app',
   ];
 
