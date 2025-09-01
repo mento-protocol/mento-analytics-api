@@ -145,7 +145,7 @@ export class CacheWarmerService implements OnModuleInit {
   private async warmReserveEndpointsForChain(chain: Chain) {
     try {
       // Get chain-specific holdings
-      const chainSpecificHoldings = await this.reserveService.getReserveHoldingsForChain(chain);
+      const chainSpecificHoldings = await this.reserveService.getReserveHoldingsByChain(chain);
 
       // Update chain-specific cache
       await this.cacheService.set(CACHE_KEYS.RESERVE_HOLDINGS_FOR_CHAIN(chain), chainSpecificHoldings);
