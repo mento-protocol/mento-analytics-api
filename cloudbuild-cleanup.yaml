@@ -1,0 +1,96 @@
+# Cloud Build configuration for cleaning up preview deployments
+# This file defines the process for deleting branch-specific preview environments
+
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _PLATFORM: managed
+  _SERVICE_NAME_PREFIX: analytics-api-preview
+  # BRANCH_NAME will be provided by the trigger
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+
+steps:
+  # Step 1: Generate the service name from branch name
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'generate-service-name'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Convert branch name to a safe service name (must match the logic in cloudbuild-preview.yaml)
+        SAFE_BRANCH=$(echo "$BRANCH_NAME" | \
+          sed 's/[^a-zA-Z0-9-]/-/g' | \
+          tr '[:upper:]' '[:lower:]' | \
+          sed 's/^-//;s/-$//' | \
+          sed 's/--*/-/g' | \
+          cut -c1-40)
+        
+        # Create the full service name
+        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-${SAFE_BRANCH}"
+        
+        # Save for later steps
+        echo "$SERVICE_NAME" > /workspace/service_name.txt
+        echo "Service to delete: $SERVICE_NAME"
+
+  # Step 2: Delete the Cloud Run service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'delete-service'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$(cat /workspace/service_name.txt)
+        
+        # Check if service exists
+        if gcloud run services describe "$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --region=${_DEPLOY_REGION} \
+          --project=${PROJECT_ID} >/dev/null 2>&1; then
+          
+          echo "Deleting preview service: $SERVICE_NAME"
+          
+          gcloud run services delete "$SERVICE_NAME" \
+            --platform=${_PLATFORM} \
+            --region=${_DEPLOY_REGION} \
+            --project=${PROJECT_ID} \
+            --quiet
+          
+          echo "Successfully deleted preview service: $SERVICE_NAME"
+        else
+          echo "Preview service not found: $SERVICE_NAME (may have been already deleted)"
+        fi
+
+  # Step 3: Clean up old container images (optional, helps manage storage costs)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'cleanup-images'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # List and delete old images for this branch (keep only the last 3)
+        IMAGES=$(gcloud container images list-tags \
+          $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/${_SERVICE_NAME_PREFIX} \
+          --filter="tags:${BRANCH_NAME}-*" \
+          --format="get(digest)" \
+          --sort-by="~timestamp" | tail -n +4)
+        
+        if [ ! -z "$IMAGES" ]; then
+          echo "Cleaning up old container images for branch: $BRANCH_NAME"
+          for IMAGE in $IMAGES; do
+            echo "Deleting image: $IMAGE"
+            gcloud container images delete \
+              "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/${_SERVICE_NAME_PREFIX}@$IMAGE" \
+              --quiet || true
+          done
+        else
+          echo "No old images to clean up for branch: $BRANCH_NAME"
+        fi
+
+# Tags for this build
+tags:
+  - 'preview-cleanup'
+  - '${BRANCH_NAME}'
+
+timeout: '300s'

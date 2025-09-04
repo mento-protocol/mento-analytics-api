@@ -1,0 +1,136 @@
+# Cloud Build configuration for preview deployments
+# This file defines the build and deployment process for branch-specific preview environments
+
+substitutions:
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_PROJECT_ID: mento-prod
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _DEPLOY_REGION: us-central1
+  _PLATFORM: managed
+  _SERVICE_NAME_PREFIX: analytics-api-preview
+  _SENTRY_ORG: mento-labs
+  _SENTRY_PROJECT: analytics-api
+  # BRANCH_NAME and SHORT_SHA will be provided by the trigger
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+
+steps:
+  # Step 1: Generate a safe service name from branch name
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'generate-service-name'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
+        # Limit to 63 characters (Cloud Run service name limit)
+        SAFE_BRANCH=$(echo "$BRANCH_NAME" | \
+          sed 's/[^a-zA-Z0-9-]/-/g' | \
+          tr '[:upper:]' '[:lower:]' | \
+          sed 's/^-//;s/-$//' | \
+          sed 's/--*/-/g' | \
+          cut -c1-40)
+        
+        # Create the full service name
+        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-${SAFE_BRANCH}"
+        
+        # Save for later steps
+        echo "$SERVICE_NAME" > /workspace/service_name.txt
+        echo "Preview service name: $SERVICE_NAME"
+
+  # Step 2: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME_PREFIX}:${BRANCH_NAME}-${SHORT_SHA}'
+      - '--build-arg'
+      - 'RELEASE_VERSION=${BRANCH_NAME}-${SHORT_SHA}'
+      - '.'
+      - '-f'
+      - 'Dockerfile'
+
+  # Step 3: Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push'
+    args:
+      - 'push'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME_PREFIX}:${BRANCH_NAME}-${SHORT_SHA}'
+
+  # Step 4: Deploy to Cloud Run (create or update preview service)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'deploy'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$(cat /workspace/service_name.txt)
+        
+        # Check if service exists
+        if gcloud run services describe "$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --region=${_DEPLOY_REGION} \
+          --project=${PROJECT_ID} >/dev/null 2>&1; then
+          echo "Updating existing preview service: $SERVICE_NAME"
+          ACTION="update"
+        else
+          echo "Creating new preview service: $SERVICE_NAME"
+          ACTION="deploy"
+        fi
+        
+        # Deploy or update the service
+        gcloud run $ACTION "$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME_PREFIX}:${BRANCH_NAME}-${SHORT_SHA} \
+          --labels=managed-by=preview-deployments,branch=$BRANCH_NAME,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID \
+          --region=${_DEPLOY_REGION} \
+          --project=${PROJECT_ID} \
+          --allow-unauthenticated \
+          --memory=512Mi \
+          --cpu=1 \
+          --timeout=300 \
+          --max-instances=3 \
+          --set-env-vars="RELEASE_VERSION=${BRANCH_NAME}-${SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=$BRANCH_NAME"
+
+  # Step 5: Get the service URL and save it
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'get-url'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$(cat /workspace/service_name.txt)
+        
+        # Get the service URL
+        SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --region=${_DEPLOY_REGION} \
+          --project=${PROJECT_ID} \
+          --format='value(status.url)')
+        
+        echo "Preview URL: $SERVICE_URL"
+        echo "$SERVICE_URL" > /workspace/preview_url.txt
+        
+        # Also save deployment info for GitHub
+        cat > /workspace/deployment_info.json << EOF
+        {
+          "service_name": "$SERVICE_NAME",
+          "preview_url": "$SERVICE_URL",
+          "branch": "$BRANCH_NAME",
+          "commit": "$COMMIT_SHA",
+          "short_sha": "$SHORT_SHA",
+          "build_id": "$BUILD_ID",
+          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        }
+        EOF
+
+# Tags for this build
+tags:
+  - 'preview-deployment'
+  - '${BRANCH_NAME}'
+
+timeout: '600s'

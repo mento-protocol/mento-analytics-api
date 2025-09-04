@@ -124,13 +124,23 @@ Reserve assets are fetched directly from the blockchain using the Mento SDK. How
 
 The Mento Analytics API is automatically deployed to Google Cloud Run when changes are committed to the `main` branch.
 
-### Deployment Process
+### Production Deployment
 
 1. When code is pushed or merged to the `main` branch, a CI/CD pipeline is triggered
 2. The pipeline builds a Docker container using the Dockerfile in the repository
 3. The container is pushed to Google Container Registry
 4. The new container is deployed to Cloud Run, replacing the previous version
 5. Deployment status can be monitored in the Google Cloud Console
+
+### Preview Deployments
+
+Every push to a branch or pull request automatically creates a preview deployment, similar to Vercel's preview feature:
+
+- **Automatic**: Each branch gets its own isolated Cloud Run service
+- **PR Integration**: Pull requests receive comments with preview URLs
+- **Auto-cleanup**: Preview deployments are deleted when PRs are merged/closed
+
+See [Preview Deployments Documentation](docs/preview-deployments.md) for setup and usage details.
 
 ## Monitoring & Logs
 
