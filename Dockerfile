@@ -28,7 +28,9 @@ FROM node:18-alpine AS production
 
 # Default to production, but allow override via --build-arg or at runtime
 ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV} PORT=8080
+ARG RELEASE_VERSION=unknown
+ENV NODE_ENV=${NODE_ENV}
+ENV RELEASE_VERSION=${RELEASE_VERSION}
 
 WORKDIR /app
 

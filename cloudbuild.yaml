@@ -1,0 +1,132 @@
+# Cloud Build configuration for Mento Analytics API
+# This file defines the build and deployment process with Sentry release integration
+
+substitutions:
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_PROJECT_ID: mento-prod
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _DEPLOY_REGION: us-central1
+  _PLATFORM: managed
+  _SERVICE_NAME: mento-analytics-api
+  _SENTRY_ORG: mento-labs
+  _SENTRY_PROJECT: analytics-api
+  # _TRIGGER_ID will be automatically provided when run via Cloud Build trigger
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build'
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '--build-arg'
+      - 'RELEASE_VERSION=$COMMIT_SHA'
+      - '.'
+      - '-f'
+      - 'Dockerfile'
+
+  # Step 2: Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push'
+    args:
+      - 'push'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA'
+
+  # Step 3: Create Sentry release and upload source maps
+  - name: 'node:22-alpine'
+    id: 'sentry-release'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        # Install dependencies needed for Sentry CLI
+        npm install -g pnpm @nestjs/cli
+        pnpm install --prod
+        
+        # Build the application to generate source maps
+        pnpm run build
+        
+        
+        # Create a new release in Sentry
+        npx @sentry/cli releases new $COMMIT_SHA \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT}
+        
+        # Upload source maps to Sentry
+        npx @sentry/cli releases files $COMMIT_SHA upload-sourcemaps ./dist \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT} \
+          --url-prefix "~/dist"
+        
+        # Set commits for the release (requires repo integration)
+        npx @sentry/cli releases set-commits $COMMIT_SHA --auto \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT} || true
+        
+        # Finalize the release
+        npx @sentry/cli releases finalize $COMMIT_SHA \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT}
+        
+        # Clean up source maps from the build output
+        find ./dist -name "*.map" -type f -delete
+    secretEnv: ['SENTRY_AUTH_TOKEN']
+
+  # Step 4: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - '${_SERVICE_NAME}'
+      - '--platform=managed'
+      - '--image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID'
+      - '--region=${_DEPLOY_REGION}'
+      - '--quiet'
+      - '--set-env-vars'
+      - 'RELEASE_VERSION=$COMMIT_SHA'
+
+  # Step 5: Mark deployment in Sentry
+  - name: 'node:22-alpine'
+    id: 'sentry-deploy'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        npm install -g @sentry/cli
+        
+        
+        # Mark the release as deployed
+        npx @sentry/cli releases deploys $COMMIT_SHA new \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT} \
+          --env production \
+          --name "Cloud Run Deployment"
+    secretEnv: ['SENTRY_AUTH_TOKEN']
+
+# Define secrets to be used
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/sentry-auth-token/versions/latest
+      env: 'SENTRY_AUTH_TOKEN'
+
+# Artifacts to be uploaded
+images:
+  - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA'
+
+# Tags for this build
+tags:
+  - 'gcp-cloud-build-deploy-cloud-run'
+  - 'gcp-cloud-build-deploy-cloud-run-managed'
+  - '${_SERVICE_NAME}'
+
+timeout: '600s'

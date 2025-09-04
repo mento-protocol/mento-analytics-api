@@ -150,6 +150,16 @@ The Mento Analytics API is automatically deployed to Google Cloud Run when chang
 - Sentry error tracking: [View Issues](https://mento-labs.sentry.io/issues/?project=4508518701268992&statsPeriod=14d)
 - Health checks: `/health` endpoint
 
+### Sentry Releases
+
+The API integrates with Sentry for enhanced error tracking:
+
+- Automatic source map uploads during deployment
+- Release tracking for issue resolution
+- Deployment tracking in Sentry
+
+See [Sentry Releases Documentation](docs/sentry-releases.md) for setup and usage details.
+
 ## Contributing
 
 1. Fork the repository
