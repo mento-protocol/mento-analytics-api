@@ -10,7 +10,7 @@ substitutions:
   _SERVICE_NAME_PREFIX: analytics-api-preview
   _SENTRY_ORG: mento-labs
   _SENTRY_PROJECT: analytics-api
-  # _BRANCH_NAME, _SHORT_SHA, and _COMMIT_SHA will be provided by the trigger
+  # _BRANCH_NAME, _BRANCH_TAG, _SHORT_SHA, and _COMMIT_SHA will be provided by the trigger
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -141,5 +141,6 @@ steps:
 # Tags for this build
 tags:
   - 'preview-deployment'
+  - '${_BRANCH_TAG}'
 
 timeout: '600s'

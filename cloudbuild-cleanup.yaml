@@ -5,7 +5,7 @@ substitutions:
   _DEPLOY_REGION: us-central1
   _PLATFORM: managed
   _SERVICE_NAME_PREFIX: analytics-api-preview
-  # _BRANCH_NAME will be provided by the trigger
+  # _BRANCH_NAME and _BRANCH_TAG will be provided by the trigger
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -93,5 +93,6 @@ steps:
 # Tags for this build
 tags:
   - 'preview-cleanup'
+  - '${_BRANCH_TAG}'
 
 timeout: '300s'
