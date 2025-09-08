@@ -141,6 +141,5 @@ steps:
 # Tags for this build
 tags:
   - 'preview-deployment'
-  - '${_BRANCH_NAME}'
 
 timeout: '600s'

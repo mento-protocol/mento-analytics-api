@@ -154,6 +154,10 @@ In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent C
 - Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
 - Cloud Build substitutions remain as `${_VARIABLE_NAME}`
 
+### Cloud Build Tags
+
+Cloud Build tags must match the format `^[\w][\w.-]{0,127}$` (alphanumeric, dots, hyphens, underscores only). Branch names with slashes cannot be used as tags directly.
+
 ## Management Scripts
 
 Use the `preview-deployments.sh` script for manual management:

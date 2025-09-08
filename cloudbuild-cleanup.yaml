@@ -93,6 +93,5 @@ steps:
 # Tags for this build
 tags:
   - 'preview-cleanup'
-  - '${_BRANCH_NAME}'
 
 timeout: '300s'
