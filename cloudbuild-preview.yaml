@@ -47,9 +47,9 @@ steps:
       - 'build'
       - '--no-cache'
       - '-t'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}'
       - '--build-arg'
-      - 'RELEASE_VERSION=${_BRANCH_NAME}-${_SHORT_SHA}'
+      - 'RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}'
       - '.'
       - '-f'
       - 'Dockerfile'
@@ -59,7 +59,7 @@ steps:
     id: 'push'
     args:
       - 'push'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}'
 
   # Step 4: Deploy to Cloud Run (create or update preview service)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -85,7 +85,7 @@ steps:
         # Deploy or update the service
         gcloud run $$ACTION "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
-          --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA} \
+          --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA} \
           --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} \
@@ -94,7 +94,7 @@ steps:
           --cpu=1 \
           --timeout=300 \
           --max-instances=3 \
-          --set-env-vars="RELEASE_VERSION=${_BRANCH_NAME}-${_SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=${_BRANCH_NAME}"
+          --set-env-vars="RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=${_BRANCH_NAME}"
 
   # Step 5: Get the service URL and save it
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'

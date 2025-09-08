@@ -135,8 +135,10 @@ When triggering builds manually or via GitHub Actions, use these substitution va
 Docker images are stored in Artifact Registry without subdirectories:
 
 ```
-us-central1-docker.pkg.dev/mento-prod/cloud-run-source-deploy/analytics-api-preview:{branch}-{short-sha}
+us-central1-docker.pkg.dev/mento-prod/cloud-run-source-deploy/analytics-api-preview:{sanitized-branch}-{short-sha}
 ```
+
+Note: Branch names are sanitized (slashes replaced with hyphens) for Docker tag compatibility.
 
 ### Build Optimization
 
