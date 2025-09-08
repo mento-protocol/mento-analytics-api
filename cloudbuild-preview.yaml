@@ -26,7 +26,7 @@ steps:
       - |
         # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
         # Limit to 63 characters (Cloud Run service name limit)
-        SAFE_BRANCH=$(echo "${_BRANCH_NAME}" | \
+        SAFE_BRANCH=$$(echo "${_BRANCH_NAME}" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
@@ -37,8 +37,8 @@ steps:
         SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH}"
         
         # Save for later steps
-        echo "$$$SERVICE_NAME" > /workspace/service_name.txt
-        echo "Preview service name: $$$SERVICE_NAME"
+        echo "$$SERVICE_NAME" > /workspace/service_name.txt
+        echo "Preview service name: $$SERVICE_NAME"
 
   # Step 2: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
@@ -71,7 +71,7 @@ steps:
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
         
         # Check if service exists
-        if gcloud run services describe "$$$SERVICE_NAME" \
+        if gcloud run services describe "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} >/dev/null 2>&1; then
@@ -106,7 +106,7 @@ steps:
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
         
         # Get the service URL
-        SERVICE_URL=$(gcloud run services describe "$$SERVICE_NAME" \
+        SERVICE_URL=$$(gcloud run services describe "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} \
@@ -116,17 +116,27 @@ steps:
         echo "$$SERVICE_URL" > /workspace/preview_url.txt
         
         # Also save deployment info for GitHub
-        cat > /workspace/deployment_info.json << EOF
+        TIMESTAMP=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        cat > /workspace/deployment_info.json << 'EOF'
         {
-          "service_name": "$$SERVICE_NAME",
-          "preview_url": "$$SERVICE_URL",
-          "branch": "${_BRANCH_NAME}",
-          "commit": "${_COMMIT_SHA}",
-          "short_sha": "${_SHORT_SHA}",
-          "build_id": "${BUILD_ID}",
-          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          "service_name": "SERVICE_NAME_PLACEHOLDER",
+          "preview_url": "SERVICE_URL_PLACEHOLDER",
+          "branch": "BRANCH_NAME_PLACEHOLDER",
+          "commit": "COMMIT_SHA_PLACEHOLDER",
+          "short_sha": "SHORT_SHA_PLACEHOLDER",
+          "build_id": "BUILD_ID_PLACEHOLDER",
+          "timestamp": "TIMESTAMP_PLACEHOLDER"
         }
         EOF
+        
+        # Replace placeholders with actual values
+        sed -i "s|SERVICE_NAME_PLACEHOLDER|$$SERVICE_NAME|g" /workspace/deployment_info.json
+        sed -i "s|SERVICE_URL_PLACEHOLDER|$$SERVICE_URL|g" /workspace/deployment_info.json
+        sed -i "s|BRANCH_NAME_PLACEHOLDER|${_BRANCH_NAME}|g" /workspace/deployment_info.json
+        sed -i "s|COMMIT_SHA_PLACEHOLDER|${_COMMIT_SHA}|g" /workspace/deployment_info.json
+        sed -i "s|SHORT_SHA_PLACEHOLDER|${_SHORT_SHA}|g" /workspace/deployment_info.json
+        sed -i "s|BUILD_ID_PLACEHOLDER|${BUILD_ID}|g" /workspace/deployment_info.json
+        sed -i "s|TIMESTAMP_PLACEHOLDER|$$TIMESTAMP|g" /workspace/deployment_info.json
 
 # Tags for this build
 tags:
