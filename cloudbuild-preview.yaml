@@ -10,7 +10,7 @@ substitutions:
   _SERVICE_NAME_PREFIX: analytics-api-preview
   _SENTRY_ORG: mento-labs
   _SENTRY_PROJECT: analytics-api
-  # BRANCH_NAME and SHORT_SHA will be provided by the trigger
+  # _BRANCH_NAME, _SHORT_SHA, and _COMMIT_SHA will be provided by the trigger
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -26,7 +26,7 @@ steps:
       - |
         # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
         # Limit to 63 characters (Cloud Run service name limit)
-        SAFE_BRANCH=$(echo "$BRANCH_NAME" | \
+        SAFE_BRANCH=$(echo "${_BRANCH_NAME}" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
@@ -47,9 +47,9 @@ steps:
       - 'build'
       - '--no-cache'
       - '-t'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME_PREFIX}:${BRANCH_NAME}-${SHORT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA}'
       - '--build-arg'
-      - 'RELEASE_VERSION=${BRANCH_NAME}-${SHORT_SHA}'
+      - 'RELEASE_VERSION=${_BRANCH_NAME}-${_SHORT_SHA}'
       - '.'
       - '-f'
       - 'Dockerfile'
@@ -59,7 +59,7 @@ steps:
     id: 'push'
     args:
       - 'push'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME_PREFIX}:${BRANCH_NAME}-${SHORT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA}'
 
   # Step 4: Deploy to Cloud Run (create or update preview service)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -85,8 +85,8 @@ steps:
         # Deploy or update the service
         gcloud run $ACTION "$SERVICE_NAME" \
           --platform=${_PLATFORM} \
-          --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME_PREFIX}:${BRANCH_NAME}-${SHORT_SHA} \
-          --labels=managed-by=preview-deployments,branch=$BRANCH_NAME,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID \
+          --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA} \
+          --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA},gcb-build-id=$BUILD_ID \
           --region=${_DEPLOY_REGION} \
           --project=${PROJECT_ID} \
           --allow-unauthenticated \
@@ -94,7 +94,7 @@ steps:
           --cpu=1 \
           --timeout=300 \
           --max-instances=3 \
-          --set-env-vars="RELEASE_VERSION=${BRANCH_NAME}-${SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=$BRANCH_NAME"
+          --set-env-vars="RELEASE_VERSION=${_BRANCH_NAME}-${_SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=${_BRANCH_NAME}"
 
   # Step 5: Get the service URL and save it
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -120,9 +120,9 @@ steps:
         {
           "service_name": "$SERVICE_NAME",
           "preview_url": "$SERVICE_URL",
-          "branch": "$BRANCH_NAME",
-          "commit": "$COMMIT_SHA",
-          "short_sha": "$SHORT_SHA",
+          "branch": "${_BRANCH_NAME}",
+          "commit": "${_COMMIT_SHA}",
+          "short_sha": "${_SHORT_SHA}",
           "build_id": "$BUILD_ID",
           "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         }
@@ -131,6 +131,6 @@ steps:
 # Tags for this build
 tags:
   - 'preview-deployment'
-  - '${BRANCH_NAME}'
+  - '${_BRANCH_NAME}'
 
 timeout: '600s'

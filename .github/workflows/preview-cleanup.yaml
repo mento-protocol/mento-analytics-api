@@ -67,7 +67,7 @@ jobs:
         
         BUILD_ID=$(gcloud builds submit \
           --config=cloudbuild-cleanup.yaml \
-          --substitutions=BRANCH_NAME=${{ env.BRANCH_NAME }} \
+          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }} \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(id)" \
           --async)
