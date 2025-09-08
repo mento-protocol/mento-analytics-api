@@ -34,11 +34,11 @@ steps:
           cut -c1-40)
         
         # Create the full service name
-        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-${SAFE_BRANCH}"
+        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH}"
         
         # Save for later steps
-        echo "$SERVICE_NAME" > /workspace/service_name.txt
-        echo "Preview service name: $SERVICE_NAME"
+        echo "$$$SERVICE_NAME" > /workspace/service_name.txt
+        echo "Preview service name: $$$SERVICE_NAME"
 
   # Step 2: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
@@ -68,27 +68,27 @@ steps:
     args:
       - '-c'
       - |
-        SERVICE_NAME=$(cat /workspace/service_name.txt)
+        SERVICE_NAME=$$(cat /workspace/service_name.txt)
         
         # Check if service exists
-        if gcloud run services describe "$SERVICE_NAME" \
+        if gcloud run services describe "$$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --region=${_DEPLOY_REGION} \
-          --project=${PROJECT_ID} >/dev/null 2>&1; then
-          echo "Updating existing preview service: $SERVICE_NAME"
+          --project=${_AR_PROJECT_ID} >/dev/null 2>&1; then
+          echo "Updating existing preview service: $$SERVICE_NAME"
           ACTION="update"
         else
-          echo "Creating new preview service: $SERVICE_NAME"
+          echo "Creating new preview service: $$SERVICE_NAME"
           ACTION="deploy"
         fi
         
         # Deploy or update the service
-        gcloud run $ACTION "$SERVICE_NAME" \
+        gcloud run $$ACTION "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_NAME}-${_SHORT_SHA} \
-          --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA},gcb-build-id=$BUILD_ID \
+          --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA} \
           --region=${_DEPLOY_REGION} \
-          --project=${PROJECT_ID} \
+          --project=${_AR_PROJECT_ID} \
           --allow-unauthenticated \
           --memory=512Mi \
           --cpu=1 \
@@ -103,27 +103,27 @@ steps:
     args:
       - '-c'
       - |
-        SERVICE_NAME=$(cat /workspace/service_name.txt)
+        SERVICE_NAME=$$(cat /workspace/service_name.txt)
         
         # Get the service URL
-        SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
+        SERVICE_URL=$(gcloud run services describe "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --region=${_DEPLOY_REGION} \
-          --project=${PROJECT_ID} \
+          --project=${_AR_PROJECT_ID} \
           --format='value(status.url)')
         
-        echo "Preview URL: $SERVICE_URL"
-        echo "$SERVICE_URL" > /workspace/preview_url.txt
+        echo "Preview URL: $$SERVICE_URL"
+        echo "$$SERVICE_URL" > /workspace/preview_url.txt
         
         # Also save deployment info for GitHub
         cat > /workspace/deployment_info.json << EOF
         {
-          "service_name": "$SERVICE_NAME",
-          "preview_url": "$SERVICE_URL",
+          "service_name": "$$SERVICE_NAME",
+          "preview_url": "$$SERVICE_URL",
           "branch": "${_BRANCH_NAME}",
           "commit": "${_COMMIT_SHA}",
           "short_sha": "${_SHORT_SHA}",
-          "build_id": "$BUILD_ID",
+          "build_id": "${BUILD_ID}",
           "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         }
         EOF

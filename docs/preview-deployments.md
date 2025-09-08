@@ -147,6 +147,13 @@ A `.gcloudignore` file is used to exclude unnecessary files from the build uploa
 - `dist/` and other build outputs
 - Development and documentation files
 
+### Variable Escaping in Cloud Build
+
+In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent Cloud Build from interpreting them as substitution variables:
+- Use `$$SERVICE_NAME` instead of `$SERVICE_NAME`
+- Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
+- Cloud Build substitutions remain as `${_VARIABLE_NAME}`
+
 ## Management Scripts
 
 Use the `preview-deployments.sh` script for manual management:
