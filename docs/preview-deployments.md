@@ -120,6 +120,33 @@ Preview deployments include these additional environment variables:
 - `PREVIEW_BRANCH={branch-name}`
 - `RELEASE_VERSION={branch-name}-{short-sha}`
 
+## Technical Details
+
+### Cloud Build Substitutions
+
+When triggering builds manually or via GitHub Actions, use these substitution variables (prefixed with `_`):
+
+- `_BRANCH_NAME`: The Git branch name
+- `_SHORT_SHA`: First 7 characters of the commit SHA
+- `_COMMIT_SHA`: Full commit SHA
+
+### Image Storage
+
+Docker images are stored in Artifact Registry without subdirectories:
+
+```
+us-central1-docker.pkg.dev/mento-prod/cloud-run-source-deploy/analytics-api-preview:{branch}-{short-sha}
+```
+
+### Build Optimization
+
+A `.gcloudignore` file is used to exclude unnecessary files from the build upload, including:
+
+- `node_modules/` (will be installed during build)
+- `.git/` and `.github/`
+- `dist/` and other build outputs
+- Development and documentation files
+
 ## Management Scripts
 
 Use the `preview-deployments.sh` script for manual management:
