@@ -60,6 +60,12 @@ jobs:
     - name: Trigger Cloud Build
       id: build
       run: |
+        echo "Debug: Substitution values being passed:"
+        echo "  _BRANCH_NAME=${{ env.BRANCH_NAME }}"
+        echo "  _BRANCH_TAG=${{ env.SAFE_BRANCH }}"
+        echo "  _SHORT_SHA=${GITHUB_SHA::7}"
+        echo "  _COMMIT_SHA=${{ github.sha }}"
+        
         BUILD_ID=$(gcloud builds submit \
           --config=cloudbuild-preview.yaml \
           --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH }},_SHORT_SHA=${GITHUB_SHA::7},_COMMIT_SHA=${{ github.sha }} \

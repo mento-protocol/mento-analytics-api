@@ -10,7 +10,11 @@ substitutions:
   _SERVICE_NAME_PREFIX: analytics-api-preview
   _SENTRY_ORG: mento-labs
   _SENTRY_PROJECT: analytics-api
-  # _BRANCH_NAME, _BRANCH_TAG, _SHORT_SHA, and _COMMIT_SHA will be provided by the trigger
+  # The following will be provided by the trigger/command line
+  _BRANCH_NAME: ${_BRANCH_NAME}
+  _BRANCH_TAG: ${_BRANCH_TAG}
+  _SHORT_SHA: ${_SHORT_SHA}
+  _COMMIT_SHA: ${_COMMIT_SHA}
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -40,7 +44,21 @@ steps:
         echo "$$SERVICE_NAME" > /workspace/service_name.txt
         echo "Preview service name: $$SERVICE_NAME"
 
-  # Step 2: Build the Docker image
+  # Step 2: Debug substitutions
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'debug-substitutions'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Debug: Substitution values"
+        echo "_BRANCH_NAME: ${_BRANCH_NAME}"
+        echo "_BRANCH_TAG: ${_BRANCH_TAG}"
+        echo "_SHORT_SHA: ${_SHORT_SHA}"
+        echo "_COMMIT_SHA: ${_COMMIT_SHA}"
+        echo "Docker tag will be: ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}"
+
+  # Step 3: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build'
     args:
@@ -54,14 +72,14 @@ steps:
       - '-f'
       - 'Dockerfile'
 
-  # Step 3: Push the Docker image to Artifact Registry
+  # Step 4: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push'
     args:
       - 'push'
       - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}'
 
-  # Step 4: Deploy to Cloud Run (create or update preview service)
+  # Step 5: Deploy to Cloud Run (create or update preview service)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'deploy'
     entrypoint: 'bash'
@@ -96,7 +114,7 @@ steps:
           --max-instances=3 \
           --set-env-vars="RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=${_BRANCH_NAME}"
 
-  # Step 5: Get the service URL and save it
+  # Step 6: Get the service URL and save it
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'get-url'
     entrypoint: 'bash'

@@ -5,7 +5,9 @@ substitutions:
   _DEPLOY_REGION: us-central1
   _PLATFORM: managed
   _SERVICE_NAME_PREFIX: analytics-api-preview
-  # _BRANCH_NAME and _BRANCH_TAG will be provided by the trigger
+  # The following will be provided by the trigger/command line
+  _BRANCH_NAME: ${_BRANCH_NAME}
+  _BRANCH_TAG: ${_BRANCH_TAG}
 
 options:
   logging: CLOUD_LOGGING_ONLY
