@@ -1,21 +1,32 @@
 #!/bin/bash
 
 # Centralized environment configuration for preview deployments
-# This reads defaults from .env.example to avoid duplication
+# This copies .env.example to .env and reads from it
 
 # Get the script directory - this script is always in the scripts/ folder
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Parse .env.example and export the API URLs
+# Copy .env.example to .env if it doesn't exist
+if [ ! -f "${PROJECT_ROOT}/.env" ]; then
+    if [ -f "${PROJECT_ROOT}/.env.example" ]; then
+        cp "${PROJECT_ROOT}/.env.example" "${PROJECT_ROOT}/.env"
+        echo "Created .env from .env.example"
+    else
+        echo "Error: .env.example not found at ${PROJECT_ROOT}/.env.example"
+        exit 1
+    fi
+fi
+
+# Parse .env and export the API URLs
 # This reads the file and exports only the API URL variables
-ENV_FILE="${PROJECT_ROOT}/.env.example"
+ENV_FILE="${PROJECT_ROOT}/.env"
 
 if [ -f "$ENV_FILE" ]; then
-    # Export API URLs from .env.example
+    # Export API URLs from .env
     eval $(grep -E '^(BLOCKSTREAM_API_URL|BLOCKCHAIN_INFO_API_URL|EXCHANGE_RATES_API_URL|COINMARKETCAP_API_URL)=' "$ENV_FILE" | sed 's/^/export /')
 else
-    echo "Error: .env.example not found at $ENV_FILE"
+    echo "Error: .env not found at $ENV_FILE"
     exit 1
 fi
 
