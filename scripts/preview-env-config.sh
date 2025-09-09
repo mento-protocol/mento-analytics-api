@@ -18,13 +18,13 @@ if [ ! -f "${PROJECT_ROOT}/.env" ]; then
     fi
 fi
 
-# Parse .env and export the API URLs
-# This reads the file and exports only the API URL variables
+# Parse .env and export all environment variables
+# This reads the file and exports all environment variables (excluding comments and empty lines)
 ENV_FILE="${PROJECT_ROOT}/.env"
 
 if [ -f "$ENV_FILE" ]; then
-    # Export API URLs from .env
-    eval $(grep -E '^(BLOCKSTREAM_API_URL|BLOCKCHAIN_INFO_API_URL|EXCHANGE_RATES_API_URL|COINMARKETCAP_API_URL)=' "$ENV_FILE" | sed 's/^/export /')
+    # Export all non-empty environment variables from .env (excluding comments and empty lines)
+    eval $(grep -E '^[A-Z_][A-Z0-9_]*=' "$ENV_FILE" | sed 's/^/export /')
 else
     echo "Error: .env not found at $ENV_FILE"
     exit 1
@@ -41,16 +41,18 @@ build_env_vars_string() {
     local branch_tag="$2"
     local short_sha="$3"
     
-    cat << EOF
-RELEASE_VERSION=${branch_tag}-${short_sha},\
-ENVIRONMENT=${ENVIRONMENT},\
-PREVIEW_BRANCH=${branch_name},\
-NODE_ENV=${NODE_ENV},\
-BLOCKSTREAM_API_URL=${BLOCKSTREAM_API_URL},\
-BLOCKCHAIN_INFO_API_URL=${BLOCKCHAIN_INFO_API_URL},\
-EXCHANGE_RATES_API_URL=${EXCHANGE_RATES_API_URL},\
-COINMARKETCAP_API_URL=${COINMARKETCAP_API_URL}
-EOF
+    # Start with runtime configuration
+    local env_vars="RELEASE_VERSION=${branch_tag}-${short_sha},ENVIRONMENT=${ENVIRONMENT},PREVIEW_BRANCH=${branch_name},NODE_ENV=${NODE_ENV}"
+    
+    # Add all environment variables from .env file that are currently exported
+    # This dynamically includes all env vars without hardcoding them
+    local env_from_file=$(env | grep -E '^[A-Z_][A-Z0-9_]*=' | grep -vE '^(RELEASE_VERSION|ENVIRONMENT|PREVIEW_BRANCH|NODE_ENV|PATH|HOME|USER|PWD|SHELL|TERM|LANG|LC_|GOOGLE_|GCLOUD_|_)' | sed 's/=/=/g' | tr '\n' ',' | sed 's/,$//')
+    
+    if [ -n "$env_from_file" ]; then
+        env_vars="${env_vars},${env_from_file}"
+    fi
+    
+    echo "$env_vars"
 }
 
 # Export the function so it can be used by sourcing scripts
