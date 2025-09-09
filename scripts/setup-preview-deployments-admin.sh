@@ -184,14 +184,7 @@ create_wif_as_owner() {
     echo "$SA_EMAIL"
     echo ""
     
-    # Save to file
-    cat > github-secrets.txt << EOF
-# GitHub Secrets for Preview Deployments
-WIF_PROVIDER=$WIF_PROVIDER
-WIF_SERVICE_ACCOUNT=$SA_EMAIL
-EOF
-    
-    print_success "Setup complete! GitHub secrets saved to github-secrets.txt"
+    print_success "Setup complete!"
 }
 
 print_instructions() {

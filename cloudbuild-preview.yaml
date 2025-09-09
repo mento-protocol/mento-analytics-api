@@ -88,20 +88,25 @@ steps:
       - |
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
         
+        # Source the centralized environment configuration
+        source ./scripts/preview-env-config.sh
+        
+        # Build the environment variables string
+        ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
+        
         # Check if service exists
         if gcloud run services describe "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} >/dev/null 2>&1; then
           echo "Updating existing preview service: $$SERVICE_NAME"
-          ACTION="update"
         else
           echo "Creating new preview service: $$SERVICE_NAME"
-          ACTION="deploy"
         fi
         
-        # Deploy or update the service
-        gcloud run $$ACTION "$$SERVICE_NAME" \
+        # Deploy the service (this command handles both create and update)
+        # Use preview-specific secrets that are shared across all preview deployments
+        gcloud run deploy "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA} \
           --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA} \
@@ -112,7 +117,8 @@ steps:
           --cpu=1 \
           --timeout=300 \
           --max-instances=3 \
-          --set-env-vars="RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA},ENVIRONMENT=preview,PREVIEW_BRANCH=${_BRANCH_NAME}"
+          --set-env-vars="$$ENV_VARS" \
+          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest"
 
   # Step 6: Get the service URL and save it
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'

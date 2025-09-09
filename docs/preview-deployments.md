@@ -114,13 +114,68 @@ Preview deployments have the following resource constraints:
 
 ## Environment Variables
 
-Preview deployments include these additional environment variables:
+### Required Environment Variables
+
+The application requires these environment variables to run:
+
+- `BLOCKSTREAM_API_URL`: Bitcoin blockchain API (default: `https://blockstream.info/api`)
+- `BLOCKCHAIN_INFO_API_URL`: Alternative Bitcoin API (default: `https://blockchain.info`)
+- `EXCHANGE_RATES_API_URL`: Exchange rates API endpoint
+- `EXCHANGE_RATES_API_KEY`: API key for exchange rates (stored in Secret Manager)
+- `COINMARKETCAP_API_URL`: CoinMarketCap API endpoint
+- `COINMARKETCAP_API_KEY`: API key for CoinMarketCap (stored in Secret Manager)
+
+### Preview-Specific Variables
+
+Preview deployments automatically include:
 
 - `ENVIRONMENT=preview`
 - `PREVIEW_BRANCH={branch-name}`
 - `RELEASE_VERSION={branch-name}-{short-sha}`
+- `NODE_ENV=production`
+
+### API Keys Management
+
+Preview deployments use a **shared secrets approach** following Google Cloud best practices:
+
+- All preview deployments share the same preview-specific secrets
+- Secrets are stored in Google Secret Manager with `-preview` suffix
+- Separate from production secrets for security and quota management
+
+#### One-Time Setup Required
+
+Before preview deployments can work, run the setup script **once**:
+
+```bash
+# Run this once to set up preview secrets
+./scripts/setup-preview-secrets.sh
+
+# Add your test/sandbox API keys
+echo -n 'YOUR_SANDBOX_COINMARKETCAP_KEY' | gcloud secrets versions add coinmarketcap-api-key-preview --data-file=-
+echo -n 'YOUR_TEST_EXCHANGE_RATES_KEY' | gcloud secrets versions add exchange-rates-api-key-preview --data-file=-
+```
+
+#### Best Practices
+
+1. **Use Test/Sandbox Keys**: Get free sandbox keys from:
+   - CoinMarketCap: <https://coinmarketcap.com/api/> (free sandbox environment)
+   - Exchange Rates: <https://exchangeratesapi.io/> (free tier available)
+
+2. **Separate Environments**: Preview secrets are completely separate from production:
+   - `coinmarketcap-api-key-preview` (for all previews)
+   - `coinmarketcap-api-key-prod` (for production only)
+
+3. **Shared Across Previews**: All preview deployments share the same secrets, simplifying management
+
+4. **Automatic Access**: The default compute service account automatically has access
 
 ## Technical Details
+
+### Environment Configuration
+
+- `.env.example` - Source of truth for all default environment variables
+- Local development: Copy `.env.example` to `.env` and update with your keys
+- `scripts/preview-env-config.sh` - Uses the same values for preview deployments
 
 ### Cloud Build Substitutions
 
@@ -152,6 +207,7 @@ A `.gcloudignore` file is used to exclude unnecessary files from the build uploa
 ### Variable Escaping in Cloud Build
 
 In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent Cloud Build from interpreting them as substitution variables:
+
 - Use `$$SERVICE_NAME` instead of `$SERVICE_NAME`
 - Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
 - Cloud Build substitutions remain as `${_VARIABLE_NAME}`

@@ -263,19 +263,7 @@ generate_github_secrets() {
     echo -e "${YELLOW}WIF_SERVICE_ACCOUNT:${NC}"
     echo "$SA_EMAIL"
     echo ""
-    
-    # Save to file
-    cat > github-secrets.txt << EOF
-# GitHub Secrets for Preview Deployments
-# Add these to your repository settings under Settings > Secrets and variables > Actions
-
-WIF_PROVIDER=$WIF_PROVIDER
-
-WIF_SERVICE_ACCOUNT=$SA_EMAIL
-EOF
-    
-    print_success "Secrets saved to github-secrets.txt"
-    
+   
     # If GitHub CLI is available, offer to set secrets
     if [ "$GH_CLI_AVAILABLE" = true ]; then
         echo ""

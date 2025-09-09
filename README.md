@@ -29,13 +29,19 @@ pnpm run start:prod
 
 ### Environment Variables
 
-Create a `.env` file in the root directory:
+Copy the example file and add your API keys:
 
-``` bash
+```bash
 cp .env.example .env
+# Edit .env and add your API keys
 ```
 
-You'll need to obtain API keys for the Coinmarket cap & exchange rates API then add them to your env file
+You'll need to obtain API keys for:
+
+- CoinMarketCap API
+- Exchange Rates API
+
+The `.env.example` file contains all the required environment variables with their default values.
 
 ## Key Features
 
