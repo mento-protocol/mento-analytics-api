@@ -14,7 +14,6 @@ substitutions:
   _BRANCH_TAG: ${_BRANCH_TAG}
   _SHORT_SHA: ${_SHORT_SHA}
   _COMMIT_SHA: ${_COMMIT_SHA}
-  _DOCKER_TAG: ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -44,9 +43,9 @@ steps:
         echo "$$SERVICE_NAME" > /workspace/service_name.txt
         echo "Preview service name: $$SERVICE_NAME"
 
-  # Step 2: Debug substitution values
+  # Step 2: Generate Docker tag (lowercase)
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'debug-substitution-values'
+    id: 'generate-docker-tag'
     entrypoint: 'bash'
     args:
       - '-c'
@@ -56,28 +55,33 @@ steps:
         echo "_BRANCH_TAG: ${_BRANCH_TAG}"
         echo "_SHORT_SHA: ${_SHORT_SHA}"
         echo "_COMMIT_SHA: ${_COMMIT_SHA}"
-        echo "Docker tag will be: ${_DOCKER_TAG}"
+        
+        # Generate lowercase Docker tag
+        DOCKER_TAG="${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:$$(echo "${_BRANCH_TAG}-${_SHORT_SHA}" | tr '[:upper:]' '[:lower:]')"
+        echo "Generated Docker tag: $$DOCKER_TAG"
+        echo "$$DOCKER_TAG" > /workspace/docker_tag.txt
 
   # Step 3: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build'
+    entrypoint: 'bash'
     args:
-      - 'build'
-      - '--no-cache'
-      - '-t'
-      - '${_DOCKER_TAG}'
-      - '--build-arg'
-      - 'RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}'
-      - '.'
-      - '-f'
-      - 'Dockerfile'
+      - '-c'
+      - |
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
+        echo "Building Docker image with tag: $$DOCKER_TAG"
+        docker build --no-cache -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}" . -f Dockerfile
 
   # Step 4: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push'
+    entrypoint: 'bash'
     args:
-      - 'push'
-      - '${_DOCKER_TAG}'
+      - '-c'
+      - |
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
+        echo "Pushing Docker image: $$DOCKER_TAG"
+        docker push "$$DOCKER_TAG"
 
   # Step 5: Deploy to Cloud Run (create or update preview service)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -87,6 +91,7 @@ steps:
       - '-c'
       - |
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
         
         # The source files are already in /workspace from Cloud Build
         # Source the centralized environment configuration
@@ -99,6 +104,8 @@ steps:
         echo "=== Environment variables being set ==="
         echo "$$ENV_VARS" | tr ',' '\n'
         echo "=== End of environment variables ==="
+        
+        echo "Deploying with Docker image: $$DOCKER_TAG"
         
         # Check if service exists
         if gcloud run services describe "$$SERVICE_NAME" \
@@ -114,7 +121,7 @@ steps:
         # Use preview-specific secrets that are shared across all preview deployments
         gcloud run deploy "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
-          --image=${_DOCKER_TAG} \
+          --image="$$DOCKER_TAG" \
           --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} \
