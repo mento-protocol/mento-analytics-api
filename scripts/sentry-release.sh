@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 SENTRY_ORG="${SENTRY_ORG:-mento-labs}"
-SENTRY_PROJECT="${SENTRY_PROJECT:-mento-analytics-api-mc}"
+SENTRY_PROJECT="${SENTRY_PROJECT:-analytics-api}"
 RELEASE_VERSION="${1:-$(git rev-parse HEAD)}"
 
 # Colors for output
