@@ -10,18 +10,18 @@ substitutions:
   _SERVICE_NAME_PREFIX: analytics-api-preview
   _SENTRY_ORG: mento-labs
   _SENTRY_PROJECT: analytics-api
-  # The following will be provided by the trigger/command line
   _BRANCH_NAME: ${_BRANCH_NAME}
   _BRANCH_TAG: ${_BRANCH_TAG}
   _SHORT_SHA: ${_SHORT_SHA}
   _COMMIT_SHA: ${_COMMIT_SHA}
+  _DOCKER_TAG: ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}
 
 options:
   logging: CLOUD_LOGGING_ONLY
   substitutionOption: ALLOW_LOOSE
 
 steps:
-  # Step 1: Generate a safe service name from branch name
+  # Step 1: Generate a safe cloud run service name from the git branch name (lowercase, alphanumeric, hyphens only, no slashes)
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'generate-service-name'
     entrypoint: 'bash'
@@ -30,7 +30,7 @@ steps:
       - |
         # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
         # Limit to 63 characters (Cloud Run service name limit)
-        SAFE_BRANCH=$$(echo "${_BRANCH_NAME}" | \
+        SAFE_BRANCH_NAME=$$(echo "${_BRANCH_NAME}" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
@@ -38,15 +38,15 @@ steps:
           cut -c1-40)
         
         # Create the full service name
-        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH}"
+        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH_NAME}"
         
         # Save for later steps
         echo "$$SERVICE_NAME" > /workspace/service_name.txt
         echo "Preview service name: $$SERVICE_NAME"
 
-  # Step 2: Debug substitutions
+  # Step 2: Debug substitution values
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'debug-substitutions'
+    id: 'debug-substitution-values'
     entrypoint: 'bash'
     args:
       - '-c'
@@ -56,7 +56,7 @@ steps:
         echo "_BRANCH_TAG: ${_BRANCH_TAG}"
         echo "_SHORT_SHA: ${_SHORT_SHA}"
         echo "_COMMIT_SHA: ${_COMMIT_SHA}"
-        echo "Docker tag will be: ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}"
+        echo "Docker tag will be: ${_DOCKER_TAG}"
 
   # Step 3: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
@@ -65,7 +65,7 @@ steps:
       - 'build'
       - '--no-cache'
       - '-t'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}'
+      - '${_DOCKER_TAG}'
       - '--build-arg'
       - 'RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}'
       - '.'
@@ -77,28 +77,9 @@ steps:
     id: 'push'
     args:
       - 'push'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}'
+      - '${_DOCKER_TAG}'
 
-  # Step 5: Build environment variables string
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'build-env-vars'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        # Source the environment configuration
-        source ./scripts/preview-env-config.sh
-        
-        # Build and save the environment variables string
-        ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
-        echo "$$ENV_VARS" > /workspace/env_vars.txt
-        
-        # Debug output
-        echo "=== Environment variables that will be set ==="
-        echo "$$ENV_VARS" | tr ',' '\n'
-        echo "=== End of environment variables ==="
-
-  # Step 6: Deploy to Cloud Run (create or update preview service)
+  # Step 5: Deploy to Cloud Run (create or update preview service)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'deploy'
     entrypoint: 'bash'
@@ -133,7 +114,7 @@ steps:
         # Use preview-specific secrets that are shared across all preview deployments
         gcloud run deploy "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
-          --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA} \
+          --image=${_DOCKER_TAG} \
           --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} \

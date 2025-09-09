@@ -50,14 +50,14 @@ jobs:
         echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
         
         # Generate safe branch name for Cloud Run service
-        SAFE_BRANCH=$(echo "$BRANCH_NAME" | \
+        SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
           sed 's/--*/-/g' | \
           cut -c1-40)
-        echo "SAFE_BRANCH=$SAFE_BRANCH" >> $GITHUB_ENV
-        echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH}" >> $GITHUB_ENV
+        echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
+        echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
 
     - name: Trigger cleanup build
       id: cleanup
@@ -67,7 +67,7 @@ jobs:
         
         BUILD_ID=$(gcloud builds submit \
           --config=cloudbuild-cleanup.yaml \
-          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH }} \
+          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH_NAME }} \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(id)" \
           --async)

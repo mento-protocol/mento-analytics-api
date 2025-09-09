@@ -43,27 +43,27 @@ jobs:
         echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
         
         # Generate safe branch name for Cloud Run service
-        SAFE_BRANCH=$(echo "$BRANCH_NAME" | \
+        SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
           sed 's/--*/-/g' | \
           cut -c1-40)
-        echo "SAFE_BRANCH=$SAFE_BRANCH" >> $GITHUB_ENV
-        echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH}" >> $GITHUB_ENV
+        echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
+        echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
 
     - name: Trigger Cloud Build
       id: build
       run: |
         echo "Debug: Substitution values being passed:"
         echo "  _BRANCH_NAME=${{ env.BRANCH_NAME }}"
-        echo "  _BRANCH_TAG=${{ env.SAFE_BRANCH }}"
+        echo "  _BRANCH_TAG=${{ env.SAFE_BRANCH_NAME }}"
         echo "  _SHORT_SHA=${GITHUB_SHA::7}"
         echo "  _COMMIT_SHA=${{ github.sha }}"
         
         BUILD_ID=$(gcloud builds submit \
           --config=cloudbuild-preview.yaml \
-          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH }},_SHORT_SHA=${GITHUB_SHA::7},_COMMIT_SHA=${{ github.sha }} \
+          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH_NAME }},_SHORT_SHA=${GITHUB_SHA::7},_COMMIT_SHA=${{ github.sha }} \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(id)" \
           --async)

@@ -90,8 +90,8 @@ delete_preview() {
         exit 1
     fi
     
-    local safe_branch=$(get_safe_branch_name "$branch")
-    local service_name="${SERVICE_PREFIX}-${safe_branch}"
+    local safe_branch_name=$(get_safe_branch_name "$branch")
+    local service_name="${SERVICE_PREFIX}-${safe_branch_name}"
     
     echo -e "${YELLOW}Deleting preview deployment: $service_name${NC}"
     
@@ -122,8 +122,8 @@ get_preview_url() {
         exit 1
     fi
     
-    local safe_branch=$(get_safe_branch_name "$branch")
-    local service_name="${SERVICE_PREFIX}-${safe_branch}"
+    local safe_branch_name=$(get_safe_branch_name "$branch")
+    local service_name="${SERVICE_PREFIX}-${safe_branch_name}"
     
     local url=$(gcloud run services describe "$service_name" \
         --platform=managed \

@@ -25,7 +25,7 @@ steps:
       - '-c'
       - |
         # Convert branch name to a safe service name (must match the logic in cloudbuild-preview.yaml)
-        SAFE_BRANCH=$(echo "${_BRANCH_NAME}" | \
+        SAFE_BRANCH_NAME=$(echo "${_BRANCH_NAME}" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
@@ -33,7 +33,7 @@ steps:
           cut -c1-40)
         
         # Create the full service name
-        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH}"
+        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH_NAME}"
         
         # Save for later steps
         echo "$$SERVICE_NAME" > /workspace/service_name.txt
