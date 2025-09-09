@@ -2,6 +2,9 @@
 # This file defines the process for deleting branch-specific preview environments
 
 substitutions:
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_PROJECT_ID: mento-prod
+  _AR_REPOSITORY: cloud-run-source-deploy
   _DEPLOY_REGION: us-central1
   _PLATFORM: managed
   _SERVICE_NAME_PREFIX: analytics-api-preview
@@ -72,16 +75,16 @@ steps:
       - '-c'
       - |
         # List and delete old images for this branch (keep only the last 3)
-        # Note: We need to handle branch names that might contain slashes
-        BRANCH_TAG_PREFIX=$$(echo "${_BRANCH_NAME}" | sed 's/[^a-zA-Z0-9-]/-/g')
+        # Images are tagged with pattern: ${_BRANCH_TAG}-${_SHORT_SHA}
+        # So we filter by the branch tag prefix to find all images for this branch
         IMAGES=$$(gcloud container images list-tags \
           ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX} \
-          --filter="tags:$${BRANCH_TAG_PREFIX}-*" \
+          --filter="tags:${_BRANCH_TAG}-*" \
           --format="get(digest)" \
           --sort-by="~timestamp" | tail -n +4)
         
         if [ ! -z "$$IMAGES" ]; then
-          echo "Cleaning up old container images for branch: ${_BRANCH_NAME}"
+          echo "Cleaning up old container images for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
           for IMAGE in $$IMAGES; do
             echo "Deleting image: $$IMAGE"
             gcloud container images delete \
@@ -89,7 +92,7 @@ steps:
               --quiet || true
           done
         else
-          echo "No old images to clean up for branch: ${_BRANCH_NAME}"
+          echo "No old images to clean up for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
         fi
 
 # Tags for this build
