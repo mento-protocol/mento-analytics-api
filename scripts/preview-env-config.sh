@@ -23,8 +23,8 @@ fi
 ENV_FILE="${PROJECT_ROOT}/.env"
 
 if [ -f "$ENV_FILE" ]; then
-    # Export all non-empty environment variables from .env (excluding comments and empty lines)
-    eval $(grep -E '^[A-Z_][A-Z0-9_]*=' "$ENV_FILE" | sed 's/^/export /')
+    # Export all non-empty environment variables from .env (excluding comments, empty lines, and empty values)
+    eval $(grep -E '^[A-Z_][A-Z0-9_]*=.+$' "$ENV_FILE" | sed 's/^/export /')
 else
     echo "Error: .env not found at $ENV_FILE"
     exit 1
@@ -46,7 +46,8 @@ build_env_vars_string() {
     
     # Add all environment variables from .env file that are currently exported
     # This dynamically includes all env vars without hardcoding them
-    local env_from_file=$(env | grep -E '^[A-Z_][A-Z0-9_]*=' | grep -vE '^(RELEASE_VERSION|ENVIRONMENT|PREVIEW_BRANCH|NODE_ENV|PATH|HOME|USER|PWD|SHELL|TERM|LANG|LC_|GOOGLE_|GCLOUD_|_)' | sed 's/=/=/g' | tr '\n' ',' | sed 's/,$//')
+    # Exclude API keys that are managed as Cloud Run secrets to avoid conflicts
+    local env_from_file=$(env | grep -E '^[A-Z_][A-Z0-9_]*=' | grep -vE '^(RELEASE_VERSION|ENVIRONMENT|PREVIEW_BRANCH|NODE_ENV|PATH|HOME|USER|PWD|SHELL|TERM|LANG|LC_|GOOGLE_|GCLOUD_|_|.*_API_KEY)' | sed 's/=/=/g' | tr '\n' ',' | sed 's/,$//')
     
     if [ -n "$env_from_file" ]; then
         env_vars="${env_vars},${env_from_file}"
