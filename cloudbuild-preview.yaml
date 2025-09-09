@@ -88,15 +88,17 @@ steps:
       - |
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
         
+        # The source files are already in /workspace from Cloud Build
         # Source the centralized environment configuration
-        source ./scripts/preview-env-config.sh
+        cd /workspace && source ./scripts/preview-env-config.sh
         
         # Build the environment variables string
         ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
         
         # Debug: Print the environment variables
-        echo "Environment variables being set:"
+        echo "=== Environment variables being set ==="
         echo "$$ENV_VARS" | tr ',' '\n'
+        echo "=== End of environment variables ==="
         
         # Check if service exists
         if gcloud run services describe "$$SERVICE_NAME" \
