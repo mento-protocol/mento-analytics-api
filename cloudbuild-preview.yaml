@@ -79,7 +79,26 @@ steps:
       - 'push'
       - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:${_BRANCH_TAG}-${_SHORT_SHA}'
 
-  # Step 5: Deploy to Cloud Run (create or update preview service)
+  # Step 5: Build environment variables string
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'build-env-vars'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Source the environment configuration
+        source ./scripts/preview-env-config.sh
+        
+        # Build and save the environment variables string
+        ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
+        echo "$$ENV_VARS" > /workspace/env_vars.txt
+        
+        # Debug output
+        echo "=== Environment variables that will be set ==="
+        echo "$$ENV_VARS" | tr ',' '\n'
+        echo "=== End of environment variables ==="
+
+  # Step 6: Deploy to Cloud Run (create or update preview service)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'deploy'
     entrypoint: 'bash'
