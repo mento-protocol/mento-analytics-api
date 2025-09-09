@@ -3,11 +3,6 @@ name: Preview Deployment
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  push:
-    branches:
-      - '**'
-      - '!main'
-      - '!master'
 
 env:
   GCP_PROJECT_ID: mento-prod
