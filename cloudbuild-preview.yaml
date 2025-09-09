@@ -149,7 +149,7 @@ steps:
           --project=${_AR_PROJECT_ID} \
           --format='value(status.url)')
         
-        echo "Preview URL: $$SERVICE_URL"
+        echo "Preview URL: $$SERVICE_URL/docs"
         echo "$$SERVICE_URL" > /workspace/preview_url.txt
         
         # Also save deployment info for GitHub
