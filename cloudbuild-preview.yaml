@@ -94,6 +94,10 @@ steps:
         # Build the environment variables string
         ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
         
+        # Debug: Print the environment variables
+        echo "Environment variables being set:"
+        echo "$$ENV_VARS" | tr ',' '\n'
+        
         # Check if service exists
         if gcloud run services describe "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
