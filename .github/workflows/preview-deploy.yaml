@@ -70,7 +70,8 @@ jobs:
         echo "Deployment build started with ID: $BUILD_ID"
         
         # Wait for build to complete
-        gcloud builds log $BUILD_ID --stream --project=${{ env.GCP_PROJECT_ID }}
+        # Use beta command for better log streaming
+        gcloud beta builds log "$BUILD_ID" --stream --project=${{ env.GCP_PROJECT_ID }}
 
     - name: Get preview URL
       id: get-url

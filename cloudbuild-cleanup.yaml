@@ -60,14 +60,14 @@ steps:
         if gcloud run services describe "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --region=${_DEPLOY_REGION} \
-          --project=${PROJECT_ID} >/dev/null 2>&1; then
+          --project=${_AR_PROJECT_ID} >/dev/null 2>&1; then
           
           echo "Deleting preview service: $$SERVICE_NAME"
           
           gcloud run services delete "$$SERVICE_NAME" \
             --platform=${_PLATFORM} \
             --region=${_DEPLOY_REGION} \
-            --project=${PROJECT_ID} \
+            --project=${_AR_PROJECT_ID} \
             --quiet
           
           echo "Successfully deleted preview service: $$SERVICE_NAME"
@@ -84,9 +84,10 @@ steps:
       - |
         # List and delete old images for this branch (keep only the last 3)
         # Images are tagged with pattern: ${_BRANCH_TAG}-${_SHORT_SHA}
-        # So we filter by the branch tag prefix to find all images for this branch
-        IMAGES=$$(gcloud container images list-tags \
+        # Use Artifact Registry commands instead of Container Registry
+        IMAGES=$$(gcloud artifacts docker images list \
           ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX} \
+          --include-tags \
           --filter="tags:${_BRANCH_TAG}-*" \
           --format="get(digest)" \
           --sort-by="~timestamp" | tail -n +4)
@@ -95,7 +96,7 @@ steps:
           echo "Cleaning up old container images for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
           for IMAGE in $$IMAGES; do
             echo "Deleting image: $$IMAGE"
-            gcloud container images delete \
+            gcloud artifacts docker images delete \
               "${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}@$$IMAGE" \
               --quiet || true
           done
