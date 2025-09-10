@@ -85,43 +85,71 @@ steps:
     args:
       - '-c'
       - |
+        set -e  # Exit on error for critical operations
+        
+        # Helper function for non-critical operations
+        try_operation() {
+          local operation_name="$1"
+          shift
+          echo "[INFO] Starting: $$operation_name"
+          if "$@"; then
+            echo "[SUCCESS] $$operation_name completed"
+            return 0
+          else
+            echo "[WARNING] $$operation_name failed (non-critical, continuing...)"
+            echo "[WARNING] Command was: $*"
+            return 1
+          fi
+        }
+        
         # Install dependencies needed for Sentry CLI
+        echo "[INFO] Installing dependencies..."
         npm install -g pnpm
         pnpm install
         
         # Build the application to generate source maps
+        echo "[INFO] Building application to generate source maps..."
         pnpm run build
         
-        # Create a new release in Sentry
+        echo "[INFO] Sentry release version: $COMMIT_SHA"
+        
+        # Critical operations - these will fail the build if they fail
+        echo "[INFO] Creating new release in Sentry..."
         npx @sentry/cli releases new $COMMIT_SHA \
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT}
         
-        # Upload source maps to Sentry
+        echo "[INFO] Uploading source maps to Sentry..."
         npx @sentry/cli releases files $COMMIT_SHA upload-sourcemaps ./dist \
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT} \
           --url-prefix "~/dist"
         
-        # Set commits for the release (requires repo integration)
-        npx @sentry/cli releases set-commits $COMMIT_SHA --auto \
+        # Non-critical operations - log but don't fail the build
+        try_operation "Associate commits with release" \
+          npx @sentry/cli releases set-commits $COMMIT_SHA --auto \
           --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT} || true
+          --project ${_SENTRY_PROJECT}
         
-        # Finalize the release
+        # Critical operation
+        echo "[INFO] Finalizing the release..."
         npx @sentry/cli releases finalize $COMMIT_SHA \
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT}
         
         # Clean up source maps from the build output
+        echo "[INFO] Cleaning up source maps..."
         find ./dist -name "*.map" -type f -delete
         
         # Mark the release as deployed to production
+        echo "[INFO] Marking release as deployed to production..."
         npx @sentry/cli releases deploys $COMMIT_SHA new \
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT} \
           --env production \
           --name "Cloud Run Deployment"
+        
+        echo "[SUCCESS] Sentry release process completed for version: $COMMIT_SHA"
     secretEnv: ['SENTRY_AUTH_TOKEN']
 
 # Define secrets to be used
