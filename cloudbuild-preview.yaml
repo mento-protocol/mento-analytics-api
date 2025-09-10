@@ -36,13 +36,14 @@ steps:
       - '-c'
       - |
         # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
-        # Limit to 63 characters (Cloud Run service name limit)
+        # Cloud Run service name limit is 63 characters
+        # Prefix 'analytics-api-preview-' is 22 chars, leaving 41 chars for branch name
         SAFE_BRANCH_NAME=$$(echo "${_BRANCH_NAME}" | \
           sed 's/[^a-zA-Z0-9-]/-/g' | \
           tr '[:upper:]' '[:lower:]' | \
           sed 's/^-//;s/-$//' | \
           sed 's/--*/-/g' | \
-          cut -c1-40)
+          cut -c1-41)
         
         # Create the full service name
         SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH_NAME}"

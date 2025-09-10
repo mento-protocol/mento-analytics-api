@@ -42,6 +42,7 @@ get_current_branch() {
 }
 
 # Convert branch name to safe service name
+# Prefix 'analytics-api-preview-' is 22 chars, leaving 41 chars for branch name
 get_safe_branch_name() {
     local branch=$1
     echo "$branch" | \
@@ -49,7 +50,7 @@ get_safe_branch_name() {
         tr '[:upper:]' '[:lower:]' | \
         sed 's/^-//;s/-$//' | \
         sed 's/--*/-/g' | \
-        cut -c1-40
+        cut -c1-41
 }
 
 # List all preview deployments
