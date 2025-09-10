@@ -1,6 +1,15 @@
 # Cloud Build configuration for Mento Analytics API
 # This file defines the build and deployment process with Sentry release integration
 
+# NOTE: Variable Escaping in Cloud Build
+# In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent Cloud Build from interpreting them as substitution variables:
+# 
+# - Use `$$SERVICE_NAME` instead of `$SERVICE_NAME`
+# - Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
+# - Cloud Build substitutions remain as `${_VARIABLE_NAME}`
+
+
+
 substitutions:
   _AR_HOSTNAME: us-central1-docker.pkg.dev
   _AR_PROJECT_ID: mento-prod
@@ -22,7 +31,6 @@ steps:
     id: 'Build'
     args:
       - 'build'
-      - '--no-cache'
       - '-t'
       - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--build-arg'
@@ -95,15 +103,17 @@ steps:
       - '--set-env-vars'
       - 'RELEASE_VERSION=$COMMIT_SHA'
 
-  # Step 5: Mark deployment in Sentry
+  # Step 5: Mark deployment in Sentry (reuse Sentry CLI from previous step)
   - name: 'node:22-alpine'
     id: 'sentry-deploy'
     entrypoint: 'sh'
     args:
       - '-c'
       - |
-        npm install -g @sentry/cli
-        
+        # Check if Sentry CLI is already installed globally, if not install it
+        if ! command -v sentry-cli >/dev/null 2>&1; then
+          npm install -g @sentry/cli
+        fi
         
         # Mark the release as deployed
         npx @sentry/cli releases deploys $COMMIT_SHA new \

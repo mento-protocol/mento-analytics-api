@@ -1,6 +1,14 @@
 # Cloud Build configuration for cleaning up preview deployments
 # This file defines the process for deleting branch-specific preview environments
 
+# NOTE: Variable Escaping in Cloud Build
+# In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent Cloud Build from interpreting them as substitution variables:
+# 
+# - Use `$$SERVICE_NAME` instead of `$SERVICE_NAME`
+# - Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
+# - Cloud Build substitutions remain as `${_VARIABLE_NAME}`
+
+
 substitutions:
   _AR_HOSTNAME: us-central1-docker.pkg.dev
   _AR_PROJECT_ID: mento-prod

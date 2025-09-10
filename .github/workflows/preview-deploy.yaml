@@ -53,14 +53,11 @@ jobs:
         echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
         echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
 
-    - name: Trigger Cloud Build
+    - name: Trigger Deployment Cloud Build
       id: build
       run: |
-        echo "Debug: Substitution values being passed:"
-        echo "  _BRANCH_NAME=${{ env.BRANCH_NAME }}"
-        echo "  _BRANCH_TAG=${{ env.SAFE_BRANCH_NAME }}"
-        echo "  _SHORT_SHA=${GITHUB_SHA::7}"
-        echo "  _COMMIT_SHA=${{ github.sha }}"
+        echo "Triggering deployment for branch: ${{ env.BRANCH_NAME }}"
+        echo "Service to deploy: ${{ env.SERVICE_NAME }}"
         
         BUILD_ID=$(gcloud builds submit \
           --config=cloudbuild-preview.yaml \
@@ -70,7 +67,7 @@ jobs:
           --async)
         
         echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
-        echo "Build started with ID: $BUILD_ID"
+        echo "Deployment build started with ID: $BUILD_ID"
         
         # Wait for build to complete
         gcloud builds log $BUILD_ID --stream --project=${{ env.GCP_PROJECT_ID }}
@@ -102,6 +99,7 @@ jobs:
         script: |
           const previewUrl = process.env.PREVIEW_URL;
           const serviceName = '${{ env.SERVICE_NAME }}';
+          const prNumber = context.payload.pull_request.number;
           
           // Create deployment
           const deployment = await github.rest.repos.createDeployment({
@@ -111,7 +109,7 @@ jobs:
             task: 'deploy:preview',
             auto_merge: false,
             required_contexts: [],
-            environment: `preview-${context.payload.pull_request.number}`,
+            environment: `preview-${prNumber}`,
             description: 'Preview deployment',
             transient_environment: true,
             production_environment: false
@@ -156,7 +154,7 @@ jobs:
           
           Your preview deployment is ready!
           
-          🔗 **Preview URL**: ${previewUrl}
+          🔗 **Preview URL**: ${previewUrl}/docs
           
           📝 **Details**:
           - Service: \`${serviceName}\`

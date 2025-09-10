@@ -197,6 +197,7 @@ If you encounter permission errors, use the admin setup script:
 ```
 
 This script can:
+
 - Check your current permissions
 - Grant necessary permissions (if run by a Project Owner)
 - Create all resources directly (if you're a Project Owner)
@@ -208,9 +209,11 @@ This script can:
 If you see errors like `Permission 'iam.workloadIdentityPools.create' denied`:
 
 1. **Option 1**: Ask a Project Owner to run the admin setup script:
+
    ```bash
    ./scripts/setup-preview-deployments-admin.sh
    ```
+
    They can either grant you permissions or create the resources directly.
 
 2. **Option 2**: If you're a Project Owner, run the admin script yourself to create resources.

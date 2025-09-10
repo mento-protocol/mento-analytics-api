@@ -10,20 +10,15 @@ We use a **per-environment secrets** approach:
 
 | Environment | Secret Names | Purpose |
 |------------|--------------|---------|
-| Production | `*-prod` | Production API keys with full quotas |
-| Preview | `*-preview` | Shared test/sandbox keys for all preview deployments |
+| Production | `*-prod` | Production secrets with full quotas |
+| Preview | `*-preview` | Shared secrets for all preview deployments |
 | Local Dev | `.env` file | Developer's personal keys |
 
 ## Required Environment Variables
 
 ### API URLs (Public, stored as env vars)
 
-Default values are defined in `.env.example`:
-
-- `BLOCKSTREAM_API_URL`
-- `BLOCKCHAIN_INFO_API_URL`
-- `EXCHANGE_RATES_API_URL`
-- `COINMARKETCAP_API_URL`
+Default values are defined in `.env.example`
 
 ### API Keys (Sensitive, stored in Secret Manager)
 

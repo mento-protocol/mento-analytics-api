@@ -23,16 +23,22 @@ print_usage() {
     echo ""
     echo "Commands:"
     echo "  list                     List all preview deployments"
-    echo "  deploy <branch>          Deploy a preview for a specific branch"
-    echo "  delete <branch>          Delete a preview deployment"
+    echo "  deploy [branch]          Deploy a preview for a branch (defaults to current branch)"
+    echo "  delete [branch]          Delete a preview deployment (defaults to current branch)"
     echo "  cleanup-old [days]       Delete preview deployments older than N days (default: 7)"
-    echo "  get-url <branch>         Get the URL for a preview deployment"
     echo ""
     echo "Examples:"
     echo "  $0 list"
+    echo "  $0 deploy                # Deploy current branch"
     echo "  $0 deploy feature/new-api"
+    echo "  $0 delete                # Delete current branch preview"
     echo "  $0 delete feature/old-api"
     echo "  $0 cleanup-old 14"
+}
+
+# Get current git branch
+get_current_branch() {
+    git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
 }
 
 # Convert branch name to safe service name
@@ -66,28 +72,74 @@ list_previews() {
 # Deploy a preview for a branch
 deploy_preview() {
     local branch=$1
+    
+    # If no branch provided, use current branch with confirmation
     if [ -z "$branch" ]; then
-        echo -e "${RED}Error: Branch name required${NC}"
-        print_usage
-        exit 1
+        branch=$(get_current_branch)
+        if [ -z "$branch" ]; then
+            echo -e "${RED}Error: Could not determine current branch${NC}"
+            print_usage
+            exit 1
+        fi
+        
+        echo -e "${YELLOW}No branch specified. Current branch is: $branch${NC}"
+        read -p "Deploy preview for current branch '$branch'? (y/N) " -n 1 -r
+        echo
+        
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}Deploy cancelled${NC}"
+            exit 0
+        fi
     fi
     
     echo -e "${BLUE}Deploying preview for branch: $branch${NC}"
     
     # Trigger the build
-    gcloud builds submit \
+    local safe_branch_name=$(get_safe_branch_name "$branch")
+    
+    echo -e "${BLUE}Submitting build and streaming logs...${NC}"
+    
+    # Submit build asynchronously to get build ID quickly
+    local build_id=$(gcloud builds submit \
         --config=cloudbuild-preview.yaml \
-        --substitutions=BRANCH_NAME=$branch,SHORT_SHA=$(git rev-parse --short HEAD),COMMIT_SHA=$(git rev-parse HEAD) \
-        --project=$PROJECT_ID
+        --substitutions=_BRANCH_NAME=$branch,_BRANCH_TAG=$safe_branch_name,_SHORT_SHA=$(git rev-parse --short HEAD),_COMMIT_SHA=$(git rev-parse HEAD) \
+        --project=$PROJECT_ID \
+        --async \
+        --format='value(id)')
+    
+    if [ -n "$build_id" ]; then
+        echo -e "${BLUE}Build submitted with ID: $build_id${NC}"
+        echo -e "${BLUE}Streaming build logs...${NC}"
+        
+        # Use beta command for better log streaming
+        gcloud beta builds log "$build_id" --stream --project=$PROJECT_ID
+    else
+        echo -e "${RED}Failed to get build ID${NC}"
+        exit 1
+    fi
 }
 
 # Delete a preview deployment
 delete_preview() {
     local branch=$1
+    
+    # If no branch provided, use current branch with confirmation
     if [ -z "$branch" ]; then
-        echo -e "${RED}Error: Branch name required${NC}"
-        print_usage
-        exit 1
+        branch=$(get_current_branch)
+        if [ -z "$branch" ]; then
+            echo -e "${RED}Error: Could not determine current branch${NC}"
+            print_usage
+            exit 1
+        fi
+        
+        echo -e "${YELLOW}No branch specified. Current branch is: $branch${NC}"
+        read -p "Delete preview for current branch '$branch'? (y/N) " -n 1 -r
+        echo
+        
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}Delete cancelled${NC}"
+            exit 0
+        fi
     fi
     
     local safe_branch_name=$(get_safe_branch_name "$branch")
@@ -110,31 +162,6 @@ delete_preview() {
         echo -e "${GREEN}Successfully deleted preview deployment: $service_name${NC}"
     else
         echo -e "${YELLOW}Preview deployment not found: $service_name${NC}"
-    fi
-}
-
-# Get URL for a preview deployment
-get_preview_url() {
-    local branch=$1
-    if [ -z "$branch" ]; then
-        echo -e "${RED}Error: Branch name required${NC}"
-        print_usage
-        exit 1
-    fi
-    
-    local safe_branch_name=$(get_safe_branch_name "$branch")
-    local service_name="${SERVICE_PREFIX}-${safe_branch_name}"
-    
-    local url=$(gcloud run services describe "$service_name" \
-        --platform=managed \
-        --region=$REGION \
-        --project=$PROJECT_ID \
-        --format='value(status.url)' 2>/dev/null || echo "")
-    
-    if [ -n "$url" ]; then
-        echo -e "${GREEN}Preview URL for branch '$branch': $url${NC}"
-    else
-        echo -e "${RED}No preview deployment found for branch: $branch${NC}"
     fi
 }
 
@@ -190,9 +217,6 @@ case "${1:-}" in
         ;;
     delete)
         delete_preview "${2:-}"
-        ;;
-    get-url)
-        get_preview_url "${2:-}"
         ;;
     cleanup-old)
         cleanup_old_previews "${2:-}"

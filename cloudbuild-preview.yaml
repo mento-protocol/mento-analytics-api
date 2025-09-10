@@ -1,6 +1,14 @@
 # Cloud Build configuration for preview deployments
 # This file defines the build and deployment process for branch-specific preview environments
 
+# NOTE: Variable Escaping in Cloud Build
+# In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent Cloud Build from interpreting them as substitution variables:
+# 
+# - Use `$$SERVICE_NAME` instead of `$SERVICE_NAME`
+# - Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
+# - Cloud Build substitutions remain as `${_VARIABLE_NAME}`
+
+
 substitutions:
   _AR_HOSTNAME: us-central1-docker.pkg.dev
   _AR_PROJECT_ID: mento-prod
@@ -70,7 +78,7 @@ steps:
       - |
         DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
         echo "Building Docker image with tag: $$DOCKER_TAG"
-        docker build --no-cache -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}" . -f Dockerfile
+        docker build -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}" . -f Dockerfile
 
   # Step 4: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -122,14 +130,11 @@ steps:
         gcloud run deploy "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --image="$$DOCKER_TAG" \
-          --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA} \
+          --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA},branch=${_BRANCH_TAG} \
           --region=${_DEPLOY_REGION} \
           --project=${_AR_PROJECT_ID} \
           --allow-unauthenticated \
-          --memory=512Mi \
-          --cpu=1 \
           --timeout=300 \
-          --max-instances=3 \
           --set-env-vars="$$ENV_VARS" \
           --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest"
 
@@ -149,7 +154,7 @@ steps:
           --project=${_AR_PROJECT_ID} \
           --format='value(status.url)')
         
-        echo "Preview URL: $$SERVICE_URL/docs"
+        echo "Preview URL: $$SERVICE_URL"
         echo "$$SERVICE_URL" > /workspace/preview_url.txt
         
         # Also save deployment info for GitHub
@@ -178,6 +183,5 @@ steps:
 # Tags for this build
 tags:
   - 'preview-deployment'
-  - '${_BRANCH_TAG}'
 
 timeout: '600s'

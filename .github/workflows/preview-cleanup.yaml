@@ -3,11 +3,6 @@ name: Preview Cleanup
 on:
   pull_request:
     types: [closed]
-  delete:
-    branches:
-      - '**'
-      - '!main'
-      - '!master'
 
 env:
   GCP_PROJECT_ID: mento-prod
@@ -23,6 +18,7 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
+      deployments: write
 
     steps:
     - name: Checkout code
@@ -42,8 +38,6 @@ jobs:
       run: |
         if [[ "${{ github.event_name }}" == "pull_request" ]]; then
           BRANCH_NAME="${{ github.head_ref }}"
-        elif [[ "${{ github.event_name }}" == "delete" ]]; then
-          BRANCH_NAME="${{ github.event.ref }}"
         else
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
         fi
@@ -59,7 +53,7 @@ jobs:
         echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
         echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
 
-    - name: Trigger cleanup build
+    - name: Trigger Cleanup Cloud Build
       id: cleanup
       run: |
         echo "Triggering cleanup for branch: ${{ env.BRANCH_NAME }}"
@@ -116,9 +110,7 @@ jobs:
           
           - Service: \`${serviceName}\`
           - Branch: \`${{ env.BRANCH_NAME }}\`
-          - Cleaned up at: ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC
-          
-          Thank you for your contribution! 🎉`;
+          - Cleaned up at: ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
           
           await github.rest.issues.createComment({
             owner: context.repo.owner,

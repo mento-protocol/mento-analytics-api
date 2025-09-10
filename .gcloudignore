@@ -1,54 +1,22 @@
 # This file specifies files that gcloud will ignore while uploading
 # to Google Cloud Build.
 
-# Node modules
-node_modules/
+# Include all .gitignore patterns
+#!include:.gitignore
+.git/
 
-# Build output
-dist/
-build/
+# Additional Cloud Build specific exclusions not covered by .gitignore
 *.tsbuildinfo
 
-# Development files
-.env
-.env.*
-!.env.example
-
-# Git files
-.git/
-.gitignore
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-
-# Test files
-coverage/
-.nyc_output/
-
-# Documentation
+# Documentation (keep README.md for Cloud Build)
 docs/
 *.md
 !README.md
 
-# Scripts (not needed for build)
-# Keep scripts/preview-env-config.sh for Cloud Build
+# Scripts (not needed for build, except for preview-env-config.sh)
 scripts/*
 !scripts/preview-env-config.sh
 bin/
 
 # GitHub workflows (not needed for build)
 .github/
-
-# Logs
-*.log
-logs/
-
-# Temporary files
-.tmp/
-.temp/
-tmp/
-temp/
