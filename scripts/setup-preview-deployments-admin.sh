@@ -36,6 +36,90 @@ print_error() {
     echo -e "${RED}✗ $1${NC}"
 }
 
+# Check if user has specific permission
+check_specific_permission() {
+    local permission=$1
+    local resource_type=$2
+    local resource_id=$3
+    
+    # Test the permission by attempting a dry-run operation
+    case "$permission" in
+        "iam.serviceAccounts.create")
+            gcloud iam service-accounts create test-permission-check-$$ \
+                --dry-run --project="$PROJECT_ID" >/dev/null 2>&1
+            ;;
+        "iam.workloadIdentityPools.create")
+            gcloud iam workload-identity-pools create test-permission-check-$$ \
+                --location="global" --dry-run --project="$PROJECT_ID" >/dev/null 2>&1
+            ;;
+        "resourcemanager.projects.setIamPolicy")
+            # Check if we can get IAM policy (read permission is usually granted if write is)
+            gcloud projects get-iam-policy "$PROJECT_ID" >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Validate permissions before attempting operations
+validate_required_permissions() {
+    local operation=$1
+    local has_all_permissions=true
+    
+    print_section "Validating Required Permissions for: $operation"
+    
+    case "$operation" in
+        "grant_permissions")
+            echo "Checking permission to modify IAM policies..."
+            if ! check_specific_permission "resourcemanager.projects.setIamPolicy" "project" "$PROJECT_ID"; then
+                print_error "Missing permission: resourcemanager.projects.setIamPolicy"
+                print_error "You need 'roles/resourcemanager.projectIamAdmin' or 'roles/owner'"
+                has_all_permissions=false
+            else
+                print_success "Can modify IAM policies"
+            fi
+            ;;
+        "create_resources")
+            echo "Checking permission to create service accounts..."
+            if ! check_specific_permission "iam.serviceAccounts.create" "project" "$PROJECT_ID"; then
+                print_error "Missing permission: iam.serviceAccounts.create"
+                print_error "You need 'roles/iam.serviceAccountAdmin' or 'roles/owner'"
+                has_all_permissions=false
+            else
+                print_success "Can create service accounts"
+            fi
+            
+            echo "Checking permission to create workload identity pools..."
+            if ! check_specific_permission "iam.workloadIdentityPools.create" "project" "$PROJECT_ID"; then
+                print_error "Missing permission: iam.workloadIdentityPools.create"
+                print_error "You need 'roles/iam.workloadIdentityPoolAdmin' or 'roles/owner'"
+                has_all_permissions=false
+            else
+                print_success "Can create workload identity pools"
+            fi
+            
+            echo "Checking permission to modify service account IAM policies..."
+            if ! check_specific_permission "resourcemanager.projects.setIamPolicy" "project" "$PROJECT_ID"; then
+                print_error "Missing permission to grant service account roles"
+                has_all_permissions=false
+            else
+                print_success "Can grant service account roles"
+            fi
+            ;;
+    esac
+    
+    if [ "$has_all_permissions" = false ]; then
+        echo ""
+        print_error "Missing required permissions for operation: $operation"
+        echo "Please ensure you have the necessary roles or ask a Project Owner to run this script."
+        return 1
+    fi
+    
+    print_success "All required permissions validated"
+    return 0
+}
+
 check_permissions() {
     print_section "Checking Current Permissions"
     
@@ -64,6 +148,11 @@ check_permissions() {
 
 grant_permissions() {
     print_section "Granting Required Permissions"
+    
+    # Validate permissions before attempting to grant
+    if ! validate_required_permissions "grant_permissions"; then
+        return 1
+    fi
     
     if [ -z "$USER_EMAIL" ]; then
         read -p "Enter the email of the user who needs permissions: " USER_EMAIL
@@ -97,6 +186,11 @@ grant_permissions() {
 
 create_wif_as_owner() {
     print_section "Creating Workload Identity Federation Resources"
+    
+    # Validate permissions before attempting to create resources
+    if ! validate_required_permissions "create_resources"; then
+        return 1
+    fi
     
     echo "This script will create the Workload Identity resources as the Project Owner."
     echo ""
