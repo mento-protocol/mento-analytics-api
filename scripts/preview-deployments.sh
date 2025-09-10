@@ -111,8 +111,35 @@ deploy_preview() {
         echo -e "${BLUE}Build submitted with ID: $build_id${NC}"
         echo -e "${BLUE}Streaming build logs...${NC}"
         
-        # Use beta command for better log streaming
-        gcloud beta builds log "$build_id" --stream --project=$PROJECT_ID
+        # Try to use beta command for better log streaming, fall back to regular command
+        if gcloud beta builds log "$build_id" --stream --project=$PROJECT_ID 2>/dev/null; then
+            echo -e "${GREEN}Build logs streamed successfully${NC}"
+        else
+            echo -e "${YELLOW}Beta command unavailable, using regular log command...${NC}"
+            # Install beta components if needed
+            gcloud components install beta --quiet >/dev/null 2>&1 || true
+            # Try beta command again, or use regular polling
+            if ! gcloud beta builds log "$build_id" --stream --project=$PROJECT_ID 2>/dev/null; then
+                echo -e "${YELLOW}Falling back to status polling...${NC}"
+                while true; do
+                    status=$(gcloud builds describe "$build_id" --project=$PROJECT_ID --format="value(status)")
+                    case "$status" in
+                        "SUCCESS")
+                            echo -e "${GREEN}Build completed successfully${NC}"
+                            break
+                            ;;
+                        "FAILURE"|"CANCELLED"|"TIMEOUT")
+                            echo -e "${RED}Build failed with status: $status${NC}"
+                            exit 1
+                            ;;
+                        *)
+                            echo -e "${BLUE}Build status: $status${NC}"
+                            sleep 10
+                            ;;
+                    esac
+                done
+            fi
+        fi
     else
         echo -e "${RED}Failed to get build ID${NC}"
         exit 1

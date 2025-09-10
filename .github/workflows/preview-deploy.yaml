@@ -33,6 +33,10 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
+    - name: Install gcloud beta components
+      run: |
+        gcloud components install beta --quiet
+
     - name: Extract branch name
       shell: bash
       run: |
