@@ -4,7 +4,7 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   release: process.env.RELEASE_VERSION || 'unknown',
-  environment: process.env.NODE_ENV || 'production',
+  environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'production',
   integrations: [nodeProfilingIntegration()],
   // Tracing
   tracesSampleRate: 1.0, //  Capture 100% of the transactions

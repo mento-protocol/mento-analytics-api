@@ -75,11 +75,14 @@ pnpm run sentry:release:deploy
 The Cloud Build configuration:
 
 1. Builds the Docker image with the commit SHA as the release version
-2. Creates a Sentry release using the commit SHA
-3. Uploads source maps to Sentry
-4. Associates commits with the release (if repo integration is configured)
-5. Deploys to Cloud Run with the RELEASE_VERSION environment variable
-6. Marks the deployment in Sentry
+2. Deploys to Cloud Run with the RELEASE_VERSION environment variable
+3. Creates Sentry release and marks deployment (only after successful deployment):
+   - Creates a new release using the commit SHA
+   - Uploads source maps to Sentry
+   - Associates commits with the release (if repo integration is configured)
+   - Marks the release as deployed to production
+
+**Important**: Sentry releases are created AFTER the deployment succeeds. This prevents creating "phantom" releases for failed deployments.
 
 ### 2. Runtime Configuration
 
@@ -98,15 +101,62 @@ Source maps are:
 - Deleted from the production image to prevent exposure
 - Associated with the specific release for accurate stack traces
 
+### 4. Preview Deployments
+
+Preview deployments have their own Sentry release workflow:
+
+#### Environment Configuration
+
+- Environment: `preview` (vs `production` for main deployments)
+- Release format: `${BRANCH_TAG}-${SHORT_SHA}` (e.g., `feat-auth-abc1234`)
+- All preview deployments share the same Sentry project but are tagged with `preview` environment
+
+#### Preview Build Process
+
+The preview deployment (`cloudbuild-preview.yaml`) includes:
+
+1. **Cloud Run Deployment**: Deploy the service first to ensure it succeeds
+2. **Sentry Release & Deployment** (only after successful deployment):
+   - Creates a Sentry release with branch-based version
+   - Uploads source maps for debugging deployed code
+   - Links commits when repository integration is available
+   - Marks the release as deployed to `preview` environment
+
+#### Benefits
+
+- Separate error tracking for preview vs production
+- Easy filtering in Sentry UI by environment
+- Clear branch identification in error reports
+- Full source map support for debugging
+
+#### Viewing Preview Errors
+
+In Sentry, filter by:
+
+- Environment: `preview`
+- Release: Contains branch name
+- Time range: When the preview was active
+
 ## Release Versioning
 
-Releases use the Git commit SHA as the version identifier:
+### Production Releases
 
-- Ensures uniqueness across deployments
-- Allows tracing issues to specific code versions
-- Enables automatic commit association
+- Format: Git commit SHA (full)
+- Example: `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0`
+- Ensures uniqueness and traceability
 
-Example: `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0`
+### Preview Releases
+
+- Format: `${BRANCH_TAG}-${SHORT_SHA}`
+- Example: `feat-auth-abc1234`, `fix-api-response-def5678`
+- Branch tag is sanitized (lowercase, alphanumeric, hyphens only)
+- Includes short SHA for uniqueness
+
+Both formats enable:
+
+- Automatic commit association
+- Clear identification of code version
+- Easy filtering in Sentry UI
 
 ## Issue Resolution Workflow
 

@@ -60,7 +60,25 @@ steps:
         echo "Pushing Docker image: $$DOCKER_TAG"
         docker push "$$DOCKER_TAG"
 
-  # Step 4: Create Sentry release and upload source maps
+  # Step 4: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
+        echo "Deploying with Docker image: $$DOCKER_TAG"
+        
+        gcloud run deploy ${_SERVICE_NAME} \
+          --platform=managed \
+          --image="$$DOCKER_TAG" \
+          --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
+          --region=${_DEPLOY_REGION} \
+          --quiet \
+          --set-env-vars=RELEASE_VERSION=$COMMIT_SHA
+
+  # Step 5: Create Sentry release and upload source maps (only after successful deployment)
   - name: 'node:22-alpine'
     id: 'sentry-release'
     entrypoint: 'sh'
@@ -97,37 +115,8 @@ steps:
         
         # Clean up source maps from the build output
         find ./dist -name "*.map" -type f -delete
-    secretEnv: ['SENTRY_AUTH_TOKEN']
-
-  # Step 5: Deploy to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'Deploy'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
-        echo "Deploying with Docker image: $$DOCKER_TAG"
         
-        gcloud run deploy ${_SERVICE_NAME} \
-          --platform=managed \
-          --image="$$DOCKER_TAG" \
-          --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
-          --region=${_DEPLOY_REGION} \
-          --quiet \
-          --set-env-vars=RELEASE_VERSION=$COMMIT_SHA
-
-  # Step 6: Mark deployment in Sentry
-  - name: 'node:22-alpine'
-    id: 'sentry-deploy'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        # Install Sentry CLI
-        npm install -g @sentry/cli
-        
-        # Mark the release as deployed
+        # Mark the release as deployed to production
         npx @sentry/cli releases deploys $COMMIT_SHA new \
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT} \

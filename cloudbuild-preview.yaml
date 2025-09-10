@@ -180,6 +180,62 @@ steps:
         sed -i "s|BUILD_ID_PLACEHOLDER|${BUILD_ID}|g" /workspace/deployment_info.json
         sed -i "s|TIMESTAMP_PLACEHOLDER|$$TIMESTAMP|g" /workspace/deployment_info.json
 
+  # Step 7: Create Sentry release and upload source maps for preview (only after successful deployment)
+  - name: 'node:22-alpine'
+    id: 'sentry-release-preview'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        # Install dependencies needed for Sentry CLI
+        npm install -g pnpm
+        pnpm install
+        
+        # Build the application to generate source maps
+        pnpm run build
+        
+        # Set release version for preview
+        RELEASE_VERSION="${_BRANCH_TAG}-${_SHORT_SHA}"
+        
+        # Create a new release in Sentry
+        npx @sentry/cli releases new "$$RELEASE_VERSION" \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT}
+        
+        # Upload source maps to Sentry
+        npx @sentry/cli releases files "$$RELEASE_VERSION" upload-sourcemaps ./dist \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT} \
+          --url-prefix "~/dist" \
+          --validate
+        
+        # Set commits for the release (requires repo integration)
+        npx @sentry/cli releases set-commits "$$RELEASE_VERSION" --auto \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT} || echo "Warning: Could not associate commits"
+        
+        # Finalize the release
+        npx @sentry/cli releases finalize "$$RELEASE_VERSION" \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT}
+        
+        # Clean up source maps from the build output
+        find ./dist -name "*.map" -type f -delete
+        
+        # Mark the release as deployed to preview environment
+        npx @sentry/cli releases deploys "$$RELEASE_VERSION" new \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT} \
+          --env preview \
+          --name "Preview Deployment - ${_BRANCH_NAME}"
+    secretEnv: ['SENTRY_AUTH_TOKEN']
+
+# Define secrets to be used
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/sentry-auth-token/versions/latest
+      env: 'SENTRY_AUTH_TOKEN'
+
 # Tags for this build
 tags:
   - 'preview-deployment'
