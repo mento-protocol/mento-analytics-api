@@ -3,7 +3,6 @@
 
 # Include all .gitignore patterns
 #!include:.gitignore
-.git/
 
 # Additional Cloud Build specific exclusions not covered by .gitignore
 *.tsbuildinfo
