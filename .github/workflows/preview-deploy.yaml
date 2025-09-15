@@ -91,8 +91,9 @@ jobs:
       run: |
         if [ "${{ steps.docker-changes.outputs.docker }}" == "true" ]; then
           SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7 | tr '[:upper:]' '[:lower:]')
-          BRANCH_LOWER=$(echo "${BRANCH_NAME}" | tr '[:upper:]' '[:lower:]')
-          IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/analytics-api-preview:${BRANCH_LOWER}-${SHORT_SHA}"
+          # Sanitize branch name for Docker tag (replace / with - and remove other invalid chars)
+          BRANCH_SANITIZED=$(echo "${BRANCH_NAME}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+          IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/analytics-api-preview:${BRANCH_SANITIZED}-${SHORT_SHA}"
           echo "Docker image will be tagged as: $IMAGE_TAG"
         else
           IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/analytics-api-preview:latest"
