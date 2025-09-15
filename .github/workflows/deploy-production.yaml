@@ -1,0 +1,161 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  GCP_PROJECT_ID: mento-prod
+  GCP_REGION: us-central1
+  SERVICE_NAME: mento-analytics-api
+  SENTRY_ORG: mento-labs
+  SENTRY_PROJECT: analytics-api
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+      deployments: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for Sentry
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+        service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Trigger Production Cloud Build
+      id: build
+      run: |
+        echo "Triggering production deployment for commit: ${{ github.sha }}"
+        
+        BUILD_ID=$(gcloud builds submit \
+          --config=cloudbuild.yaml \
+          --project=${{ env.GCP_PROJECT_ID }} \
+          --format="value(id)" \
+          --async)
+        
+        echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+        echo "Production build started with ID: $BUILD_ID"
+        
+        # Wait for build to complete
+        gcloud builds log "$BUILD_ID" --stream --project=${{ env.GCP_PROJECT_ID }}
+
+    - name: Verify deployment
+      run: |
+        # Verify the service is running
+        SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          --platform=managed \
+          --region=${{ env.GCP_REGION }} \
+          --project=${{ env.GCP_PROJECT_ID }} \
+          --format='value(status.url)')
+        
+        if [ -z "$SERVICE_URL" ]; then
+          echo "Failed to get service URL. The deployment might have failed."
+          exit 1
+        fi
+        
+        echo "Production URL: $SERVICE_URL"
+        echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install pnpm
+      run: npm install -g pnpm
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Build application
+      run: pnpm run build
+
+    - name: Create Sentry release
+      env:
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      run: |
+        echo "Creating Sentry release for version: ${{ github.sha }}"
+        
+        # Create new release
+        npx @sentry/cli releases new ${{ github.sha }} \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Inject Debug IDs into source files
+        npx @sentry/cli sourcemaps inject ./dist \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Upload source maps
+        npx @sentry/cli sourcemaps upload ./dist \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }} \
+          --release ${{ github.sha }} \
+          --validate
+        
+        # Associate commits with release
+        npx @sentry/cli releases set-commits ${{ github.sha }} --auto \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Finalize the release
+        npx @sentry/cli releases finalize ${{ github.sha }} \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Mark as deployed to production
+        npx @sentry/cli releases deploys ${{ github.sha }} new \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }} \
+          --env production \
+          --name "Production Deployment" \
+          --url ${{ env.SERVICE_URL }}
+        
+        echo "Sentry release completed successfully!"
+
+    - name: Clean up source maps
+      run: |
+        find ./dist -name "*.map" -type f -delete
+        echo "Source maps cleaned up"
+
+    - name: Update deployment status
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            task: 'deploy:production',
+            auto_merge: false,
+            required_contexts: [],
+            environment: 'production',
+            description: 'Production deployment',
+            production_environment: true
+          });
+          
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: deployment.data.id,
+            state: 'success',
+            target_url: process.env.SERVICE_URL,
+            environment_url: process.env.SERVICE_URL,
+            description: 'Production deployment completed successfully'
+          });
+      env:
+        SERVICE_URL: ${{ env.SERVICE_URL }}

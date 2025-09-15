@@ -23,6 +23,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full git history for Sentry Releases
 
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
@@ -58,7 +60,7 @@ jobs:
         echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
         echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
 
-    - name: Trigger Deployment Cloud Build
+    - name: Trigger Deployment via Google Cloud Build
       id: build
       run: |
         echo "Triggering deployment for branch: ${{ env.BRANCH_NAME }}"
@@ -95,6 +97,7 @@ jobs:
         
         echo "PREVIEW_URL=$SERVICE_URL" >> $GITHUB_ENV
         echo "Preview URL: $SERVICE_URL"
+
 
     - name: Update deployment status
       uses: actions/github-script@v7
@@ -189,3 +192,65 @@ jobs:
               body: commentBody
             });
           }
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install pnpm
+      run: npm install -g pnpm
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Build application
+      run: pnpm run build
+
+    - name: Create Sentry release for preview
+      env:
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      run: |
+        echo "Creating Sentry release for preview version: ${{ github.sha }}"
+        
+        # Create new release
+        npx @sentry/cli releases new ${{ github.sha }} \
+          --org mento-labs \
+          --project analytics-api
+        
+        # Inject Debug IDs into source files
+        npx @sentry/cli sourcemaps inject ./dist \
+          --org mento-labs \
+          --project analytics-api
+        
+        # Upload source maps
+        npx @sentry/cli sourcemaps upload ./dist \
+          --org mento-labs \
+          --project analytics-api \
+          --release ${{ github.sha }} \
+          --validate
+        
+        # Associate commits with release
+        npx @sentry/cli releases set-commits ${{ github.sha }} --auto \
+          --org mento-labs \
+          --project analytics-api
+        
+        # Finalize the release
+        npx @sentry/cli releases finalize ${{ github.sha }} \
+          --org mento-labs \
+          --project analytics-api
+        
+        # Mark as deployed to preview environment
+        npx @sentry/cli releases deploys ${{ github.sha }} new \
+          --org mento-labs \
+          --project analytics-api \
+          --env preview \
+          --name "Preview Deployment - ${{ env.BRANCH_NAME }}" \
+          --url ${{ env.PREVIEW_URL }}
+        
+        echo "Sentry release completed successfully for preview!"
+
+    - name: Clean up source maps
+      run: |
+        find ./dist -name "*.map" -type f -delete
+        echo "Source maps cleaned up"

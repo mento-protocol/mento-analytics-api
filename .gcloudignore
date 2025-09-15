@@ -4,7 +4,7 @@
 # Include all .gitignore patterns
 #!include:.gitignore
 
-# Explicitly exclude .git directory (we'll clone it during build instead)
+# Cloud builds don't need the full .git dir
 .git/
 
 # Additional Cloud Build specific exclusions not covered by .gitignore

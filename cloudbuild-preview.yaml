@@ -16,8 +16,6 @@ substitutions:
   _DEPLOY_REGION: us-central1
   _PLATFORM: managed
   _SERVICE_NAME_PREFIX: analytics-api-preview
-  _SENTRY_ORG: mento-labs
-  _SENTRY_PROJECT: analytics-api
   _BRANCH_NAME: ${_BRANCH_NAME}
   _BRANCH_TAG: ${_BRANCH_TAG}
   _SHORT_SHA: ${_SHORT_SHA}
@@ -180,106 +178,6 @@ steps:
         sed -i "s|SHORT_SHA_PLACEHOLDER|${_SHORT_SHA}|g" /workspace/deployment_info.json
         sed -i "s|BUILD_ID_PLACEHOLDER|${BUILD_ID}|g" /workspace/deployment_info.json
         sed -i "s|TIMESTAMP_PLACEHOLDER|$$TIMESTAMP|g" /workspace/deployment_info.json
-
-  # Step 7: Clone git repository for Sentry commit association
-  - name: 'gcr.io/cloud-builders/git'
-    id: 'git-clone-preview'
-    args:
-      - 'clone'
-      - 'https://github.com/mentolabs/mento-analytics-api.git'
-      - '--branch=${_BRANCH_NAME}'
-      - '--depth=50'
-      - '--single-branch'
-      - 'git-repo'
-
-  # Step 8: Create Sentry release and upload source maps for preview (only after successful deployment)
-  - name: 'node:22-alpine'
-    id: 'sentry-release-preview'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        set -e  # Exit on error for critical operations
-        
-        # Helper function for non-critical operations
-        try_operation() {
-          local operation_name="$1"
-          shift
-          echo "[INFO] Starting: $$operation_name"
-          if "$@"; then
-            echo "[SUCCESS] $$operation_name completed"
-            return 0
-          else
-            echo "[WARNING] $$operation_name failed (non-critical, continuing...)"
-            echo "[WARNING] Command was: $*"
-            return 1
-          fi
-        }
-        
-        # Install dependencies needed for Sentry CLI
-        echo "[INFO] Installing dependencies..."
-        npm install -g pnpm
-        pnpm install
-        
-        # Build the application to generate source maps
-        echo "[INFO] Building application to generate source maps..."
-        pnpm run build
-        
-        # Set release version for preview
-        RELEASE_VERSION="${_BRANCH_TAG}-${_SHORT_SHA}"
-        echo "[INFO] Sentry release version: $$RELEASE_VERSION"
-        
-        # Critical operations - these will fail the build if they fail
-        echo "[INFO] Creating new release in Sentry..."
-        npx @sentry/cli releases new "$$RELEASE_VERSION" \
-          --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT}
-        
-        echo "[INFO] Injecting Debug IDs into source files..."
-        npx @sentry/cli sourcemaps inject ./dist \
-          --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT}
-        
-        echo "[INFO] Uploading source maps to Sentry..."
-        npx @sentry/cli sourcemaps upload ./dist \
-          --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT} \
-          --release "$$RELEASE_VERSION" \
-          --validate
-        
-        # Non-critical operations - log but don't fail the build
-        cd git-repo
-        try_operation "Associate commits with release" \
-          npx @sentry/cli releases set-commits "$$RELEASE_VERSION" --auto \
-          --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT}
-        
-        # Critical operation
-        echo "[INFO] Finalizing the release..."
-        npx @sentry/cli releases finalize "$$RELEASE_VERSION" \
-          --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT}
-        
-        # Clean up source maps from the build output
-        echo "[INFO] Cleaning up source maps..."
-        find ./dist -name "*.map" -type f -delete
-        
-        # Mark the release as deployed to preview environment
-        echo "[INFO] Marking release as deployed to preview environment..."
-        npx @sentry/cli releases deploys "$$RELEASE_VERSION" new \
-          --org ${_SENTRY_ORG} \
-          --project ${_SENTRY_PROJECT} \
-          --env preview \
-          --name "Preview Deployment - ${_BRANCH_NAME}"
-        
-        echo "[SUCCESS] Sentry release process completed for version: $$RELEASE_VERSION"
-    secretEnv: ['SENTRY_AUTH_TOKEN']
-
-# Define secrets to be used
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/sentry-auth-token/versions/latest
-      env: 'SENTRY_AUTH_TOKEN'
 
 # Tags for this build
 tags:
