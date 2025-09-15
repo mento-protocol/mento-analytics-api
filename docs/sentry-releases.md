@@ -70,13 +70,20 @@ pnpm run sentry:release:deploy
 
 ## How It Works
 
-### 1. Build Process (cloudbuild.yaml)
+### 1. Build Process (GitHub Actions + Cloud Build)
 
-The Cloud Build configuration:
+The deployment process now uses a hybrid approach:
+
+**GitHub Actions**:
 
 1. Builds the Docker image with the commit SHA as the release version
-2. Deploys to Cloud Run with the RELEASE_VERSION environment variable
-3. Creates Sentry release and marks deployment (only after successful deployment):
+2. Pushes the image to Artifact Registry
+3. Triggers Cloud Build for deployment
+
+**Cloud Build**:
+
+1. Deploys the pre-built image to Cloud Run with the RELEASE_VERSION environment variable
+2. Creates Sentry release and marks deployment (only after successful deployment):
    - Creates a new release using the commit SHA
    - Uploads source maps to Sentry
    - Associates commits with the release (if repo integration is configured)
@@ -113,7 +120,14 @@ Preview deployments have their own Sentry release workflow:
 
 #### Preview Build Process
 
-The preview deployment (`cloudbuild-preview.yaml`) includes:
+The preview deployment process now includes:
+
+**GitHub Actions**:
+
+1. **Docker Build & Push**: Builds and pushes Docker image to Artifact Registry (if code changes detected)
+2. **Cloud Build Trigger**: Triggers Cloud Build for deployment
+
+**Cloud Build** (`cloudbuild-preview.yaml`):
 
 1. **Cloud Run Deployment**: Deploy the service first to ensure it succeeds
 2. **Sentry Release & Deployment** (only after successful deployment):
