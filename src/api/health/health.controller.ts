@@ -1,7 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiProperty } from '@nestjs/swagger';
 import { MentoService } from '@common/services/mento.service';
+import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as WebSocket from 'ws';
 
 class HealthCheckResponse {
@@ -45,6 +45,18 @@ export class HealthController {
     private readonly mentoService: MentoService,
     private readonly configService: ConfigService,
   ) {}
+
+  @Get('debug')
+  @ApiOperation({ summary: 'Debug environment variables (development only)' })
+  async debugEnv() {
+    return {
+      NODE_ENV: process.env.NODE_ENV,
+      COINMARKETCAP_API_KEY: process.env.COINMARKETCAP_API_KEY ? '***SET***' : 'NULL',
+      EXCHANGE_RATES_API_KEY: process.env.EXCHANGE_RATES_API_KEY ? '***SET***' : 'NULL',
+      COINMARKETCAP_API_URL: process.env.COINMARKETCAP_API_URL,
+      EXCHANGE_RATES_API_URL: process.env.EXCHANGE_RATES_API_URL,
+    };
+  }
 
   @Get()
   @ApiOperation({ summary: 'Check API health status' })
