@@ -166,7 +166,7 @@ See [Preview Deployments Documentation](docs/preview-deployments.md) for setup a
 
 ### Application Logs
 
-- Get logs from the command line: `npm run logs` (which is just a shortcut for `./bin/get-logs.sh`)
+- Get logs from the command line: `npm run logs` (which is just a shortcut for `./scripts/get-logs.sh`)
 - [Cloud Console Service Logs](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/logs?invt=AbmVMA&project=mento-prod)
 
 ### Monitoring

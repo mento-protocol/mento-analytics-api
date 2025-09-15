@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Centralized environment configuration for preview deployments
+# Centralized environment configuration for all deployments
 # This copies .env.example to .env and reads from it
 
 # Get the script directory - this script is always in the scripts/ folder
@@ -30,7 +30,8 @@ else
     exit 1
 fi
 
-# Runtime configuration for preview environments (overrides)
+# Runtime configuration for deployments (overrides)
+# These can be overridden by calling scripts
 export NODE_ENV="production"
 export ENVIRONMENT="preview"
 export SENTRY_ENVIRONMENT="preview"

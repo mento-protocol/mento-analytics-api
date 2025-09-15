@@ -68,13 +68,31 @@ steps:
         DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
         echo "Deploying with Docker image: $$DOCKER_TAG"
         
+        # The source files are already in /workspace from Cloud Build
+        # Source the centralized environment configuration
+        cd /workspace && source ./scripts/env-config.sh
+        
+        # Build the environment variables string for production
+        # Override environment-specific values
+        export NODE_ENV="production"
+        export ENVIRONMENT="production"
+        export SENTRY_ENVIRONMENT="production"
+        
+        # Build the environment variables string
+        ENV_VARS=$$(build_env_vars_string "main" "main" "${_COMMIT_SHA}")
+        
+        # Debug: Print the environment variables
+        echo "=== Environment variables being set ==="
+        echo "$$ENV_VARS" | tr ',' '\n'
+        echo "=== End of environment variables ==="
+        
         gcloud run deploy ${_SERVICE_NAME} \
           --platform=managed \
           --image="$$DOCKER_TAG" \
           --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=${_COMMIT_SHA},gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
           --region=${_DEPLOY_REGION} \
           --quiet \
-          --set-env-vars=RELEASE_VERSION=${_COMMIT_SHA} \
+          --set-env-vars="$$ENV_VARS" \
           --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-prod:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-prod:latest"
 
 

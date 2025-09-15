@@ -99,7 +99,7 @@ Examples:
 ### Env Vars
 
 - [`.env.example`](../.env.example) - Source of truth for all default and non-secret environment variables
-- [`scripts/preview-env-config.sh`](../scripts/preview-env-config.sh) - Copies `.env.example` into `.env` and loads all relevant env vars into the shell context
+- [`scripts/env-config.sh`](../scripts/env-config.sh) - Copies `.env.example` into `.env` and loads all relevant env vars into the shell context
 
 See the [Environment Variables Guide](./environment-variables.md) for full details.
 
