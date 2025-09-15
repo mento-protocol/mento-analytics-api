@@ -39,15 +39,17 @@ export class PriceFetcherService {
   });
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('COINMARKETCAP_API_KEY');
-    if (!this.apiKey || this.apiKey === 'null') {
-      throw new Error('COINMARKETCAP_API_KEY is not defined in environment variables');
-    }
+    // Use a more robust approach to handle secret injection timing
+    this.apiKey = this.getConfigValue('COINMARKETCAP_API_KEY');
+    this.baseUrl = this.getConfigValue('COINMARKETCAP_API_URL');
+  }
 
-    this.baseUrl = this.configService.get<string>('COINMARKETCAP_API_URL');
-    if (!this.baseUrl || this.baseUrl === 'null') {
-      throw new Error('COINMARKETCAP_API_URL is not defined in environment variables');
+  private getConfigValue(key: string): string {
+    const value = this.configService.get<string>(key);
+    if (!value || value === 'null' || value === 'undefined') {
+      throw new Error(`${key} is not defined in environment variables`);
     }
+    return value;
   }
 
   async getPrice(symbol: string): Promise<number> {

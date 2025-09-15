@@ -26,16 +26,17 @@ export class ExchangeRatesService {
   private fiatSymbols: string[] = [];
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('EXCHANGE_RATES_API_KEY');
-    if (!this.apiKey || this.apiKey === 'null') {
-      throw new Error('EXCHANGE_RATES_API_KEY is not defined in environment variables');
-    }
-    this.baseUrl = this.configService.get<string>('EXCHANGE_RATES_API_URL');
-    if (!this.baseUrl || this.baseUrl === 'null') {
-      throw new Error('EXCHANGE_RATES_API_URL is not defined in environment variables');
-    }
-
+    this.apiKey = this.getConfigValue('EXCHANGE_RATES_API_KEY');
+    this.baseUrl = this.getConfigValue('EXCHANGE_RATES_API_URL');
     this.fiatSymbols = Object.values(STABLE_TOKEN_FIAT_MAPPING);
+  }
+
+  private getConfigValue(key: string): string {
+    const value = this.configService.get<string>(key);
+    if (!value || value === 'null' || value === 'undefined') {
+      throw new Error(`${key} is not defined in environment variables`);
+    }
+    return value;
   }
 
   private async fetchRates(): Promise<Record<string, number>> {

@@ -74,7 +74,8 @@ steps:
           --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
           --region=${_DEPLOY_REGION} \
           --quiet \
-          --set-env-vars=RELEASE_VERSION=$COMMIT_SHA
+          --set-env-vars=RELEASE_VERSION=$COMMIT_SHA \
+          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-prod:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-prod:latest"
 
 
 # Tags for this build
