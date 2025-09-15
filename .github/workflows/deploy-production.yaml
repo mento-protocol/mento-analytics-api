@@ -110,7 +110,7 @@ jobs:
         echo "Using pre-built image: ${{ env.IMAGE_TAG }}"
         
         BUILD_ID=$(gcloud builds submit \
-          --config=cloudbuild-minimal.yaml \
+          --config=cloudbuild.yaml \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(id)" \
           --substitutions=_IMAGE_TAG=${{ env.IMAGE_TAG }},_COMMIT_SHA=${{ github.sha }} \
