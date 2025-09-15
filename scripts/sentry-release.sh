@@ -46,12 +46,18 @@ npx @sentry/cli releases new "$RELEASE_VERSION" \
     --org "$SENTRY_ORG" \
     --project "$SENTRY_PROJECT"
 
+# Inject Debug IDs into source files
+echo -e "\n${GREEN}Injecting Debug IDs into source files...${NC}"
+npx @sentry/cli sourcemaps inject ./dist \
+    --org "$SENTRY_ORG" \
+    --project "$SENTRY_PROJECT"
+
 # Upload source maps
 echo -e "\n${GREEN}Uploading source maps...${NC}"
-npx @sentry/cli releases files "$RELEASE_VERSION" upload-sourcemaps ./dist \
+npx @sentry/cli sourcemaps upload ./dist \
     --org "$SENTRY_ORG" \
     --project "$SENTRY_PROJECT" \
-    --url-prefix "~/dist" \
+    --release "$RELEASE_VERSION" \
     --validate
 
 # Associate commits (if in a git repository)

@@ -119,11 +119,16 @@ steps:
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT}
         
+        echo "[INFO] Injecting Debug IDs into source files..."
+        npx @sentry/cli sourcemaps inject ./dist \
+          --org ${_SENTRY_ORG} \
+          --project ${_SENTRY_PROJECT}
+        
         echo "[INFO] Uploading source maps to Sentry..."
-        npx @sentry/cli releases files $COMMIT_SHA upload-sourcemaps ./dist \
+        npx @sentry/cli sourcemaps upload ./dist \
           --org ${_SENTRY_ORG} \
           --project ${_SENTRY_PROJECT} \
-          --url-prefix "~/dist"
+          --release $COMMIT_SHA
         
         # Non-critical operations - log but don't fail the build
         try_operation "Associate commits with release" \
