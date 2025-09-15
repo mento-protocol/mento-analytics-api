@@ -1,8 +1,8 @@
+import { withRetry } from '@/utils';
+import { STABLE_TOKEN_FIAT_MAPPING } from '@common/constants';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Sentry from '@sentry/nestjs';
-import { withRetry } from '@/utils';
-import { STABLE_TOKEN_FIAT_MAPPING } from '@common/constants';
 
 interface ExchangeRatesResponse {
   success: boolean;
@@ -27,11 +27,11 @@ export class ExchangeRatesService {
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('EXCHANGE_RATES_API_KEY');
-    if (!this.apiKey) {
+    if (!this.apiKey || this.apiKey === 'null') {
       throw new Error('EXCHANGE_RATES_API_KEY is not defined in environment variables');
     }
     this.baseUrl = this.configService.get<string>('EXCHANGE_RATES_API_URL');
-    if (!this.baseUrl) {
+    if (!this.baseUrl || this.baseUrl === 'null') {
       throw new Error('EXCHANGE_RATES_API_URL is not defined in environment variables');
     }
 
