@@ -32,7 +32,7 @@ steps:
       - '-c'
       - |
         # Generate lowercase Docker tag
-        DOCKER_TAG="${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:$$(echo "$COMMIT_SHA" | tr '[:upper:]' '[:lower:]')"
+        DOCKER_TAG="${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:$$(echo "${_COMMIT_SHA}" | tr '[:upper:]' '[:lower:]')"
         echo "Generated Docker tag: $$DOCKER_TAG"
         echo "$$DOCKER_TAG" > /workspace/docker_tag.txt
 
@@ -45,7 +45,7 @@ steps:
       - |
         DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
         echo "Building Docker image with tag: $$DOCKER_TAG"
-        docker build -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=$COMMIT_SHA" . -f Dockerfile
+        docker build -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=${_COMMIT_SHA}" . -f Dockerfile
 
   # Step 3: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -71,10 +71,10 @@ steps:
         gcloud run deploy ${_SERVICE_NAME} \
           --platform=managed \
           --image="$$DOCKER_TAG" \
-          --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
+          --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=${_COMMIT_SHA},gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
           --region=${_DEPLOY_REGION} \
           --quiet \
-          --set-env-vars=RELEASE_VERSION=$COMMIT_SHA \
+          --set-env-vars=RELEASE_VERSION=${_COMMIT_SHA} \
           --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-prod:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-prod:latest"
 
 

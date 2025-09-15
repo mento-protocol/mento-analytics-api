@@ -36,6 +36,10 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
+    - name: Install gcloud beta components
+      run: |
+        gcloud components install beta --quiet
+
     - name: Trigger Production Cloud Build
       id: build
       run: |
@@ -45,13 +49,15 @@ jobs:
           --config=cloudbuild.yaml \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(id)" \
+          --substitutions=_COMMIT_SHA=${{ github.sha }} \
           --async)
         
         echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
         echo "Production build started with ID: $BUILD_ID"
         
         # Wait for build to complete
-        gcloud builds log "$BUILD_ID" --stream --project=${{ env.GCP_PROJECT_ID }}
+        # Use beta command for better log streaming
+        gcloud beta builds log "$BUILD_ID" --stream --project=${{ env.GCP_PROJECT_ID }}
 
     - name: Verify deployment
       run: |
