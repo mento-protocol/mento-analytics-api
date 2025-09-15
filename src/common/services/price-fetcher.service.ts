@@ -1,8 +1,8 @@
+import { withRetry } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { withRetry } from '@/utils';
-import { RateLimiter } from 'limiter';
 import * as Sentry from '@sentry/nestjs';
+import { RateLimiter } from 'limiter';
 interface CMCQuote {
   data?: Record<
     string,
@@ -39,15 +39,17 @@ export class PriceFetcherService {
   });
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('COINMARKETCAP_API_KEY');
-    if (!this.apiKey) {
-      throw new Error('COINMARKETCAP_API_KEY is not defined in environment variables');
-    }
+    // Use a more robust approach to handle secret injection timing
+    this.apiKey = this.getConfigValue('COINMARKETCAP_API_KEY');
+    this.baseUrl = this.getConfigValue('COINMARKETCAP_API_URL');
+  }
 
-    this.baseUrl = this.configService.get<string>('COINMARKETCAP_API_URL');
-    if (!this.baseUrl) {
-      throw new Error('COINMARKETCAP_API_URL is not defined in environment variables');
+  private getConfigValue(key: string): string {
+    const value = this.configService.get<string>(key);
+    if (!value || value === 'null' || value === 'undefined') {
+      throw new Error(`${key} is not defined in environment variables`);
     }
+    return value;
   }
 
   async getPrice(symbol: string): Promise<number> {
@@ -93,15 +95,29 @@ export class PriceFetcherService {
   private async fetchPrice(symbol: string): Promise<number> {
     await this.rateLimiter.removeTokens(1);
 
-    const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
-    requestUrl.searchParams.set('symbol', symbol);
+    let response: Response;
 
-    const response = await fetch(requestUrl.toString(), {
-      headers: {
-        'X-CMC_PRO_API_KEY': this.apiKey,
-        Accept: 'application/json',
-      },
-    });
+    try {
+      const requestUrl = new URL(`${this.baseUrl}/cryptocurrency/quotes/latest`);
+      requestUrl.searchParams.set('symbol', symbol);
+
+      response = await fetch(requestUrl.toString(), {
+        headers: {
+          'X-CMC_PRO_API_KEY': this.apiKey,
+          Accept: 'application/json',
+        },
+      });
+    } catch (error) {
+      const description = `Failed to fetch price for ${symbol} from CoinmarketCap API`;
+      this.logger.error(error, description);
+      Sentry.captureException(error, {
+        level: 'error',
+        extra: {
+          description,
+        },
+      });
+      throw error;
+    }
 
     const data = (await response.json()) as CMCQuote;
 

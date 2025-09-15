@@ -1,41 +1,61 @@
 # Mento Analytics API
 
-The Mento Analytics API is a service designed to provide real-time analytics for the Mento Protocol's stablecoins and reserve assets across multiple blockchains (Celo, Ethereum, and Bitcoin). It serves as the data backbone for the Mento Reserve dashboard, offering insights into reserve holdings and stablecoin metrics.
+The Mento Analytics API is a service designed to provide real-time analytics for the Mento Protocol's stablecoins and reserve assets across multiple blockchains (Celo, Ethereum, and Bitcoin). It serves as the data backbone for the [Mento Reserve dashboard](https://reserve.mento.org), offering insights into reserve holdings and stablecoin metrics.
 
-The API can be used by consumers to fetch information about the Mento Stables, the Reserve and it's composition.
+The API can be used by consumers to fetch information about Mento Stables, the Reserve and its composition.
+
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Key Features](#key-features)
+- [Project Structure](#project-structure)
+- [System Architecture](#system-architecture)
+- [API Documentation](#api-documentation)
+- [Data Sources \& Updates](#data-sources--updates)
+  - [Data Sources](#data-sources)
+  - [Data Update Frequency](#data-update-frequency)
+  - [Cache Management](#cache-management)
+- [Configuration Guide](#configuration-guide)
+  - [Adding New Stablecoins](#adding-new-stablecoins)
+  - [Managing Reserve Addresses](#managing-reserve-addresses)
+  - [Adding Reserve Assets](#adding-reserve-assets)
+- [Deployment](#deployment)
+  - [Production Deployment](#production-deployment)
+  - [Preview Deployments](#preview-deployments)
+- [Monitoring \& Logs](#monitoring--logs)
+  - [Application Logs](#application-logs)
+  - [Monitoring Dashboard](#monitoring-dashboard)
+  - [Sentry Releases](#sentry-releases)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v21+)
+- Node.js
 - pnpm
 
 ### Installation
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 pnpm install
 
-# Start development server
+# 2. Copy and populate .env
+cp .env.example .env
+
+# 3. Fill in all missing env vars in .env
+
+# 4. Start development server
 pnpm run start:dev
 
-# Build for production
+# 5. Build for production
 pnpm run build
 
-# Start production server
+# 6. Start production server
 pnpm run start:prod
 ```
-
-### Environment Variables
-
-Create a `.env` file in the root directory:
-
-``` bash
-cp .env.example .env
-```
-
-You'll need to obtain API keys for the Coinmarket cap & exchange rates API then add them to your env file
 
 ## Key Features
 
@@ -122,33 +142,48 @@ Reserve assets are fetched directly from the blockchain using the Mento SDK. How
 
 ## Deployment
 
-The Mento Analytics API is automatically deployed to Google Cloud Run when changes are committed to the `main` branch.
+The Mento Analytics API is automatically deployed to [Google Cloud Run](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?project=mento-prod) when PRs are merged into the `main` branch.
 
-### Deployment Process
+### Production Deployment
 
 1. When code is pushed or merged to the `main` branch, a CI/CD pipeline is triggered
-2. The pipeline builds a Docker container using the Dockerfile in the repository
-3. The container is pushed to Google Container Registry
-4. The new container is deployed to Cloud Run, replacing the previous version
-5. Deployment status can be monitored in the Google Cloud Console
+2. The pipeline builds a Docker container using the [Dockerfile](./Dockerfile)
+3. The container is pushed to the [Google Artifact Registry](https://console.cloud.google.com/artifacts?referrer=search&project=mento-prod)
+4. The new container is deployed to [Cloud Run](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?project=mento-prod), replacing the previous version
+5. Deployment status can be monitored in [Google Cloud Build](https://console.cloud.google.com/cloud-build/builds?project=mento-prod)
+
+### Preview Deployments
+
+Opening or updating a pull request automatically creates a preview deployment:
+
+- **Automatic**: Each PR gets its own isolated Cloud Run service
+- **PR Integration**: Pull requests receive comments with preview URLs
+- **Auto-cleanup**: Preview deployments are deleted when PRs are merged or closed
+
+See [Preview Deployments Documentation](docs/preview-deployments.md) for setup and usage details.
 
 ## Monitoring & Logs
 
 ### Application Logs
 
 - Get logs from the command line: `npm run logs` (which is just a shortcut for `./bin/get-logs.sh`)
-- GCP Cloud Logging: [View Logs](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/logs?invt=AbmVMA&project=mento-prod)
-- Log levels:
-  - INFO: Regular operation events
-  - WARN: Potential issues requiring attention
-  - ERROR: Critical issues affecting operation
-  - DEBUG: Detailed information for development
+- [Cloud Console Service Logs](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/logs?invt=AbmVMA&project=mento-prod)
 
-### Monitoring Dashboard
+### Monitoring
 
-- System metrics: [Cloud Monitoring](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/metrics?invt=AbmVMA&project=mento-prod)
-- Sentry error tracking: [View Issues](https://mento-labs.sentry.io/issues/?project=4508518701268992&statsPeriod=14d)
+- [Google Cloud Run Service Monitoring](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?invt=AbmVMA&project=mento-prod)
+- [Sentry error tracking](https://mento-labs.sentry.io/insights/projects/analytics-api/?project=4508518701268992)
 - Health checks: `/health` endpoint
+
+### Sentry Releases
+
+The Analytics API integrates with Sentry for enhanced error tracking:
+
+- Automatic source map uploads during deployment
+- Release tracking for issue resolution
+- Deployment tracking in Sentry
+
+See [Sentry Releases Documentation](docs/sentry-releases.md) for setup and usage details.
 
 ## Contributing
 

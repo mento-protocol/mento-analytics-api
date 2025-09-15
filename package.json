@@ -5,14 +5,19 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "scripts": {
     "build": "nest build",
+    "ci:config": "gcloud builds triggers list --project=mento-prod",
     "clean": "rm -rf dist/",
     "dev": "pnpm run clean && nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "gcloud:build": "pnpm run gcloud:build:url && gcloud beta builds log $(gcloud builds list --project=mento-prod --limit=1 --format='value(id)') --stream --project=mento-prod",
     "gcloud:build:url": "echo \"\nBuild URL: https://console.cloud.google.com/cloud-build/builds/$(gcloud builds list --project=mento-prod --limit=1 --format='value(id)')?project=mento-prod\n\"",
     "gcloud:deployments": "gcloud run revisions list --service=mento-analytics-api --region=us-central1 --limit 10 --project mento-prod",
+    "gcloud:env": "./bin/get-env.sh",
     "logs": "./bin/get-logs.sh",
     "start": "nest start",
     "start:dev": "pnpm run clean && nest start --watch",
@@ -24,7 +29,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org mento-labs --project mento-analytics-api-mc ./dist && sentry-cli sourcemaps upload --org mento-labs --project mento-analytics-api-mc ./dist"
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org mento-labs --project analytics-api ./dist && sentry-cli sourcemaps upload --org mento-labs --project analytics-api ./dist",
+    "sentry:release": "./scripts/sentry-release.sh",
+    "sentry:release:deploy": "./scripts/sentry-release.sh $(git rev-parse HEAD) --deploy production"
   },
   "dependencies": {
     "@mento-protocol/mento-sdk": "2.0.0-beta.10",
@@ -35,9 +42,9 @@
     "@nestjs/platform-express": "^10.4.1",
     "@nestjs/schedule": "^4.1.1",
     "@nestjs/swagger": "^8.0.5",
-    "@sentry/cli": "^2.39.1",
-    "@sentry/nestjs": "^8.49.0",
-    "@sentry/profiling-node": "^8.49.0",
+    "@sentry/cli": "^2.53.0",
+    "@sentry/nestjs": "^10.9.0",
+    "@sentry/profiling-node": "^10.9.0",
     "@types/ws": "^8.18.1",
     "bignumber.js": "^9.1.2",
     "cache-manager": "5.7.6",

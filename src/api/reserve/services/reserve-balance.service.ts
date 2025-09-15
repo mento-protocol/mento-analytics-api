@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Chain, AssetBalance, ReserveAddressConfig, AssetConfig } from '@types';
-import { ReserveValueService } from './reserve-value.service';
-import { BaseBalanceFetcher } from './balance-fetchers';
-import { ASSETS_CONFIGS } from '../config/assets.config';
-import { BALANCE_FETCHERS } from '../constants';
+import { AssetBalance, AssetConfig, Chain, ReserveAddressConfig } from '@types';
 import BigNumber from 'bignumber.js';
 import { formatUnits } from 'viem';
+import { ASSETS_CONFIGS } from '../config/assets.config';
+import { BALANCE_FETCHERS } from '../constants';
+import { BaseBalanceFetcher } from './balance-fetchers';
+import { ReserveValueService } from './reserve-value.service';
 
 /**
  * Service for fetching and formatting asset balances across different chains.
@@ -73,13 +73,13 @@ export class ReserveBalanceService {
 
           // If balance is 0 log a warning and skip value calculation
           if (balance === '0') {
-            const errorMessage = `Balance is 0 for asset ${symbol} (${assetConfig.address}) on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
-            const errorContext = {
+            const msg = `Balance is 0 for asset ${symbol} (${assetConfig.address}) on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
+            const context = {
               reserve_address: reserveAddressConfig.address,
               chain: reserveAddressConfig.chain,
               category: reserveAddressConfig.category,
             };
-            this.logger.warn(errorContext, errorMessage);
+            this.logger.debug(context, msg);
           } else {
             // Get the usd value for the balance.
             usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);

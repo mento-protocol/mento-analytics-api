@@ -1,5 +1,5 @@
 # Dockerfile
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Set environment variables
 ENV PORT=8080
@@ -12,7 +12,7 @@ COPY package*.json ./
 COPY pnpm-lock.yaml ./
 
 # Install pnpm and nest CLI globally
-RUN npm install -g pnpm @nestjs/cli
+RUN npm install -g pnpm@latest @nestjs/cli
 
 # Install dependencies
 RUN pnpm install
@@ -24,11 +24,14 @@ COPY . .
 RUN pnpm run build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
 # Default to production, but allow override via --build-arg or at runtime
 ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV} PORT=8080
+ARG RELEASE_VERSION=unknown
+ENV NODE_ENV=${NODE_ENV}
+ENV PORT=8080
+ENV RELEASE_VERSION=${RELEASE_VERSION}
 
 WORKDIR /app
 
@@ -37,7 +40,7 @@ COPY package*.json ./
 COPY pnpm-lock.yaml ./
 
 # Install pnpm and nest CLI globally
-RUN npm install -g pnpm @nestjs/cli
+RUN npm install -g pnpm@latest @nestjs/cli
 
 # Install production dependencies only
 RUN pnpm install --prod

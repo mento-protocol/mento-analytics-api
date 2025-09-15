@@ -1,0 +1,24 @@
+# This file specifies files that gcloud will ignore while uploading
+# to Google Cloud Build.
+
+# Include all .gitignore patterns
+#!include:.gitignore
+
+# Cloud builds don't need the full .git dir
+.git/
+
+# Additional Cloud Build specific exclusions not covered by .gitignore
+*.tsbuildinfo
+
+# Documentation (keep README.md for Cloud Build)
+docs/
+*.md
+!README.md
+
+# Scripts (not needed for build, except for preview-env-config.sh)
+scripts/*
+!scripts/preview-env-config.sh
+bin/
+
+# GitHub workflows (not needed for build)
+.github/

@@ -1,0 +1,186 @@
+# Cloud Build configuration for preview deployments
+# This file defines the build and deployment process for branch-specific preview environments
+
+# NOTE: Variable Escaping in Cloud Build
+# In Cloud Build YAML files, bash variables must be escaped with `$$` to prevent Cloud Build from interpreting them as substitution variables:
+# 
+# - Use `$$SERVICE_NAME` instead of `$SERVICE_NAME`
+# - Use `$${VARIABLE}` instead of `${VARIABLE}` for bash variables
+# - Cloud Build substitutions remain as `${_VARIABLE_NAME}`
+
+
+substitutions:
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_PROJECT_ID: mento-prod
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _DEPLOY_REGION: us-central1
+  _PLATFORM: managed
+  _SERVICE_NAME_PREFIX: analytics-api-preview
+  _BRANCH_NAME: ${_BRANCH_NAME}
+  _BRANCH_TAG: ${_BRANCH_TAG}
+  _SHORT_SHA: ${_SHORT_SHA}
+  _COMMIT_SHA: ${_COMMIT_SHA}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+
+steps:
+  # Step 1: Generate a safe cloud run service name from the git branch name (lowercase, alphanumeric, hyphens only, no slashes)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'generate-service-name'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
+        # Cloud Run service name limit is 63 characters
+        # Prefix 'analytics-api-preview-' is 22 chars, leaving 41 chars for branch name
+        SAFE_BRANCH_NAME=$$(echo "${_BRANCH_NAME}" | \
+          sed 's/[^a-zA-Z0-9-]/-/g' | \
+          tr '[:upper:]' '[:lower:]' | \
+          sed 's/^-//;s/-$//' | \
+          sed 's/--*/-/g' | \
+          cut -c1-41)
+        
+        # Create the full service name
+        SERVICE_NAME="${_SERVICE_NAME_PREFIX}-$${SAFE_BRANCH_NAME}"
+        
+        # Save for later steps
+        echo "$$SERVICE_NAME" > /workspace/service_name.txt
+        echo "Preview service name: $$SERVICE_NAME"
+
+  # Step 2: Generate Docker tag (lowercase)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'generate-docker-tag'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Debug: Substitution values"
+        echo "_BRANCH_NAME: ${_BRANCH_NAME}"
+        echo "_BRANCH_TAG: ${_BRANCH_TAG}"
+        echo "_SHORT_SHA: ${_SHORT_SHA}"
+        echo "_COMMIT_SHA: ${_COMMIT_SHA}"
+        
+        # Generate lowercase Docker tag
+        DOCKER_TAG="${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}:$$(echo "${_BRANCH_TAG}-${_SHORT_SHA}" | tr '[:upper:]' '[:lower:]')"
+        echo "Generated Docker tag: $$DOCKER_TAG"
+        echo "$$DOCKER_TAG" > /workspace/docker_tag.txt
+
+  # Step 3: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
+        echo "Building Docker image with tag: $$DOCKER_TAG"
+        docker build -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=${_BRANCH_TAG}-${_SHORT_SHA}" . -f Dockerfile
+
+  # Step 4: Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
+        echo "Pushing Docker image: $$DOCKER_TAG"
+        docker push "$$DOCKER_TAG"
+
+  # Step 5: Deploy to Cloud Run (create or update preview service)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'deploy'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$$(cat /workspace/service_name.txt)
+        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
+        
+        # The source files are already in /workspace from Cloud Build
+        # Source the centralized environment configuration
+        cd /workspace && source ./scripts/preview-env-config.sh
+        
+        # Build the environment variables string
+        ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
+        
+        # Debug: Print the environment variables
+        echo "=== Environment variables being set ==="
+        echo "$$ENV_VARS" | tr ',' '\n'
+        echo "=== End of environment variables ==="
+        
+        echo "Deploying with Docker image: $$DOCKER_TAG"
+        
+        # Check if service exists
+        if gcloud run services describe "$$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --region=${_DEPLOY_REGION} \
+          --project=${_AR_PROJECT_ID} >/dev/null 2>&1; then
+          echo "Updating existing preview service: $$SERVICE_NAME"
+        else
+          echo "Creating new preview service: $$SERVICE_NAME"
+        fi
+        
+        # Deploy the service (this command handles both create and update)
+        # Use preview-specific secrets that are shared across all preview deployments
+        gcloud run deploy "$$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --image="$$DOCKER_TAG" \
+          --labels=managed-by=preview-deployments,commit-sha=${_COMMIT_SHA},branch=${_BRANCH_TAG} \
+          --region=${_DEPLOY_REGION} \
+          --project=${_AR_PROJECT_ID} \
+          --allow-unauthenticated \
+          --timeout=300 \
+          --set-env-vars="$$ENV_VARS" \
+          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest"
+
+  # Step 6: Get the service URL and save it
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'get-url'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$$(cat /workspace/service_name.txt)
+        
+        # Get the service URL
+        SERVICE_URL=$$(gcloud run services describe "$$SERVICE_NAME" \
+          --platform=${_PLATFORM} \
+          --region=${_DEPLOY_REGION} \
+          --project=${_AR_PROJECT_ID} \
+          --format='value(status.url)')
+        
+        echo "Preview URL: $$SERVICE_URL"
+        echo "$$SERVICE_URL" > /workspace/preview_url.txt
+        
+        # Also save deployment info for GitHub
+        TIMESTAMP=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        cat > /workspace/deployment_info.json << 'EOF'
+        {
+          "service_name": "SERVICE_NAME_PLACEHOLDER",
+          "preview_url": "SERVICE_URL_PLACEHOLDER",
+          "branch": "BRANCH_NAME_PLACEHOLDER",
+          "commit": "COMMIT_SHA_PLACEHOLDER",
+          "short_sha": "SHORT_SHA_PLACEHOLDER",
+          "build_id": "BUILD_ID_PLACEHOLDER",
+          "timestamp": "TIMESTAMP_PLACEHOLDER"
+        }
+        EOF
+        
+        # Replace placeholders with actual values
+        sed -i "s|SERVICE_NAME_PLACEHOLDER|$$SERVICE_NAME|g" /workspace/deployment_info.json
+        sed -i "s|SERVICE_URL_PLACEHOLDER|$$SERVICE_URL|g" /workspace/deployment_info.json
+        sed -i "s|BRANCH_NAME_PLACEHOLDER|${_BRANCH_NAME}|g" /workspace/deployment_info.json
+        sed -i "s|COMMIT_SHA_PLACEHOLDER|${_COMMIT_SHA}|g" /workspace/deployment_info.json
+        sed -i "s|SHORT_SHA_PLACEHOLDER|${_SHORT_SHA}|g" /workspace/deployment_info.json
+        sed -i "s|BUILD_ID_PLACEHOLDER|${BUILD_ID}|g" /workspace/deployment_info.json
+        sed -i "s|TIMESTAMP_PLACEHOLDER|$$TIMESTAMP|g" /workspace/deployment_info.json
+
+# Tags for this build
+tags:
+  - 'preview-deployment'
+
+timeout: '600s'
