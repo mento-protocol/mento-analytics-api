@@ -2,6 +2,7 @@ import { MentoService } from '@common/services/mento.service';
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
+import * as Sentry from '@sentry/nestjs';
 import * as WebSocket from 'ws';
 
 class HealthCheckResponse {
@@ -16,6 +17,7 @@ class HealthCheckResponse {
       mentoSdk: { status: 'ok' },
       cache: { status: 'ok' },
       external_apis: { status: 'ok' },
+      sentry: { status: 'ok' },
     },
   })
   healthStatuses: {
@@ -26,6 +28,12 @@ class HealthCheckResponse {
     external_apis: {
       status: 'ok' | 'error';
       details?: string;
+    };
+    sentry: {
+      status: 'ok' | 'error';
+      details?: string;
+      release?: string;
+      environment?: string;
     };
   };
 }
@@ -57,6 +65,7 @@ export class HealthController {
     const healthStatuses = {
       mentoSdk: await this.checkMentoSdkConnection(),
       external_apis: await this.checkExternalApis(),
+      sentry: await this.checkSentryHealth(),
     };
 
     const hasErrors = Object.values(healthStatuses).some((healthCheck) => healthCheck.status === 'error');
@@ -143,5 +152,45 @@ export class HealthController {
       status: 'error' as const,
       details: `Unreachable APIs: ${failedApis.join(', ')}`,
     };
+  }
+
+  private async checkSentryHealth() {
+    try {
+      // Check if Sentry is properly configured
+      const dsn = this.configService.get<string>('SENTRY_DSN');
+      const release = this.configService.get<string>('RELEASE_VERSION');
+      const environment =
+        this.configService.get<string>('SENTRY_ENVIRONMENT') ||
+        this.configService.get<string>('NODE_ENV') ||
+        'production';
+
+      if (!dsn) {
+        return {
+          status: 'error' as const,
+          details: 'SENTRY_DSN not configured',
+        };
+      }
+
+      // Test Sentry by capturing a test event (this is safe and won't spam Sentry)
+      const testEventId = Sentry.captureMessage('Health check test event', 'info');
+
+      if (!testEventId) {
+        return {
+          status: 'error' as const,
+          details: 'Failed to capture test event to Sentry',
+        };
+      }
+
+      return {
+        status: 'ok' as const,
+        release: release || 'unknown',
+        environment,
+      };
+    } catch (error) {
+      return {
+        status: 'error' as const,
+        details: `Sentry health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
   }
 }
