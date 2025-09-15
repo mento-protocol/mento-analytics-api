@@ -213,6 +213,15 @@ jobs:
       run: |
         echo "Creating Sentry release for preview version: ${{ github.sha }}"
         
+        # Debug: Check if SENTRY_AUTH_TOKEN is set (without exposing the value)
+        if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+          echo "❌ ERROR: SENTRY_AUTH_TOKEN is not set!"
+          echo "Please add SENTRY_AUTH_TOKEN to your repository secrets."
+          exit 1
+        else
+          echo "✅ SENTRY_AUTH_TOKEN is set (length: ${#SENTRY_AUTH_TOKEN})"
+        fi
+        
         # Create new release
         npx @sentry/cli releases new ${{ github.sha }} \
           --org mento-labs \
