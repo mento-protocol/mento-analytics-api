@@ -78,7 +78,18 @@ steps:
           --quiet \
           --set-env-vars=RELEASE_VERSION=$COMMIT_SHA
 
-  # Step 5: Create Sentry release and upload source maps (only after successful deployment)
+  # Step 5: Clone git repository for Sentry commit association
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'git-clone'
+    args:
+      - 'clone'
+      - 'https://github.com/mentolabs/mento-analytics-api.git'
+      - '--branch=main'
+      - '--depth=50'
+      - '--single-branch'
+      - '.'
+
+  # Step 6: Create Sentry release and upload source maps (only after successful deployment)
   - name: 'node:22-alpine'
     id: 'sentry-release'
     entrypoint: 'sh'

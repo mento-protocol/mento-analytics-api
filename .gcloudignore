@@ -4,6 +4,9 @@
 # Include all .gitignore patterns
 #!include:.gitignore
 
+# Explicitly exclude .git directory (we'll clone it during build instead)
+.git/
+
 # Additional Cloud Build specific exclusions not covered by .gitignore
 *.tsbuildinfo
 

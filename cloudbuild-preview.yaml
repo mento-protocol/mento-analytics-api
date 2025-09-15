@@ -181,7 +181,18 @@ steps:
         sed -i "s|BUILD_ID_PLACEHOLDER|${BUILD_ID}|g" /workspace/deployment_info.json
         sed -i "s|TIMESTAMP_PLACEHOLDER|$$TIMESTAMP|g" /workspace/deployment_info.json
 
-  # Step 7: Create Sentry release and upload source maps for preview (only after successful deployment)
+  # Step 7: Clone git repository for Sentry commit association
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'git-clone-preview'
+    args:
+      - 'clone'
+      - 'https://github.com/mentolabs/mento-analytics-api.git'
+      - '--branch=${_BRANCH_NAME}'
+      - '--depth=50'
+      - '--single-branch'
+      - '.'
+
+  # Step 8: Create Sentry release and upload source maps for preview (only after successful deployment)
   - name: 'node:22-alpine'
     id: 'sentry-release-preview'
     entrypoint: 'sh'
