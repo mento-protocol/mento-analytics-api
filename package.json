@@ -31,7 +31,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org mento-labs --project analytics-api ./dist && sentry-cli sourcemaps upload --org mento-labs --project analytics-api ./dist",
     "sentry:release": "./scripts/sentry-release.sh",
-    "sentry:release:deploy": "./scripts/sentry-release.sh $(git rev-parse HEAD) --deploy production"
+    "sentry:release:deploy": "./scripts/sentry-release.sh $(git rev-parse HEAD) --deploy production https://mento-analytics-api-mento-prod.us-central1.run.app"
   },
   "dependencies": {
     "@mento-protocol/mento-sdk": "2.0.0-beta.10",

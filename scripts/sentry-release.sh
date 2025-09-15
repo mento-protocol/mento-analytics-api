@@ -77,12 +77,14 @@ npx @sentry/cli releases finalize "$RELEASE_VERSION" \
 # Optional: Mark as deployed (for local testing)
 if [ "$2" == "--deploy" ]; then
     ENV="${3:-development}"
+    URL="${4:-http://localhost:8080}"
     echo -e "\n${GREEN}Marking release as deployed to ${ENV}...${NC}"
     npx @sentry/cli releases deploys "$RELEASE_VERSION" new \
         --org "$SENTRY_ORG" \
         --project "$SENTRY_PROJECT" \
         --env "$ENV" \
-        --name "Manual Deployment"
+        --name "Manual Deployment" \
+        --url "$URL"
 fi
 
 # Clean up source maps (optional)
