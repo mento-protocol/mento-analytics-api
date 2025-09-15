@@ -198,39 +198,39 @@ jobs:
         fi
         
         # Create new release
-        npx @sentry/cli releases new ${{ github.sha }} \
-          --org ${{ env.SENTRY_ORG }} \
-          --project ${{ env.SENTRY_PROJECT }}
+        npx @sentry/cli releases new "${{ github.sha }}" \
+          --org "${{ env.SENTRY_ORG }}" \
+          --project "${{ env.SENTRY_PROJECT }}"
         
         # Inject Debug IDs into source files
         npx @sentry/cli sourcemaps inject ./dist \
-          --org ${{ env.SENTRY_ORG }} \
-          --project ${{ env.SENTRY_PROJECT }}
+          --org "${{ env.SENTRY_ORG }}" \
+          --project "${{ env.SENTRY_PROJECT }}"
         
         # Upload source maps
         npx @sentry/cli sourcemaps upload ./dist \
-          --org ${{ env.SENTRY_ORG }} \
-          --project ${{ env.SENTRY_PROJECT }}
-          --release ${{ github.sha }} \
+          --org "${{ env.SENTRY_ORG }}" \
+          --project "${{ env.SENTRY_PROJECT }}" \
+          --release "${{ github.sha }}" \
           --validate
         
         # Associate commits with release
-        npx @sentry/cli releases set-commits ${{ github.sha }} --auto \
-          --org ${{ env.SENTRY_ORG }} \
-          --project ${{ env.SENTRY_PROJECT }}
+        npx @sentry/cli releases set-commits "${{ github.sha }}" --auto \
+          --org "${{ env.SENTRY_ORG }}" \
+          --project "${{ env.SENTRY_PROJECT }}"
         
         # Finalize the release
-        npx @sentry/cli releases finalize ${{ github.sha }} \
-          --org ${{ env.SENTRY_ORG }} \
-          --project ${{ env.SENTRY_PROJECT }}
+        npx @sentry/cli releases finalize "${{ github.sha }}" \
+          --org "${{ env.SENTRY_ORG }}" \
+          --project "${{ env.SENTRY_PROJECT }}"
         
         # Mark as deployed to preview environment
-        npx @sentry/cli releases deploys ${{ github.sha }} new \
-          --org ${{ env.SENTRY_ORG }} \
-          --project ${{ env.SENTRY_PROJECT }} \
+        npx @sentry/cli releases deploys "${{ github.sha }}" new \
+          --org "${{ env.SENTRY_ORG }}" \
+          --project "${{ env.SENTRY_PROJECT }}" \
           --env preview \
           --name "Preview Deployment - ${{ env.BRANCH_NAME }}" \
-          --url ${{ env.PREVIEW_URL }}
+          --url "${{ env.PREVIEW_URL }}"
 
         find ./dist -name "*.map" -type f -delete
         echo "Source maps cleaned up"
