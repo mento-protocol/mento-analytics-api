@@ -8,6 +8,8 @@ env:
   GCP_PROJECT_ID: mento-prod
   GCP_REGION: us-central1
   SERVICE_NAME_PREFIX: analytics-api-preview
+  SENTRY_ORG: mento-labs
+  SENTRY_PROJECT: analytics-api
 
 jobs:
   deploy-preview:
@@ -26,6 +28,35 @@ jobs:
       with:
         fetch-depth: 0  # Fetch full git history for Sentry Releases
 
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+       version: 10
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build application
+      run: pnpm run build
+
+    - name: Check for Docker changes
+      id: docker-changes
+      uses: dorny/paths-filter@v2
+      with:
+        filters: |
+          docker:
+            - 'Dockerfile'
+            - 'package*.json'
+            - 'pnpm-lock.yaml'
+            - 'src/**'
+            - 'tsconfig.json'
+
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
@@ -34,10 +65,6 @@ jobs:
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
-
-    - name: Install gcloud beta components
-      run: |
-        gcloud components install beta --quiet
 
     - name: Extract branch name
       shell: bash
@@ -60,40 +87,82 @@ jobs:
         echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
         echo "SERVICE_NAME=${SERVICE_NAME_PREFIX}-${SAFE_BRANCH_NAME}" >> $GITHUB_ENV
 
-    - name: Trigger Deployment via Google Cloud Build
-      id: build
+    - name: Use existing Docker image
+      if: steps.docker-changes.outputs.docker == 'false'
+      run: |
+        # Use the latest image from the registry
+        IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/analytics-api-preview:latest"
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+        echo "Using existing Docker image: $IMAGE_TAG"
+
+    - name: Set Docker image tag
+      if: steps.docker-changes.outputs.docker == 'true'
+      run: |
+        IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/analytics-api-preview:${BRANCH_NAME,,}-${GITHUB_SHA::7,,}"
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+        echo "Docker image will be tagged as: $IMAGE_TAG"
+
+    - name: Set up Docker Buildx
+      if: steps.docker-changes.outputs.docker == 'true'
+      uses: docker/setup-buildx-action@v3
+
+    - name: Configure Docker for GCR
+      if: steps.docker-changes.outputs.docker == 'true'
+      run: |
+        gcloud auth configure-docker us-central1-docker.pkg.dev
+
+    - name: Build and push Docker image
+      if: steps.docker-changes.outputs.docker == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ env.IMAGE_TAG }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+        build-args: |
+          RELEASE_VERSION=${{ env.BRANCH_NAME }}-${{ github.sha }}
+
+    - name: Install gcloud beta components
+      run: |
+        gcloud components install beta --quiet
+
+    - name: Trigger Preview Deployment via Google Cloud Build
+      id: deploy
       run: |
         echo "Triggering deployment for branch: ${{ env.BRANCH_NAME }}"
         echo "Service to deploy: ${{ env.SERVICE_NAME }}"
+        echo "Using pre-built image: ${{ env.IMAGE_TAG }}"
         
         BUILD_ID=$(gcloud builds submit \
-          --config=cloudbuild-preview.yaml \
-          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH_NAME }},_SHORT_SHA=${GITHUB_SHA::7},_COMMIT_SHA=${{ github.sha }} \
+          --config=cloudbuild-preview-minimal.yaml \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(id)" \
+          --substitutions=_BRANCH_NAME=${{ env.BRANCH_NAME }},_BRANCH_TAG=${{ env.SAFE_BRANCH_NAME }},_SHORT_SHA=${GITHUB_SHA::7},_COMMIT_SHA=${{ github.sha }},_IMAGE_TAG=${{ env.IMAGE_TAG }} \
           --async)
         
         echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
-        echo "Deployment build started with ID: $BUILD_ID"
+        echo "Preview deployment started with ID: $BUILD_ID"
         
-        # Wait for build to complete and stream logs
-        echo "Streaming build logs..."
+        # Wait for deployment to complete and stream logs
+        echo "Streaming deployment logs..."
         gcloud beta builds log "$BUILD_ID" --stream --project=${{ env.GCP_PROJECT_ID }}
         
-        # Check build status after streaming logs
-        echo "Checking build status..."
+        # Check deployment status after streaming logs
+        echo "Checking deployment status..."
         BUILD_STATUS=$(gcloud builds describe "$BUILD_ID" \
           --project=${{ env.GCP_PROJECT_ID }} \
           --format="value(status)")
         
-        echo "Build status: $BUILD_STATUS"
+        echo "Deployment status: $BUILD_STATUS"
         
         if [ "$BUILD_STATUS" != "SUCCESS" ]; then
-          echo "❌ Build failed with status: $BUILD_STATUS"
-          echo "Build logs are available at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.GCP_PROJECT_ID }}"
+          echo "❌ Deployment failed with status: $BUILD_STATUS"
+          echo "Deployment logs are available at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.GCP_PROJECT_ID }}"
           exit 1
         else
-          echo "✅ Build completed successfully"
+          echo "✅ Deployment completed successfully"
         fi
 
     - name: Get preview URL
@@ -114,6 +183,60 @@ jobs:
         echo "PREVIEW_URL=$SERVICE_URL" >> $GITHUB_ENV
         echo "Preview URL: $SERVICE_URL"
 
+    - name: Create Sentry release for preview
+      env:
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      run: |
+        echo "Creating Sentry release for preview version: ${{ github.sha }}"
+        
+        # Debug: Check if SENTRY_AUTH_TOKEN is set (without exposing the value)
+        if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+          echo "❌ ERROR: SENTRY_AUTH_TOKEN is not set!"
+          echo "Please add SENTRY_AUTH_TOKEN to your repository secrets."
+          exit 1
+        else
+          echo "✅ SENTRY_AUTH_TOKEN is set (length: ${#SENTRY_AUTH_TOKEN})"
+        fi
+        
+        # Create new release
+        npx @sentry/cli releases new ${{ github.sha }} \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Inject Debug IDs into source files
+        npx @sentry/cli sourcemaps inject ./dist \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Upload source maps
+        npx @sentry/cli sourcemaps upload ./dist \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+          --release ${{ github.sha }} \
+          --validate
+        
+        # Associate commits with release
+        npx @sentry/cli releases set-commits ${{ github.sha }} --auto \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Finalize the release
+        npx @sentry/cli releases finalize ${{ github.sha }} \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }}
+        
+        # Mark as deployed to preview environment
+        npx @sentry/cli releases deploys ${{ github.sha }} new \
+          --org ${{ env.SENTRY_ORG }} \
+          --project ${{ env.SENTRY_PROJECT }} \
+          --env preview \
+          --name "Preview Deployment - ${{ env.BRANCH_NAME }}" \
+          --url ${{ env.PREVIEW_URL }}
+
+        find ./dist -name "*.map" -type f -delete
+        echo "Source maps cleaned up"
+        
+        echo "✅ Sentry release completed successfully for preview!"
 
     - name: Update deployment status
       uses: actions/github-script@v7
@@ -209,83 +332,3 @@ jobs:
             });
           }
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-
-    - name: Install pnpm
-      run: npm install -g pnpm
-
-    - name: Cache pnpm dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.pnpm-store
-          node_modules
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
-
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-
-    - name: Build application
-      run: pnpm run build
-
-    - name: Create Sentry release for preview
-      env:
-        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      run: |
-        echo "Creating Sentry release for preview version: ${{ github.sha }}"
-        
-        # Debug: Check if SENTRY_AUTH_TOKEN is set (without exposing the value)
-        if [ -z "$SENTRY_AUTH_TOKEN" ]; then
-          echo "❌ ERROR: SENTRY_AUTH_TOKEN is not set!"
-          echo "Please add SENTRY_AUTH_TOKEN to your repository secrets."
-          exit 1
-        else
-          echo "✅ SENTRY_AUTH_TOKEN is set (length: ${#SENTRY_AUTH_TOKEN})"
-        fi
-        
-        # Create new release
-        npx @sentry/cli releases new ${{ github.sha }} \
-          --org mento-labs \
-          --project analytics-api
-        
-        # Inject Debug IDs into source files
-        npx @sentry/cli sourcemaps inject ./dist \
-          --org mento-labs \
-          --project analytics-api
-        
-        # Upload source maps
-        npx @sentry/cli sourcemaps upload ./dist \
-          --org mento-labs \
-          --project analytics-api \
-          --release ${{ github.sha }} \
-          --validate
-        
-        # Associate commits with release
-        npx @sentry/cli releases set-commits ${{ github.sha }} --auto \
-          --org mento-labs \
-          --project analytics-api
-        
-        # Finalize the release
-        npx @sentry/cli releases finalize ${{ github.sha }} \
-          --org mento-labs \
-          --project analytics-api
-        
-        # Mark as deployed to preview environment
-        npx @sentry/cli releases deploys ${{ github.sha }} new \
-          --org mento-labs \
-          --project analytics-api \
-          --env preview \
-          --name "Preview Deployment - ${{ env.BRANCH_NAME }}" \
-          --url ${{ env.PREVIEW_URL }}
-        
-        echo "Sentry release completed successfully for preview!"
-
-    - name: Clean up source maps
-      run: |
-        find ./dist -name "*.map" -type f -delete
-        echo "Source maps cleaned up"

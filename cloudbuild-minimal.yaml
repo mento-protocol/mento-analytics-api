@@ -1,0 +1,58 @@
+# Minimal Cloud Build configuration for production deployment
+# This file only handles deployment of pre-built Docker images from GitHub Actions
+
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _PLATFORM: managed
+  _SERVICE_NAME: mento-analytics-api
+  _IMAGE_TAG: ${_IMAGE_TAG}
+  _COMMIT_SHA: ${_COMMIT_SHA}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+
+steps:
+  # Step 1: Deploy to Cloud Run using pre-built image
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'deploy'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Deploying pre-built image: ${_IMAGE_TAG}"
+        
+        # The source files are already in /workspace from Cloud Build
+        # Source the centralized environment configuration
+        cd /workspace && source ./scripts/env-config.sh
+        
+        # Build the environment variables string for production
+        # Override environment-specific values
+        export NODE_ENV="production"
+        export ENVIRONMENT="production"
+        export SENTRY_ENVIRONMENT="production"
+        
+        # Build the environment variables string
+        ENV_VARS=$$(build_env_vars_string "main" "main" "${_COMMIT_SHA}")
+        
+        # Debug: Print the environment variables
+        echo "=== Environment variables being set ==="
+        echo "$$ENV_VARS" | tr ',' '\n'
+        echo "=== End of environment variables ==="
+        
+        gcloud run deploy ${_SERVICE_NAME} \
+          --platform=managed \
+          --image="${_IMAGE_TAG}" \
+          --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=${_COMMIT_SHA},gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID \
+          --region=${_DEPLOY_REGION} \
+          --quiet \
+          --set-env-vars="$$ENV_VARS" \
+          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-prod:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-prod:latest"
+
+# Tags for this build
+tags:
+  - 'gcp-cloud-build-deploy-cloud-run'
+  - 'gcp-cloud-build-deploy-cloud-run-managed'
+  - '${_SERVICE_NAME}'
+
+timeout: '300s'
