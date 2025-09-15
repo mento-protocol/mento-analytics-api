@@ -68,7 +68,8 @@ jobs:
     - name: Set Docker image tag
       run: |
         if [ "${{ steps.docker-changes.outputs.docker }}" == "true" ]; then
-          IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}:${GITHUB_SHA,,}"
+          SHA_LOWER=$(echo "${GITHUB_SHA}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}:${SHA_LOWER}"
           echo "Docker image will be tagged as: $IMAGE_TAG"
         else
           IMAGE_TAG="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}:latest"
