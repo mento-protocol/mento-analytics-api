@@ -15,10 +15,5 @@ docs/
 *.md
 !README.md
 
-# Scripts (not needed for build, except for preview-env-config.sh)
-scripts/*
-!scripts/preview-env-config.sh
-bin/
-
 # GitHub workflows (not needed for build)
 .github/
