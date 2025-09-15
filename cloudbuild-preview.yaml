@@ -190,7 +190,7 @@ steps:
       - '--branch=${_BRANCH_NAME}'
       - '--depth=50'
       - '--single-branch'
-      - '.'
+      - 'git-repo'
 
   # Step 8: Create Sentry release and upload source maps for preview (only after successful deployment)
   - name: 'node:22-alpine'
@@ -248,6 +248,7 @@ steps:
           --validate
         
         # Non-critical operations - log but don't fail the build
+        cd git-repo
         try_operation "Associate commits with release" \
           npx @sentry/cli releases set-commits "$$RELEASE_VERSION" --auto \
           --org ${_SENTRY_ORG} \
