@@ -55,26 +55,25 @@ jobs:
         echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
         echo "Production build started with ID: $BUILD_ID"
         
-        # Wait for build to complete
-        # Use beta command for better log streaming
+        # Wait for build to complete and stream logs
+        echo "Streaming build logs..."
         gcloud beta builds log "$BUILD_ID" --stream --project=${{ env.GCP_PROJECT_ID }}
-
-    - name: Verify deployment
-      run: |
-        # Verify the service is running
-        SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-          --platform=managed \
-          --region=${{ env.GCP_REGION }} \
+        
+        # Check build status after streaming logs
+        echo "Checking build status..."
+        BUILD_STATUS=$(gcloud builds describe "$BUILD_ID" \
           --project=${{ env.GCP_PROJECT_ID }} \
-          --format='value(status.url)')
+          --format="value(status)")
         
-        if [ -z "$SERVICE_URL" ]; then
-          echo "Failed to get service URL. The deployment might have failed."
+        echo "Build status: $BUILD_STATUS"
+        
+        if [ "$BUILD_STATUS" != "SUCCESS" ]; then
+          echo "❌ Build failed with status: $BUILD_STATUS"
+          echo "Build logs are available at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.GCP_PROJECT_ID }}"
           exit 1
+        else
+          echo "✅ Build completed successfully"
         fi
-        
-        echo "Production URL: $SERVICE_URL"
-        echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
