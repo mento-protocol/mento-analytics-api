@@ -5,17 +5,9 @@
 
 set -euo pipefail
 
-# Configuration
-PROJECT_ID="mento-prod"
-REGION="us-central1"
-SERVICE_PREFIX="analytics-api-preview"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/shared-utils.sh"
 
 # Helper functions
 print_usage() {
@@ -36,26 +28,10 @@ print_usage() {
     echo "  $0 cleanup-old 14"
 }
 
-# Get current git branch
-get_current_branch() {
-    git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
-}
-
-# Convert branch name to safe service name
-# Prefix 'analytics-api-preview-' is 22 chars, leaving 41 chars for branch name
-get_safe_branch_name() {
-    local branch=$1
-    echo "$branch" | \
-        sed 's/[^a-zA-Z0-9-]/-/g' | \
-        tr '[:upper:]' '[:lower:]' | \
-        sed 's/^-//;s/-$//' | \
-        sed 's/--*/-/g' | \
-        cut -c1-41
-}
 
 # List all preview deployments
 list_previews() {
-    echo -e "${BLUE}Listing all preview deployments...${NC}"
+    print_info "Listing all preview deployments..."
     
     gcloud run services list \
         --platform=managed \
@@ -78,27 +54,27 @@ deploy_preview() {
     if [ -z "$branch" ]; then
         branch=$(get_current_branch)
         if [ -z "$branch" ]; then
-            echo -e "${RED}Error: Could not determine current branch${NC}"
+            print_error "Could not determine current branch"
             print_usage
             exit 1
         fi
         
-        echo -e "${YELLOW}No branch specified. Current branch is: $branch${NC}"
+        print_warning "No branch specified. Current branch is: $branch"
         read -p "Deploy preview for current branch '$branch'? (y/N) " -n 1 -r
         echo
         
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo -e "${YELLOW}Deploy cancelled${NC}"
+            print_warning "Deploy cancelled"
             exit 0
         fi
     fi
     
-    echo -e "${BLUE}Deploying preview for branch: $branch${NC}"
+    print_info "Deploying preview for branch: $branch"
     
     # Trigger the build
     local safe_branch_name=$(get_safe_branch_name "$branch")
     
-    echo -e "${BLUE}Submitting build and streaming logs...${NC}"
+    print_info "Submitting build and streaming logs..."
     
     # Submit build asynchronously to get build ID quickly
     local build_id=$(gcloud builds submit \
@@ -109,32 +85,32 @@ deploy_preview() {
         --format='value(id)')
     
     if [ -n "$build_id" ]; then
-        echo -e "${BLUE}Build submitted with ID: $build_id${NC}"
-        echo -e "${BLUE}Streaming build logs...${NC}"
+        print_info "Build submitted with ID: $build_id"
+        print_info "Streaming build logs..."
         
         # Try to use beta command for better log streaming, fall back to regular command
         if gcloud beta builds log "$build_id" --stream --project=$PROJECT_ID 2>/dev/null; then
-            echo -e "${GREEN}Build logs streamed successfully${NC}"
+            print_success "Build logs streamed successfully"
         else
-            echo -e "${YELLOW}Beta command unavailable, using regular log command...${NC}"
+            print_warning "Beta command unavailable, using regular log command..."
             # Install beta components if needed
             gcloud components install beta --quiet >/dev/null 2>&1 || true
             # Try beta command again, or use regular polling
             if ! gcloud beta builds log "$build_id" --stream --project=$PROJECT_ID 2>/dev/null; then
-                echo -e "${YELLOW}Falling back to status polling...${NC}"
+                print_warning "Falling back to status polling..."
                 while true; do
                     status=$(gcloud builds describe "$build_id" --project=$PROJECT_ID --format="value(status)")
                     case "$status" in
                         "SUCCESS")
-                            echo -e "${GREEN}Build completed successfully${NC}"
+                            print_success "Build completed successfully"
                             break
                             ;;
                         "FAILURE"|"CANCELLED"|"TIMEOUT")
-                            echo -e "${RED}Build failed with status: $status${NC}"
+                            print_error "Build failed with status: $status"
                             exit 1
                             ;;
                         *)
-                            echo -e "${BLUE}Build status: $status${NC}"
+                            print_info "Build status: $status"
                             sleep 10
                             ;;
                     esac
@@ -142,7 +118,7 @@ deploy_preview() {
             fi
         fi
     else
-        echo -e "${RED}Failed to get build ID${NC}"
+        print_error "Failed to get build ID"
         exit 1
     fi
 }
@@ -155,25 +131,24 @@ delete_preview() {
     if [ -z "$branch" ]; then
         branch=$(get_current_branch)
         if [ -z "$branch" ]; then
-            echo -e "${RED}Error: Could not determine current branch${NC}"
+            print_error "Could not determine current branch"
             print_usage
             exit 1
         fi
         
-        echo -e "${YELLOW}No branch specified. Current branch is: $branch${NC}"
+        print_warning "No branch specified. Current branch is: $branch"
         read -p "Delete preview for current branch '$branch'? (y/N) " -n 1 -r
         echo
         
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo -e "${YELLOW}Delete cancelled${NC}"
+            print_warning "Delete cancelled"
             exit 0
         fi
     fi
     
-    local safe_branch_name=$(get_safe_branch_name "$branch")
-    local service_name="${SERVICE_PREFIX}-${safe_branch_name}"
+    local service_name=$(get_preview_service_name "$branch")
     
-    echo -e "${YELLOW}Deleting preview deployment: $service_name${NC}"
+    print_warning "Deleting preview deployment: $service_name"
     
     # Check if service exists
     if gcloud run services describe "$service_name" \
@@ -187,9 +162,9 @@ delete_preview() {
             --project=$PROJECT_ID \
             --quiet
         
-        echo -e "${GREEN}Successfully deleted preview deployment: $service_name${NC}"
+        print_success "Successfully deleted preview deployment: $service_name"
     else
-        echo -e "${YELLOW}Preview deployment not found: $service_name${NC}"
+        print_warning "Preview deployment not found: $service_name"
     fi
 }
 
@@ -198,7 +173,7 @@ cleanup_old_previews() {
     local days=${1:-7}
     local cutoff_date=$(date -d "$days days ago" +%Y-%m-%d 2>/dev/null || date -v -${days}d +%Y-%m-%d)
     
-    echo -e "${BLUE}Cleaning up preview deployments older than $days days (before $cutoff_date)...${NC}"
+    print_info "Cleaning up preview deployments older than $days days (before $cutoff_date)..."
     
     # Get list of old services
     local old_services=$(gcloud run services list \
@@ -209,11 +184,11 @@ cleanup_old_previews() {
         --format="value(name)")
     
     if [ -z "$old_services" ]; then
-        echo -e "${GREEN}No old preview deployments found${NC}"
+        print_success "No old preview deployments found"
         return
     fi
     
-    echo -e "${YELLOW}Found the following old preview deployments:${NC}"
+    print_warning "Found the following old preview deployments:"
     echo "$old_services"
     echo ""
     
@@ -222,16 +197,16 @@ cleanup_old_previews() {
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         for service in $old_services; do
-            echo -e "${YELLOW}Deleting: $service${NC}"
+            print_warning "Deleting: $service"
             gcloud run services delete "$service" \
                 --platform=managed \
                 --region=$REGION \
                 --project=$PROJECT_ID \
                 --quiet
         done
-        echo -e "${GREEN}Cleanup completed${NC}"
+        print_success "Cleanup completed"
     else
-        echo -e "${YELLOW}Cleanup cancelled${NC}"
+        print_warning "Cleanup cancelled"
     fi
 }
 
