@@ -1,9 +1,9 @@
+import { withRetry } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/nestjs';
 import { AddressCategory, Chain } from '@types';
 import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
-import { ConfigService } from '@nestjs/config';
-import { withRetry } from '@/utils';
-import * as Sentry from '@sentry/nestjs';
 interface BlockchainInfoResponse {
   [address: string]: {
     final_balance: number;
@@ -120,7 +120,7 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
     return withRetry(
       async () => {
         const requestUrl = new URL(this.blockstreamBaseUrl);
-        requestUrl.pathname = `/api/address/${address}`;
+        requestUrl.pathname = `/address/${address}`;
 
         const response = await fetch(requestUrl.toString());
         if (!response.ok) {
