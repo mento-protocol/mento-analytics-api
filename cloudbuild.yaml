@@ -36,7 +36,7 @@ steps:
         echo "Generated Docker tag: $$DOCKER_TAG"
         echo "$$DOCKER_TAG" > /workspace/docker_tag.txt
 
-  # Step 2: Build the Docker image
+  # Step 2: Build & push the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build'
     entrypoint: 'bash'
@@ -47,18 +47,10 @@ steps:
         echo "Building Docker image with tag: $$DOCKER_TAG"
         docker build -t "$$DOCKER_TAG" --build-arg "RELEASE_VERSION=${_COMMIT_SHA}" . -f Dockerfile
 
-  # Step 3: Push the Docker image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        DOCKER_TAG=$$(cat /workspace/docker_tag.txt)
         echo "Pushing Docker image: $$DOCKER_TAG"
         docker push "$$DOCKER_TAG"
 
-  # Step 4: Deploy to Cloud Run
+  # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'Deploy'
     entrypoint: 'bash'

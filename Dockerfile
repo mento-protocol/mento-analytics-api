@@ -15,7 +15,7 @@ COPY pnpm-lock.yaml ./
 RUN npm install -g pnpm@latest @nestjs/cli
 
 # Install dependencies
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
