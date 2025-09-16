@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: read
+      contents: write
       id-token: write
       pull-requests: write
       deployments: write
@@ -100,6 +100,31 @@ jobs:
               state: 'inactive',
               description: 'Preview deployment removed'
             });
+          }
+
+    - name: Delete GitHub environment
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const prNumber = context.payload.pull_request.number;
+          const environmentName = `preview-${prNumber}`;
+          
+          try {
+            // Delete the GitHub environment
+            await github.rest.repos.deleteEnvironment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              environment_name: environmentName
+            });
+            console.log(`✅ Successfully deleted GitHub environment: ${environmentName}`);
+          } catch (error) {
+            if (error.status === 404) {
+              console.log(`ℹ️ GitHub environment ${environmentName} not found (may have been already deleted)`);
+            } else {
+              console.error(`❌ Failed to delete GitHub environment ${environmentName}:`, error.message);
+              throw error;
+            }
           }
 
     - name: Comment on PR
