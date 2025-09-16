@@ -7,14 +7,13 @@ ENV PORT=8080
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY pnpm-lock.yaml ./
+# Copy package files first for better layer caching
+COPY package*.json pnpm-lock.yaml ./
 
 # Install pnpm and nest CLI globally
 RUN npm install -g pnpm@latest @nestjs/cli
 
-# Install dependencies
+# Install dependencies with frozen lockfile for reproducible builds
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
@@ -35,15 +34,14 @@ ENV RELEASE_VERSION=${RELEASE_VERSION}
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY pnpm-lock.yaml ./
+# Copy package files first for better layer caching
+COPY package*.json pnpm-lock.yaml ./
 
 # Install pnpm and nest CLI globally
 RUN npm install -g pnpm@latest @nestjs/cli
 
-# Install production dependencies only
-RUN pnpm install --prod
+# Install production dependencies only with frozen lockfile
+RUN pnpm install --prod --frozen-lockfile
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist

@@ -12,20 +12,28 @@ The preview deployment system automatically creates isolated Cloud Run services 
 - **Branch Isolation**: Each branch gets its own isolated deployment
 - **PR Integration**: Pull requests automatically get a comment with the preview URL
 - **Automatic Cleanup**: Preview deployments are automatically deleted when PRs are merged or closed
+- **Performance Optimized**: Docker builds only run when relevant files change (Dockerfile, package.json, src/, etc.)
+- **Efficient Caching**: GitHub Actions caches dependencies and Docker layers for faster builds
 
 ## Architecture
 
 ```txt
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   GitHub PR     │────▶│  GitHub Actions  │────▶│  Cloud Build    │
-│    Update       │     │   Workflow       │     │                 │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘
+│   GitHub PR     │────▶│  GitHub Actions  │────▶│  Artifact       │
+│    Update       │     │   Workflow       │     │  Registry       │
+└─────────────────┘     │  (Build & Push)  │     └────────┬────────┘
+                        └──────────────────┘              │
                                                           │
-                                                          ▼
-                                                  ┌─────────────────┐
-                                                  │   Cloud Run     │
-                                                  │  Preview Service│
-                                                  └─────────────────┘
+                        ┌──────────────────┐              │
+                        │  Cloud Build     │◀─────────────┘
+                        │  (Deploy Only)   │
+                        └────────┬─────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │   Cloud Run     │
+                        │  Preview Service│
+                        └─────────────────┘
 ```
 
 ## First Time Setup Requirements
@@ -53,12 +61,13 @@ For detailed manual setup instructions or troubleshooting, see the [Preview Depl
 1. **PR Creation or Update**:
    - GitHub Actions workflow ([`preview-deploy.yaml`](../.github/workflows/preview-deploy.yaml)) is triggered
    - Branch name is converted to a safe Cloud Run service name
+   - Docker image is built and pushed to Artifact Registry (if code changes detected)
    - Cloud Build is triggered with [`cloudbuild-preview.yaml`](../cloudbuild-preview.yaml)
 
 2. **Build and Deploy**:
-   - Docker image is built with branch-specific tag
-   - Image is pushed to Artifact Registry
-   - Cloud Run service is created/updated with the name: `analytics-api-preview-{branch-name}`
+   - **GitHub Actions**: Builds Docker image with branch-specific tag and pushes to Artifact Registry
+   - **Cloud Build**: Deploys the pre-built image to Cloud Run service with name: `analytics-api-preview-{branch-name}`
+   - **Performance**: Docker builds only run when relevant files change (Dockerfile, package.json, src/, etc.)
 
 3. **PR Comment**:
    - A comment is automatically added with the preview URL
@@ -78,7 +87,7 @@ For detailed manual setup instructions or troubleshooting, see the [Preview Depl
 
 Preview services follow this naming pattern:
 
-```
+```text
 analytics-api-preview-{safe-branch-name}
 ```
 

@@ -2,6 +2,22 @@
 
 This guide walks you through setting up preview deployments for the Mento Analytics API using Google Cloud and GitHub Actions.
 
+## Architecture Overview
+
+The preview deployment system uses a hybrid approach:
+
+1. **GitHub Actions**: Handles Docker image building and pushing to Artifact Registry
+2. **Cloud Build**: Handles deployment of pre-built images to Cloud Run
+3. **Performance Optimizations**: Docker builds only run when relevant files change
+
+This architecture provides:
+
+- **Faster deployments**: Docker builds only when needed (detects changes in Dockerfile, package.json, src/, etc.)
+- **Better caching**: GitHub Actions caches pnpm dependencies and Docker layers for faster subsequent builds
+- **Reduced Cloud Build costs**: Only handles deployment, not building
+- **Conditional builds**: Uses `dorny/paths-filter` to detect relevant file changes
+- **Layer optimization**: Dockerfile uses multi-stage builds with better layer caching
+
 ## Prerequisites
 
 Before starting, ensure you have:
@@ -226,13 +242,13 @@ If you see authentication errors in GitHub Actions:
 
 1. Verify the WIF_PROVIDER format is correct:
 
-   ```
+```text
    projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_NAME/providers/PROVIDER_NAME
-   ```
+```
 
-2. Check the attribute condition matches your GitHub organization
+1. Check the attribute condition matches your GitHub organization
 
-3. Ensure the service account has the correct IAM bindings
+2. Ensure the service account has the correct IAM bindings
 
 ### Permission Errors
 
