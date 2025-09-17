@@ -111,8 +111,8 @@ jobs:
           const environmentName = `preview-${prNumber}`;
           
           try {
-            // Delete the GitHub environment
-            await github.rest.repos.deleteEnvironment({
+            // Delete the GitHub environment using direct API call
+            await github.request('DELETE /repos/{owner}/{repo}/environments/{environment_name}', {
               owner: context.repo.owner,
               repo: context.repo.repo,
               environment_name: environmentName
