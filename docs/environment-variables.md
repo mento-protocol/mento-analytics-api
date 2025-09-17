@@ -25,6 +25,11 @@ Default values are defined in `.env.example`
 - `EXCHANGE_RATES_API_KEY`: Exchange rates API authentication
 - `COINMARKETCAP_API_KEY`: CoinMarketCap API authentication
 
+### RPC URLs (Sensitive, stored in Secret Manager)
+
+- `CELO_RPC_URL`: Celo network RPC endpoint with API key
+- `ETH_RPC_URL`: Ethereum network RPC endpoint with API key
+
 ### Runtime Configuration
 
 - `NODE_ENV`: `production` | `development`
@@ -40,10 +45,14 @@ Default values are defined in `.env.example`
 # Production secrets
 coinmarketcap-api-key-prod
 exchange-rates-api-key-prod
+celo-rpc-url-prod
+eth-rpc-url-prod
 
 # Preview secrets (shared by all preview deployments)
 coinmarketcap-api-key-preview
 exchange-rates-api-key-preview
+celo-rpc-url-preview
+eth-rpc-url-preview
 ```
 
 ### 2. Grant Minimal Access
@@ -73,11 +82,15 @@ Production secrets should be set up by your infrastructure team with appropriate
 
 ### Preview Deployments
 
-Run once to set up shared preview secrets:
+Run the unified setup script to configure all secrets:
 
 ```bash
-./scripts/setup-preview-secrets.sh
+./scripts/setup-secrets.sh
 ```
+
+This script will guide you through setting up both API keys and RPC URLs for your chosen environments.
+
+For manual setup of individual secrets, use the gcloud commands shown in the script output.
 
 ### Local Development
 

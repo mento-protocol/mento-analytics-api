@@ -48,8 +48,8 @@ build_env_vars_string() {
     
     # Add all environment variables from .env file that are currently exported
     # This dynamically includes all env vars without hardcoding them
-    # Exclude API keys that are managed as Cloud Run secrets and Cloud Run reserved variables
-    local env_from_file=$(env | grep -E '^[A-Z_][A-Z0-9_]*=' | grep -vE '^(RELEASE_VERSION|ENVIRONMENT|SENTRY_ENVIRONMENT|PREVIEW_BRANCH|NODE_ENV|PORT|PATH|HOME|USER|PWD|SHELL|TERM|LANG|LC_|GOOGLE_|GCLOUD_|BUILDER_|RESULTS|SHLVL|HOSTNAME|CLOUD_SDK_|OLDPWD|_|.*_API_KEY)' | sed 's/=/=/g' | tr '\n' ',' | sed 's/,$//')
+    # Exclude API keys and RPC URLs that are managed as Cloud Run secrets and Cloud Run reserved variables
+    local env_from_file=$(env | grep -E '^[A-Z_][A-Z0-9_]*=' | grep -vE '^(RELEASE_VERSION|ENVIRONMENT|SENTRY_ENVIRONMENT|PREVIEW_BRANCH|NODE_ENV|PORT|PATH|HOME|USER|PWD|SHELL|TERM|LANG|LC_|GOOGLE_|GCLOUD_|BUILDER_|RESULTS|SHLVL|HOSTNAME|CLOUD_SDK_|OLDPWD|_|.*_API_KEY|CELO_RPC_URL|ETH_RPC_URL)' | sed 's/=/=/g' | tr '\n' ',' | sed 's/,$//')
     
     if [ -n "$env_from_file" ]; then
         env_vars="${env_vars},${env_from_file}"

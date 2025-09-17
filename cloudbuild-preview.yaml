@@ -86,7 +86,7 @@ steps:
           --allow-unauthenticated \
           --timeout=300 \
           --set-env-vars="$$ENV_VARS" \
-          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest"
+          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest,CELO_RPC_URL=celo-rpc-url-preview:latest,ETH_RPC_URL=eth-rpc-url-preview:latest"
 
   # Step 3: Get the service URL and save it
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'

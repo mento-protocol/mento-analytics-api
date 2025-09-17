@@ -83,9 +83,16 @@ steps:
     args:
       - '-c'
       - |
-        # List and delete old images for this branch (keep only the last 3)
-        # Images are tagged with pattern: ${_BRANCH_TAG}-${_SHORT_SHA}
-        # Use Artifact Registry commands instead of Container Registry
+        # CRITICAL: Only clean up preview images, never touch production images or 'latest' tag
+        # All images (production and preview) are stored in the same repository: mento-analytics-api
+        # Preview images are tagged with pattern: ${_BRANCH_TAG}-${_SHORT_SHA}
+        # Production images use commit SHA tags and the 'latest' tag
+        
+        echo "Cleaning up old preview images for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
+        echo "IMPORTANT: Only cleaning preview images, preserving production 'latest' tag"
+        
+        # List preview images for this branch (keep only the last 3)
+        # Preview images are stored in the analytics-api-preview repository
         IMAGES=$$(gcloud artifacts docker images list \
           ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX} \
           --include-tags \
@@ -94,15 +101,40 @@ steps:
           --sort-by="~timestamp" | tail -n +4)
         
         if [ ! -z "$$IMAGES" ]; then
-          echo "Cleaning up old container images for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
+          echo "Found old preview images to clean up for branch: ${_BRANCH_NAME}"
           for IMAGE in $$IMAGES; do
-            echo "Deleting image: $$IMAGE"
+            echo "Deleting preview image: $$IMAGE"
             gcloud artifacts docker images delete \
-              "${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}@$$IMAGE" \
+              "${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX}-api-preview@$$IMAGE" \
               --quiet || true
           done
+          echo "Preview image cleanup completed for branch: ${_BRANCH_NAME}"
         else
-          echo "No old images to clean up for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
+          echo "No old preview images to clean up for branch: ${_BRANCH_NAME} (tag prefix: ${_BRANCH_TAG})"
+        fi
+        
+        # Verify we haven't touched production images
+        echo "Verifying production 'latest' tag is still intact..."
+        if gcloud artifacts docker images list \
+          ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/mento-analytics-api \
+          --include-tags \
+          --filter="tags:latest" >/dev/null 2>&1; then
+          echo "✅ Production 'latest' tag is safe and intact"
+        else
+          echo "❌ WARNING: Production 'latest' tag is missing!"
+          exit 1
+        fi
+        
+        # Verify preview 'latest' tag is still intact
+        echo "Verifying preview 'latest' tag is still intact..."
+        if gcloud artifacts docker images list \
+          ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME_PREFIX} \
+          --include-tags \
+          --filter="tags:latest" >/dev/null 2>&1; then
+          echo "✅ Preview 'latest' tag is safe and intact"
+        else
+          echo "❌ WARNING: Preview 'latest' tag is missing!"
+          exit 1
         fi
 
 # Tags for this build
