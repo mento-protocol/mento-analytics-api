@@ -126,13 +126,11 @@ Preview deployments use a **shared secrets approach** following Google Cloud bes
 Before preview deployments can work, run the setup script **once**:
 
 ```bash
-# Run this once to set up preview secrets
-./scripts/setup-preview-secrets.sh
-
-# Add your test/sandbox API keys
-echo -n 'YOUR_SANDBOX_COINMARKETCAP_KEY' | gcloud secrets versions add coinmarketcap-api-key-preview --data-file=-
-echo -n 'YOUR_TEST_EXCHANGE_RATES_KEY' | gcloud secrets versions add exchange-rates-api-key-preview --data-file=-
+# Run this once to set up all secrets (API keys and RPC URLs)
+./scripts/setup-secrets.sh
 ```
+
+This unified script will guide you through setting up both API keys and RPC URLs for your chosen environments.
 
 ## Management Scripts
 

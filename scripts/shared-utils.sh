@@ -94,3 +94,9 @@ print_warning() {
 print_error() {
     echo -e "${RED}$1${NC}"
 }
+
+print_section() {
+    echo ""
+    echo -e "${BLUE}==== $1 ====${NC}"
+    echo ""
+}
