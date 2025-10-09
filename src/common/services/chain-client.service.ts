@@ -27,8 +27,8 @@ export class ChainClientService {
     };
 
     // Create WebSocket clients
-    const celoRpcUrl = this.getRequiredConfig('CELO_RPC_URL');
-    const ethereumRpcUrl = this.getRequiredConfig('ETH_RPC_URL');
+    const celoRpcUrl = this.getConfigValue('CELO_RPC_URL');
+    const ethereumRpcUrl = this.getConfigValue('ETH_RPC_URL');
 
     const celoClient = createPublicClient({
       chain: celo,
@@ -49,7 +49,7 @@ export class ChainClientService {
     this.logger.log('RPC clients initialized with enhanced WebSocket configuration');
   }
 
-  private getRequiredConfig(key: string): string {
+  private getConfigValue(key: string): string {
     const value = this.config.get(key);
     if (!value) throw new Error(`${key} is not set`);
     return value;

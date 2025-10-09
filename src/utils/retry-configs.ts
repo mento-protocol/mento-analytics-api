@@ -13,7 +13,7 @@ interface RetryOptions {
  */
 export const RETRY_CONFIGS = {
   // For RPC calls (balance fetching, contract reads)
-  RPC_CALL: {
+  GENERAL_RPC: {
     maxRetries: 5,
     rateLimitMaxRetries: 10,
     baseDelay: 1000,

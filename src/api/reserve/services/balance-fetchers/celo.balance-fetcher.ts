@@ -1,7 +1,7 @@
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { AddressCategory, Chain } from '@types';
-import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
+import { BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainClientService } from '@/common/services/chain-client.service';
 import { ViemAdapter, UniV3SupplyCalculator, AAVESupplyCalculator } from '@mento-protocol/mento-sdk';

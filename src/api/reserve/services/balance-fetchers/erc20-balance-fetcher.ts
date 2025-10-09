@@ -37,7 +37,7 @@ export class ERC20BalanceFetcher {
         });
       },
       `Failed to fetch balance for ${tokenAddress || 'native'} on ${chain}`,
-      { ...RETRY_CONFIGS.RPC_CALL, logger: this.logger },
+      { ...RETRY_CONFIGS.GENERAL_RPC, logger: this.logger },
     );
   }
 }

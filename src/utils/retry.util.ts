@@ -24,24 +24,32 @@ enum ErrorType {
   GENERAL = 'General Error',
 }
 
-const ERROR_PATTERNS = {
-  [ErrorType.RATE_LIMIT]: [
-    '429',
-    '503',
-    'too many requests',
-    'service unavailable',
-    'rate limit',
-    'quota exceeded',
-    'server overload',
-  ],
-  [ErrorType.WEBSOCKET]: [
-    'websocket',
-    'socket has been closed',
-    'socketclosederror',
-    'connection closed',
-    'contractfunctionexecutionerror',
-  ],
-  [ErrorType.API_ERROR]: ['unexpected token', 'is not valid json', 'syntaxerror', '<html>', '<!doctype'],
+const ERROR_DETAILS = {
+  patterns: {
+    [ErrorType.RATE_LIMIT]: [
+      '429',
+      '503',
+      'too many requests',
+      'service unavailable',
+      'rate limit',
+      'quota exceeded',
+      'server overload',
+    ],
+    [ErrorType.WEBSOCKET]: [
+      'websocket',
+      'socket has been closed',
+      'socketclosederror',
+      'connection closed',
+      'contractfunctionexecutionerror',
+    ],
+    [ErrorType.API_ERROR]: ['unexpected token', 'is not valid json', 'syntaxerror', '<html>', '<!doctype'],
+  },
+  contexts: {
+    [ErrorType.RATE_LIMIT]: 'Consider reducing request frequency or upgrading API limits.',
+    [ErrorType.WEBSOCKET]: 'Consider switching to HTTP transport for better stability.',
+    [ErrorType.API_ERROR]: 'External API is returning HTML instead of JSON.',
+    [ErrorType.GENERAL]: 'Check error details above.',
+  },
 };
 
 const BACKOFF_MULTIPLIERS = {
@@ -65,7 +73,7 @@ function classifyError(error: any): ErrorType {
   if (statusCode === 429 || statusCode === 503) return ErrorType.RATE_LIMIT;
 
   // Check pattern matches
-  for (const [type, patterns] of Object.entries(ERROR_PATTERNS)) {
+  for (const [type, patterns] of Object.entries(ERROR_DETAILS.patterns)) {
     if (patterns.some((pattern) => errorString.includes(pattern) || errorMessage.includes(pattern))) {
       return type as ErrorType;
     }
@@ -85,7 +93,7 @@ export async function withRetry<T>(
   const { maxRetries, logger, baseDelay, maxDelay, rateLimitMaxRetries } = { ...defaultOptions, ...options };
 
   let attempt = 0;
-  let errorTypes = new Set<ErrorType>();
+  const errorTypes = new Set<ErrorType>();
 
   while (attempt < maxRetries) {
     try {
@@ -102,7 +110,7 @@ export async function withRetry<T>(
       logger.warn(error, `${errorMessage} after ${attempt} attempts (${errorType}). Retrying...`);
 
       if (attempt >= effectiveMaxRetries) {
-        const context = getErrorContext(errorType);
+        const context = ERROR_DETAILS.contexts[errorType];
         logger.error(error, `${errorMessage} after ${attempt} attempts. ${context}`);
 
         Sentry.captureException(error, {
@@ -125,19 +133,6 @@ export async function withRetry<T>(
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-}
-
-/**
- * Get human-readable context for error types
- */
-function getErrorContext(errorType: ErrorType): string {
-  const contexts = {
-    [ErrorType.RATE_LIMIT]: 'Consider reducing request frequency or upgrading API limits.',
-    [ErrorType.WEBSOCKET]: 'Consider switching to HTTP transport for better stability.',
-    [ErrorType.API_ERROR]: 'External API is returning HTML instead of JSON.',
-    [ErrorType.GENERAL]: 'Check error details above.',
-  };
-  return contexts[errorType];
 }
 
 /**
