@@ -4,14 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { Chain } from '@types';
 import { celo, mainnet } from 'viem/chains';
 import { Logger } from '@nestjs/common';
-import { Semaphore } from '@/utils';
+import pLimit from 'p-limit';
 
 @Injectable()
 export class ChainClientService {
   private clients = new Map<Chain, PublicClient>();
   private blockWatchers = new Map<Chain, () => void>();
-  private rpcLimiters = new Map<Chain, Semaphore>();
-  private globalRpcLimiter = new Semaphore(1);
+  private rpcLimiters = new Map<Chain, ReturnType<typeof pLimit>>();
+  private globalRpcLimiter = pLimit(1);
   private lastRequestTime = 0;
   private readonly minDelayBetweenRequests = 500; // ms
   private readonly logger = new Logger(ChainClientService.name);
@@ -43,8 +43,8 @@ export class ChainClientService {
     this.clients.set(Chain.ETHEREUM, ethereumClient as PublicClient);
 
     // Initialize rate limiters (1 concurrent request per chain)
-    this.rpcLimiters.set(Chain.CELO, new Semaphore(1));
-    this.rpcLimiters.set(Chain.ETHEREUM, new Semaphore(1));
+    this.rpcLimiters.set(Chain.CELO, pLimit(1));
+    this.rpcLimiters.set(Chain.ETHEREUM, pLimit(1));
 
     this.logger.log('RPC clients initialized with enhanced WebSocket configuration');
   }
@@ -61,7 +61,7 @@ export class ChainClientService {
     return client;
   }
 
-  private getRateLimiter(chain: Chain): Semaphore {
+  private getRateLimiter(chain: Chain): ReturnType<typeof pLimit> {
     const limiter = this.rpcLimiters.get(chain);
     if (!limiter) throw new Error(`No rate limiter available for chain ${chain}`);
     return limiter;
@@ -74,14 +74,15 @@ export class ChainClientService {
     const client = this.getClient(chain);
     const rateLimiter = this.getRateLimiter(chain);
 
-    return await this.globalRpcLimiter.execute(async () => {
-      return await rateLimiter.execute(async () => {
+    return await this.globalRpcLimiter(async () => {
+      return await rateLimiter(async () => {
         // Enforce minimum delay between requests
         await this.enforceMinDelay();
 
         this.logger.debug(
-          `RPC call on ${chain} (global queue: ${this.globalRpcLimiter.queueLength()}, ` +
-            `chain queue: ${rateLimiter.queueLength()}, permits: ${rateLimiter.availablePermits()})`,
+          `RPC call on ${chain} (global active: ${this.globalRpcLimiter.activeCount}, ` +
+            `global pending: ${this.globalRpcLimiter.pendingCount}, ` +
+            `chain active: ${rateLimiter.activeCount}, chain pending: ${rateLimiter.pendingCount})`,
         );
 
         return await operation(client);
