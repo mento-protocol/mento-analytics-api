@@ -14,7 +14,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
       supportedCategories: [AddressCategory.MENTO_RESERVE],
     };
     super(config);
-    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainClientService.getClient(Chain.ETHEREUM));
+    this.erc20Fetcher = new ERC20BalanceFetcher(this.chainClientService);
   }
 
   async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {

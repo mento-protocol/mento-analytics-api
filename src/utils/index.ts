@@ -1,2 +1,2 @@
 export * from './retry.util';
-export * from './semaphore.util';
+export * from './retry-configs';

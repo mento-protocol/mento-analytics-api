@@ -4,11 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import { Chain } from '@types';
 import { celo, mainnet } from 'viem/chains';
 import { Logger } from '@nestjs/common';
+import pLimit from 'p-limit';
 
 @Injectable()
 export class ChainClientService {
-  private clients: Map<Chain, PublicClient> = new Map();
-  private blockWatchers: Map<Chain, () => void> = new Map();
+  private clients = new Map<Chain, PublicClient>();
+  private blockWatchers = new Map<Chain, () => void>();
+  private rpcLimiters = new Map<Chain, ReturnType<typeof pLimit>>();
+  private globalRpcLimiter = pLimit(1);
+  private lastRequestTime = 0;
+  private readonly minDelayBetweenRequests = 500; // ms
   private readonly logger = new Logger(ChainClientService.name);
 
   constructor(private config: ConfigService) {
@@ -16,23 +21,14 @@ export class ChainClientService {
   }
 
   private initializeProviders() {
-    const celoRpcUrl = this.config.get('CELO_RPC_URL');
-    if (!celoRpcUrl) {
-      throw new Error('CELO_RPC_URL is not set');
-    }
-
-    const ethereumRpcUrl = this.config.get('ETH_RPC_URL');
-    if (!ethereumRpcUrl) {
-      throw new Error('ETH_RPC_URL is not set');
-    }
-
     const wsConfig: WebSocketTransportConfig = {
-      timeout: 20000,
-      reconnect: {
-        attempts: 5,
-        delay: 5000,
-      },
+      timeout: 30000,
+      reconnect: { attempts: 10, delay: 2000 },
     };
+
+    // Create WebSocket clients
+    const celoRpcUrl = this.getConfigValue('CELO_RPC_URL');
+    const ethereumRpcUrl = this.getConfigValue('ETH_RPC_URL');
 
     const celoClient = createPublicClient({
       chain: celo,
@@ -45,45 +41,87 @@ export class ChainClientService {
       transport: webSocket(ethereumRpcUrl, wsConfig),
     });
     this.clients.set(Chain.ETHEREUM, ethereumClient as PublicClient);
+
+    // Initialize rate limiters (1 concurrent request per chain)
+    this.rpcLimiters.set(Chain.CELO, pLimit(1));
+    this.rpcLimiters.set(Chain.ETHEREUM, pLimit(1));
+
+    this.logger.log('RPC clients initialized with enhanced WebSocket configuration');
   }
 
-  /**
-   * Get a client for a given chain
-   * @param chain - The chain to get the client for
-   * @returns The client for the chain
-   */
+  private getConfigValue(key: string): string {
+    const value = this.config.get(key);
+    if (!value) throw new Error(`${key} is not set`);
+    return value;
+  }
+
   getClient(chain: Chain): PublicClient {
     const client = this.clients.get(chain);
-    if (!client) {
-      throw new Error(`No client available for chain ${chain}`);
-    }
+    if (!client) throw new Error(`No client available for chain ${chain}`);
     return client;
   }
 
+  private getRateLimiter(chain: Chain): ReturnType<typeof pLimit> {
+    const limiter = this.rpcLimiters.get(chain);
+    if (!limiter) throw new Error(`No rate limiter available for chain ${chain}`);
+    return limiter;
+  }
+
   /**
-   * Watch for new blocks on a specific chain and execute a callback
-   * @param chain - The chain to watch
-   * @param callback - The callback to execute when a new block is found
+   * Execute rate-limited RPC call with global and per-chain throttling
+   */
+  async executeRateLimited(chain: Chain, operation: (client: PublicClient) => Promise<string>): Promise<string> {
+    const client = this.getClient(chain);
+    const rateLimiter = this.getRateLimiter(chain);
+
+    return await this.globalRpcLimiter(async () => {
+      return await rateLimiter(async () => {
+        // Enforce minimum delay between requests
+        await this.enforceMinDelay();
+
+        this.logger.debug(
+          `RPC call on ${chain} (global active: ${this.globalRpcLimiter.activeCount}, ` +
+            `global pending: ${this.globalRpcLimiter.pendingCount}, ` +
+            `chain active: ${rateLimiter.activeCount}, chain pending: ${rateLimiter.pendingCount})`,
+        );
+
+        return await operation(client);
+      });
+    });
+  }
+
+  private async enforceMinDelay(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    if (timeSinceLastRequest < this.minDelayBetweenRequests) {
+      const delay = this.minDelayBetweenRequests - timeSinceLastRequest;
+      this.logger.debug(`Enforcing ${delay}ms delay between requests`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    this.lastRequestTime = Date.now();
+  }
+
+  /**
+   * Watch for new blocks on a chain
    */
   watchBlocks(chain: Chain, callback: any): void {
     this.unwatchBlocks(chain);
 
     const client = this.getClient(chain);
-
     this.logger.log(`Starting block watcher for ${chain}`);
+
     const unwatch = client.watchBlockNumber({
       onBlockNumber: callback,
-      onError: (error) => {
-        this.logger.error(`Error watching blocks on ${chain}: ${error.message}`);
-      },
+      onError: (error) => this.logger.error(`Block watcher error on ${chain}: ${error.message}`),
     });
 
     this.blockWatchers.set(chain, unwatch);
   }
 
   /**
-   * Stop watching blocks on a specific chain
-   * @param chain - The chain to stop watching
+   * Stop watching blocks on a chain
    */
   unwatchBlocks(chain: Chain): void {
     const unwatch = this.blockWatchers.get(chain);
@@ -95,7 +133,7 @@ export class ChainClientService {
   }
 
   /**
-   * Clean up all watchers when the module is destroyed
+   * Clean up all watchers on module destroy
    */
   onModuleDestroy() {
     this.logger.log('Cleaning up chain watchers');
