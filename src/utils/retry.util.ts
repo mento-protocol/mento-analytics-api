@@ -21,6 +21,7 @@ enum ErrorType {
   RATE_LIMIT = 'Rate Limited',
   WEBSOCKET = 'WebSocket Failure',
   API_ERROR = 'API Error',
+  CONTRACT_ERROR = 'Contract Execution Error',
   GENERAL = 'General Error',
 }
 
@@ -35,18 +36,19 @@ const ERROR_DETAILS = {
       'quota exceeded',
       'server overload',
     ],
-    [ErrorType.WEBSOCKET]: [
-      'websocket',
-      'socket has been closed',
-      'socketclosederror',
-      'connection closed',
+    [ErrorType.WEBSOCKET]: ['websocket', 'socket has been closed', 'socketclosederror', 'connection closed'],
+    [ErrorType.CONTRACT_ERROR]: [
       'contractfunctionexecutionerror',
+      'missing or invalid parameters',
+      'execution reverted',
     ],
     [ErrorType.API_ERROR]: ['unexpected token', 'is not valid json', 'syntaxerror', '<html>', '<!doctype'],
   },
   contexts: {
     [ErrorType.RATE_LIMIT]: 'Consider reducing request frequency or upgrading API limits.',
     [ErrorType.WEBSOCKET]: 'Consider switching to HTTP transport for better stability.',
+    [ErrorType.CONTRACT_ERROR]:
+      'Contract call failed with invalid parameters or reverted. This may be due to race conditions in batch operations.',
     [ErrorType.API_ERROR]: 'External API is returning HTML instead of JSON.',
     [ErrorType.GENERAL]: 'Check error details above.',
   },
@@ -55,6 +57,7 @@ const ERROR_DETAILS = {
 const BACKOFF_MULTIPLIERS = {
   [ErrorType.RATE_LIMIT]: 3,
   [ErrorType.WEBSOCKET]: 4,
+  [ErrorType.CONTRACT_ERROR]: 3,
   [ErrorType.API_ERROR]: 5,
   [ErrorType.GENERAL]: 2,
 };

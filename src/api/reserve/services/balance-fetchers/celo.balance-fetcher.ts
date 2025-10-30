@@ -38,6 +38,13 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
   }
 
   private async fetchUniv3PoolBalance(tokenAddress: string, accountAddress: string): Promise<string> {
+    if (!tokenAddress || !accountAddress) {
+      this.logger.warn(
+        `Invalid parameters for UniV3 balance fetch: tokenAddress=${tokenAddress}, accountAddress=${accountAddress}`,
+      );
+      return '0';
+    }
+
     const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
     const calculator = new UniV3SupplyCalculator(
       adapter,
@@ -48,7 +55,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
 
     const holdings = await withRetry(
       () => calculator.getAmount(tokenAddress),
-      `Failed to fetch UniV3 balance for ${tokenAddress}`,
+      `Failed to fetch UniV3 balance for ${tokenAddress} at ${accountAddress}`,
       { ...RETRY_CONFIGS.SDK_OPERATION, logger: this.logger },
     );
 
