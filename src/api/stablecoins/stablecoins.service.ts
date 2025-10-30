@@ -17,7 +17,7 @@ export class StablecoinsService {
   ) {}
 
   async getStablecoins(): Promise<StablecoinsResponseDto> {
-    const stablecoins = await withRetry(
+    const stablecoinsResponse = await withRetry(
       async () => {
         const mento = this.mentoService.getMentoInstance();
         const tokens = await mento.getStableTokens();
@@ -48,19 +48,16 @@ export class StablecoinsService {
 
         const total_supply_usd = Number(stablecoins.reduce((sum, coin) => sum + coin.supply.usd_value, 0));
 
-        return {
-          total_supply_usd,
-          stablecoins,
-        };
+        return { total_supply_usd, stablecoins };
       },
       'Failed to fetch stablecoins',
       { logger: this.logger, baseDelay: 8000 },
     );
-    if (!stablecoins) {
+    if (!stablecoinsResponse) {
       this.logger.warn('Failed to fetch stablecoins, returning default values');
       return { total_supply_usd: 0, stablecoins: [] };
     }
-    return stablecoins;
+    return stablecoinsResponse;
   }
 
   /**
