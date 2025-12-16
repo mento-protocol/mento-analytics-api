@@ -1,20 +1,7 @@
 /**
- * Mapping of Mento stable tokens to their corresponding fiat currencies
+ * Extracts the fiat ticker from a Mento stable token symbol.
+ * All Mento stable tokens follow the format [FIAT_TICKER]m (e.g., USDm -> USD)
  */
-export const STABLE_TOKEN_FIAT_MAPPING = {
-  cUSD: 'USD',
-  cEUR: 'EUR',
-  cREAL: 'BRL',
-  cKES: 'KES',
-  PUSO: 'PHP',
-  cCOP: 'COP',
-  eXOF: 'XOF',
-  cGHS: 'GHS',
-  cGBP: 'GBP',
-  cZAR: 'ZAR',
-  cAUD: 'AUD',
-  cCAD: 'CAD',
-  cJPY: 'JPY',
-  cNGN: 'NGN',
-  cCHF: 'CHF',
-};
+export function getFiatTickerFromSymbol(symbol: string): string {
+  return symbol.slice(0, -1);
+}
