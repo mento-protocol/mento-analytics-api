@@ -5,7 +5,7 @@ import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { ICONS_BASE_URL } from './constants';
 import { formatUnits } from 'viem';
 import { withRetry } from '@/utils';
-import { STABLE_TOKEN_FIAT_MAPPING } from '@common/constants';
+import { getFiatTickerFromSymbol } from '@common/constants';
 
 @Injectable()
 export class StablecoinsService {
@@ -24,7 +24,7 @@ export class StablecoinsService {
 
         const stablecoins: StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
-            const fiatTicker = STABLE_TOKEN_FIAT_MAPPING[token.symbol];
+            const fiatTicker = getFiatTickerFromSymbol(token.symbol);
             const formattedTotalSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
             const rawUsdValue = await this.exchangeRatesService.convert(formattedTotalSupply, fiatTicker, 'USD');
 

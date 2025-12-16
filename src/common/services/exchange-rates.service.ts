@@ -1,5 +1,4 @@
 import { withRetry, RETRY_CONFIGS } from '@/utils';
-import { STABLE_TOKEN_FIAT_MAPPING } from '@common/constants';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Sentry from '@sentry/nestjs';
@@ -24,12 +23,10 @@ export class ExchangeRatesService {
   private ratesCache: Record<string, number> | null = null;
   private lastFetchTimestamp = 0;
   private ongoingFetch: Promise<Record<string, number>> | null = null;
-  private fiatSymbols: string[];
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.getRequiredConfig('EXCHANGE_RATES_API_KEY');
     this.baseUrl = this.getRequiredConfig('EXCHANGE_RATES_API_URL');
-    this.fiatSymbols = Object.values(STABLE_TOKEN_FIAT_MAPPING);
   }
 
   private getRequiredConfig(key: string): string {
@@ -75,7 +72,6 @@ export class ExchangeRatesService {
       const url = new URL(this.baseUrl);
       url.pathname = '/latest';
       url.searchParams.set('base', 'USD');
-      url.searchParams.set('symbols', this.fiatSymbols.join(','));
       url.searchParams.set('access_key', this.apiKey);
 
       const response = await fetch(url.toString());
