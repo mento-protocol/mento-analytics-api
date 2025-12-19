@@ -62,7 +62,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Operational Multisig',
-    assets: ['USDC', 'USDT', 'ETH', 'stETH'],
+    assets: ['USDC', 'USDT', 'ETH', 'stETH', 'EURA', 'EURC'],
     description: 'Holds reserve assets for rebalancing purposes',
   },
   {
