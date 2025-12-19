@@ -17,16 +17,28 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
     this.erc20Fetcher = new ERC20BalanceFetcher(this.chainClientService);
   }
 
-  async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
+  async fetchBalance(
+    tokenAddress: string | null,
+    accountAddress: string,
+    category: AddressCategory,
+    isVault: boolean = false,
+  ): Promise<string> {
     switch (category) {
       case AddressCategory.MENTO_RESERVE:
-        return await this.fetchMentoReserveBalance(tokenAddress, accountAddress);
+        return await this.fetchMentoReserveBalance(tokenAddress, accountAddress, isVault);
       default:
         throw new Error(`Unsupported address category: ${category}`);
     }
   }
 
-  private async fetchMentoReserveBalance(tokenAddress: string | null, accountAddress: string): Promise<string> {
+  private async fetchMentoReserveBalance(
+    tokenAddress: string | null,
+    accountAddress: string,
+    isVault: boolean,
+  ): Promise<string> {
+    if (isVault && tokenAddress) {
+      return await this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+    }
     return await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
   }
 }

@@ -45,7 +45,12 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
     }
   }
 
-  async fetchBalance(_tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
+  async fetchBalance(
+    _tokenAddress: string | null,
+    accountAddress: string,
+    category: AddressCategory,
+    _isVault: boolean = false,
+  ): Promise<string> {
     try {
       switch (category) {
         case AddressCategory.MENTO_RESERVE:
