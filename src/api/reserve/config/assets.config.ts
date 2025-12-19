@@ -92,6 +92,12 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 6,
       address: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c',
     },
+    EURA: {
+      symbol: 'EURA',
+      name: 'EURA',
+      decimals: 18,
+      address: '0x1a7e4e63778b4f12a199c062f3efdd288afcbce8',
+    },
     ETH: {
       symbol: 'ETH',
       name: 'Ether',
