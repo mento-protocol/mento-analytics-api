@@ -67,6 +67,7 @@ export class ReserveBalanceService {
             assetConfig.address ?? null,
             reserveAddressConfig.address,
             reserveAddressConfig.category,
+            assetConfig.isVault ?? false,
           );
           let usdValue = 0;
           let formattedBalance = '0';

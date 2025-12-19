@@ -23,12 +23,14 @@ export abstract class BaseBalanceFetcher {
    * @param tokenAddress - The address of the token to fetch the balance of
    * @param accountAddress - The address of the account to fetch the balance of
    * @param category - The category of the address to fetch the balance of
+   * @param isVault - Whether this is an ERC-4626 vault token (uses maxWithdraw instead of balanceOf)
    * @returns The balance of the token for the given account address and category
    */
   abstract fetchBalance(
     tokenAddress: string | null,
     accountAddress: string,
     category: AddressCategory,
+    isVault?: boolean,
   ): Promise<string>;
 
   getChain(): Chain {

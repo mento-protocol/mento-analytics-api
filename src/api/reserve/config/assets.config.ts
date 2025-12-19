@@ -63,6 +63,7 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 18,
       address: '0x004626A008B1aCdC4c74ab51644093b155e59A23',
       rateSymbol: 'EURC',
+      isVault: true,
     },
     axlEUROC: {
       symbol: 'axlEUROC',
@@ -108,6 +109,7 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 18,
       address: '0xa3931d71877c0e7a3148cb7eb4463524fec27fbd',
       rateSymbol: 'USDS', // TODO: change to sUSDS once added to coinmarketcap
+      isVault: true,
     },
     USDS: {
       symbol: 'USDS',

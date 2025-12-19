@@ -37,6 +37,7 @@ export enum AddressCategory {
  * @param decimals - The number of decimals of the asset.
  * @param address - Nullable address of the asset. Null is an indication of a chain native asset such as ETH or BTC.
  * @param rateSymbol - The symbol of the asset used to calculate the price of the asset. e.g. EURC for stEUR.
+ * @param isVault - Whether this is an ERC-4626 vault token. If true, maxWithdraw() is used instead of balanceOf().
  */
 export interface AssetConfig {
   symbol: AssetSymbol;
@@ -44,6 +45,7 @@ export interface AssetConfig {
   decimals: number;
   address?: string;
   rateSymbol?: AssetSymbol;
+  isVault?: boolean;
 }
 
 /**

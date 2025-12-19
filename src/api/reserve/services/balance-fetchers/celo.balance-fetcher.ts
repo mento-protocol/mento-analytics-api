@@ -20,10 +20,15 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     this.erc20Fetcher = new ERC20BalanceFetcher(this.chainClientService);
   }
 
-  async fetchBalance(tokenAddress: string | null, accountAddress: string, category: AddressCategory): Promise<string> {
+  async fetchBalance(
+    tokenAddress: string | null,
+    accountAddress: string,
+    category: AddressCategory,
+    isVault: boolean = false,
+  ): Promise<string> {
     switch (category) {
       case AddressCategory.MENTO_RESERVE:
-        return this.fetchMentoReserveBalance(tokenAddress, accountAddress);
+        return this.fetchMentoReserveBalance(tokenAddress, accountAddress, isVault);
       case AddressCategory.UNIV3_POOL:
         return this.fetchUniv3PoolBalance(tokenAddress, accountAddress);
       case AddressCategory.AAVE:
@@ -33,7 +38,14 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     }
   }
 
-  private async fetchMentoReserveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
+  private async fetchMentoReserveBalance(
+    tokenAddress: string | null,
+    accountAddress: string,
+    isVault: boolean,
+  ): Promise<string> {
+    if (isVault && tokenAddress) {
+      return this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.CELO);
+    }
     return this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
   }
 
