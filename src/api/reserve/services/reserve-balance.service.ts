@@ -63,7 +63,8 @@ export class ReserveBalanceService {
 
         try {
           // Fetch the balance for the asset.
-          const balance = await fetcher.fetchBalance(
+          // Returns displayBalance (for UI) and valueCalculationBalance (for USD calculation)
+          const balanceResult = await fetcher.fetchBalance(
             assetConfig.address ?? null,
             reserveAddressConfig.address,
             reserveAddressConfig.category,
@@ -73,7 +74,7 @@ export class ReserveBalanceService {
           let formattedBalance = '0';
 
           // If balance is 0 log a warning and skip value calculation
-          if (balance === '0') {
+          if (balanceResult.displayBalance === '0') {
             const msg = `Balance is 0 for asset ${symbol} (${assetConfig.address}) on ${reserveAddressConfig.chain} at ${reserveAddressConfig.address}`;
             const context = {
               reserve_address: reserveAddressConfig.address,
@@ -82,14 +83,19 @@ export class ReserveBalanceService {
             };
             this.logger.debug(context, msg);
           } else {
-            // Get the usd value for the balance.
-            usdValue = await this.valueService.calculateUsdValue(assetConfig, balance);
+            // Get the usd value using valueCalculationBalance (raw token balance for vaults)
+            usdValue = await this.valueService.calculateUsdValue(
+              assetConfig,
+              balanceResult.valueCalculationBalance,
+              reserveAddressConfig.chain,
+            );
 
-            // Check if the balance is already formatted
-            if (BigNumber.isBigNumber(balance) || balance.includes('.')) {
-              formattedBalance = balance;
+            // Format the display balance for UI
+            const displayBal = balanceResult.displayBalance;
+            if (BigNumber.isBigNumber(displayBal) || displayBal.includes('.')) {
+              formattedBalance = displayBal;
             } else {
-              formattedBalance = this.formatBalance(balance, assetConfig);
+              formattedBalance = this.formatBalance(displayBal, assetConfig);
             }
           }
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AddressCategory, Chain } from 'src/types';
-import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
+import { BalanceFetcherConfig, BalanceResult, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainClientService } from '@/common/services/chain-client.service';
 @Injectable()
@@ -22,7 +22,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
     accountAddress: string,
     category: AddressCategory,
     isVault: boolean = false,
-  ): Promise<string> {
+  ): Promise<BalanceResult> {
     switch (category) {
       case AddressCategory.MENTO_RESERVE:
         return await this.fetchMentoReserveBalance(tokenAddress, accountAddress, isVault);
@@ -35,10 +35,18 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
     tokenAddress: string | null,
     accountAddress: string,
     isVault: boolean,
-  ): Promise<string> {
+  ): Promise<BalanceResult> {
     if (isVault && tokenAddress) {
-      return await this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+      const vaultResult = await this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+      return {
+        displayBalance: vaultResult.underlyingBalance,
+        valueCalculationBalance: vaultResult.tokenBalance,
+      };
     }
-    return await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+    const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
+    return {
+      displayBalance: balance,
+      valueCalculationBalance: balance,
+    };
   }
 }

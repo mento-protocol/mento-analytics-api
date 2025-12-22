@@ -6,6 +6,18 @@ export interface BalanceFetcherConfig {
 }
 
 /**
+ * Result of a balance fetch operation.
+ * For regular tokens: displayBalance and valueCalculationBalance are the same.
+ * For vault tokens: displayBalance is maxWithdraw (underlying), valueCalculationBalance is balanceOf (token count).
+ */
+export interface BalanceResult {
+  /** Balance to display (for vaults: underlying withdrawable amount) */
+  displayBalance: string;
+  /** Balance used for USD value calculation (for vaults: raw token balance) */
+  valueCalculationBalance: string;
+}
+
+/**
  * Base class for fetching balances of reserve holdings. The intention is that each
  * chain will have a different implementation of this class. Each implementation
  * will have additional internal methods for fetching balances of different
@@ -24,14 +36,14 @@ export abstract class BaseBalanceFetcher {
    * @param accountAddress - The address of the account to fetch the balance of
    * @param category - The category of the address to fetch the balance of
    * @param isVault - Whether this is an ERC-4626 vault token (uses maxWithdraw instead of balanceOf)
-   * @returns The balance of the token for the given account address and category
+   * @returns BalanceResult with display and value calculation balances
    */
   abstract fetchBalance(
     tokenAddress: string | null,
     accountAddress: string,
     category: AddressCategory,
     isVault?: boolean,
-  ): Promise<string>;
+  ): Promise<BalanceResult>;
 
   getChain(): Chain {
     return this.config.chain;

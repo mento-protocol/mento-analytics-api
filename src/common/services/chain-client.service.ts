@@ -70,7 +70,7 @@ export class ChainClientService {
   /**
    * Execute rate-limited RPC call with global and per-chain throttling
    */
-  async executeRateLimited(chain: Chain, operation: (client: PublicClient) => Promise<string>): Promise<string> {
+  async executeRateLimited<T>(chain: Chain, operation: (client: PublicClient) => Promise<T>): Promise<T> {
     const client = this.getClient(chain);
     const rateLimiter = this.getRateLimiter(chain);
 
