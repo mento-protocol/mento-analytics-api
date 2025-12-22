@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Sentry from '@sentry/nestjs';
 import { AddressCategory, Chain } from '@types';
-import { BalanceFetcherConfig, BaseBalanceFetcher } from '.';
+import { BalanceFetcherConfig, BalanceResult, BaseBalanceFetcher } from '.';
 interface BlockchainInfoResponse {
   [address: string]: {
     final_balance: number;
@@ -50,11 +50,13 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
     accountAddress: string,
     category: AddressCategory,
     _isVault: boolean = false,
-  ): Promise<string> {
+  ): Promise<BalanceResult> {
     try {
       switch (category) {
-        case AddressCategory.MENTO_RESERVE:
-          return await this.fetchMentoReserveBalance(accountAddress);
+        case AddressCategory.MENTO_RESERVE: {
+          const balance = await this.fetchMentoReserveBalance(accountAddress);
+          return { displayBalance: balance, valueCalculationBalance: balance };
+        }
         default:
           throw new Error(`Unsupported address category: ${category}`);
       }
@@ -69,7 +71,7 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
           description: `Failed to fetch Bitcoin balance for ${accountAddress}`,
         },
       });
-      return '0';
+      return { displayBalance: '0', valueCalculationBalance: '0' };
     }
   }
 

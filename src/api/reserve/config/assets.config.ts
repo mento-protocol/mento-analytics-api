@@ -114,8 +114,8 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       name: 'Savings USDS',
       decimals: 18,
       address: '0xa3931d71877c0e7a3148cb7eb4463524fec27fbd',
-      rateSymbol: 'USDS', // TODO: change to sUSDS once added to coinmarketcap
       isVault: true,
+      useDefiLlamaPrice: true,
     },
     USDS: {
       symbol: 'USDS',

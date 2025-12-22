@@ -23,8 +23,8 @@ interface CMCQuote {
 }
 
 @Injectable()
-export class PriceFetcherService {
-  private readonly logger = new Logger(PriceFetcherService.name);
+export class CoinMarketCapPriceFetcherService {
+  private readonly logger = new Logger(CoinMarketCapPriceFetcherService.name);
   private readonly apiKey: string;
   private readonly baseUrl: string;
 
@@ -108,7 +108,7 @@ export class PriceFetcherService {
         },
       });
     } catch (error) {
-      const description = `Failed to fetch price for ${symbol} from CoinmarketCap API`;
+      const description = `Failed to fetch price for ${symbol} from CoinMarketCap API`;
       this.logger.error(error, description);
       Sentry.captureException(error, {
         level: 'error',
@@ -122,7 +122,7 @@ export class PriceFetcherService {
     const data = (await response.json()) as CMCQuote;
 
     if (data.status.error_code !== 0) {
-      const errorMessage = `CoinmarketCap API error: ${data.status.error_message}`;
+      const errorMessage = `CoinMarketCap API error: ${data.status.error_message}`;
       const errorContext = {
         error_code: data.status.error_code,
         error_message: data.status.error_message,

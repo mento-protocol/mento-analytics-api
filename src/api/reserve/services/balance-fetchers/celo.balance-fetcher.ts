@@ -1,7 +1,7 @@
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { AddressCategory, Chain } from '@types';
-import { BaseBalanceFetcher } from '.';
+import { BalanceResult, BaseBalanceFetcher } from '.';
 import { ERC20BalanceFetcher } from './erc20-balance-fetcher';
 import { ChainClientService } from '@/common/services/chain-client.service';
 import { ViemAdapter, UniV3SupplyCalculator, AAVESupplyCalculator } from '@mento-protocol/mento-sdk';
@@ -25,7 +25,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     accountAddress: string,
     category: AddressCategory,
     isVault: boolean = false,
-  ): Promise<string> {
+  ): Promise<BalanceResult> {
     switch (category) {
       case AddressCategory.MENTO_RESERVE:
         return this.fetchMentoReserveBalance(tokenAddress, accountAddress, isVault);
@@ -42,19 +42,27 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     tokenAddress: string | null,
     accountAddress: string,
     isVault: boolean,
-  ): Promise<string> {
+  ): Promise<BalanceResult> {
     if (isVault && tokenAddress) {
-      return this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.CELO);
+      const vaultResult = await this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.CELO);
+      return {
+        displayBalance: vaultResult.underlyingBalance,
+        valueCalculationBalance: vaultResult.tokenBalance,
+      };
     }
-    return this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
+    const balance = await this.erc20Fetcher.fetchBalance(tokenAddress, accountAddress, Chain.CELO);
+    return {
+      displayBalance: balance,
+      valueCalculationBalance: balance,
+    };
   }
 
-  private async fetchUniv3PoolBalance(tokenAddress: string, accountAddress: string): Promise<string> {
+  private async fetchUniv3PoolBalance(tokenAddress: string, accountAddress: string): Promise<BalanceResult> {
     if (!tokenAddress || !accountAddress) {
       this.logger.warn(
         `Invalid parameters for UniV3 balance fetch: tokenAddress=${tokenAddress}, accountAddress=${accountAddress}`,
       );
-      return '0';
+      return { displayBalance: '0', valueCalculationBalance: '0' };
     }
 
     const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
@@ -71,10 +79,11 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       { ...RETRY_CONFIGS.SDK_OPERATION, logger: this.logger },
     );
 
-    return (holdings || '0').toString();
+    const balance = (holdings || '0').toString();
+    return { displayBalance: balance, valueCalculationBalance: balance };
   }
 
-  private async fetchAaveBalance(tokenAddress: string, accountAddress: string): Promise<string> {
+  private async fetchAaveBalance(tokenAddress: string, accountAddress: string): Promise<BalanceResult> {
     const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
     const calculator = new AAVESupplyCalculator(adapter, [accountAddress]);
 
@@ -84,6 +93,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
       { ...RETRY_CONFIGS.SDK_OPERATION, logger: this.logger },
     );
 
-    return (holdings || '0').toString();
+    const balance = (holdings || '0').toString();
+    return { displayBalance: balance, valueCalculationBalance: balance };
   }
 }
