@@ -54,7 +54,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Operational Multisig',
-    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH'],
+    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH', 'USDGLO'],
     description: 'Holds reserve assets for rebalancing purposes',
   },
   {
