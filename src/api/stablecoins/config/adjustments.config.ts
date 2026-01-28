@@ -51,18 +51,5 @@ export const AAVE_STABLECOIN_HOLDERS = [
   },
 ] as const;
 
-/**
- * Dead addresses for lost tokens.
- * The token's own contract address is always considered dead (self-held tokens).
- * Additional addresses can be added here for tokens that were accidentally
- * sent to known unrecoverable addresses.
- *
- * Key: token symbol, Value: array of dead addresses (in addition to the token's own address)
- */
-export const ADDITIONAL_DEAD_ADDRESSES: Record<string, string[]> = {
-  // Add additional dead addresses per token here as needed
-  // Example: 'cUSD': ['0x000000000000000000000000000000000000dEaD'],
-};
-
 export type ReserveStablecoinHolder = (typeof RESERVE_STABLECOIN_HOLDERS)[number];
 export type AaveStablecoinHolder = (typeof AAVE_STABLECOIN_HOLDERS)[number];

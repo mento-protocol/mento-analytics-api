@@ -5,11 +5,7 @@ import { ExchangeRatesService } from '@/common/services/exchange-rates.service';
 import { Chain, MENTO_STABLECOIN_SYMBOLS } from '@types';
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 import { ERC20_ABI, ViemAdapter, AAVESupplyCalculator } from '@mento-protocol/mento-sdk';
-import {
-  RESERVE_STABLECOIN_HOLDERS,
-  AAVE_STABLECOIN_HOLDERS,
-  ADDITIONAL_DEAD_ADDRESSES,
-} from '../config/adjustments.config';
+import { RESERVE_STABLECOIN_HOLDERS, AAVE_STABLECOIN_HOLDERS } from '../config/adjustments.config';
 import { getFiatTickerFromSymbol } from '@/common/constants';
 
 interface StablecoinToken {
@@ -149,7 +145,7 @@ export class StablecoinAdjustmentsService {
   }
 
   /**
-   * Calculate USD value of lost tokens (self-held + additional dead addresses)
+   * Calculate USD value of lost tokens (tokens held by their own contract address)
    */
   private async calculateLostTokens(
     stablecoins: StablecoinToken[],
@@ -158,22 +154,18 @@ export class StablecoinAdjustmentsService {
     let totalUsdValue = 0;
 
     for (const token of stablecoins) {
-      // Always check self-held balance (token contract holding its own tokens)
-      const deadAddresses = [token.address, ...(ADDITIONAL_DEAD_ADDRESSES[token.symbol] || [])];
-
-      for (const deadAddress of deadAddresses) {
-        try {
-          const balance = await this.fetchERC20Balance(token.address, deadAddress);
-          if (BigInt(balance) > 0n) {
-            const formattedAmount = Number(formatUnits(BigInt(balance), token.decimals));
-            const usdValue = await this.convertToUsd(balance, token.decimals, token.symbol);
-            totalUsdValue += usdValue;
-            byToken[token.symbol].amount += formattedAmount;
-            byToken[token.symbol].usdValue += usdValue;
-          }
-        } catch (error) {
-          this.logger.warn(`Failed to fetch ${token.symbol} balance for dead address ${deadAddress}: ${error}`);
+      try {
+        // Check self-held balance (token contract holding its own tokens)
+        const balance = await this.fetchERC20Balance(token.address, token.address);
+        if (BigInt(balance) > 0n) {
+          const formattedAmount = Number(formatUnits(BigInt(balance), token.decimals));
+          const usdValue = await this.convertToUsd(balance, token.decimals, token.symbol);
+          totalUsdValue += usdValue;
+          byToken[token.symbol].amount += formattedAmount;
+          byToken[token.symbol].usdValue += usdValue;
         }
+      } catch (error) {
+        this.logger.warn(`Failed to fetch ${token.symbol} self-held balance: ${error}`);
       }
     }
 
