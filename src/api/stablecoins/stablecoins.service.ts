@@ -21,13 +21,20 @@ export class StablecoinsService {
   async getStablecoins(): Promise<StablecoinsResponseDto> {
     const stablecoinsResponse = await withRetry(
       async () => {
+        const startTime = Date.now();
+        this.logger.log('[TIMING] getStablecoins started');
+
         const mento = this.mentoService.getMentoInstance();
+        const tokensStart = Date.now();
         const tokens = await mento.getStableTokens();
+        this.logger.log(`[TIMING] mento.getStableTokens() took ${Date.now() - tokensStart}ms`);
 
         // Calculate adjustments first (reserve holdings, AAVE positions, lost tokens)
+        const adjustmentsStart = Date.now();
         const adjustments = await this.adjustmentsService.calculateTotalAdjustments(
           tokens.map((t) => ({ symbol: t.symbol, address: t.address, decimals: t.decimals })),
         );
+        this.logger.log(`[TIMING] calculateTotalAdjustments took ${Date.now() - adjustmentsStart}ms`);
 
         const stablecoins: StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
@@ -65,6 +72,7 @@ export class StablecoinsService {
             `Net outstanding: $${total_supply_usd.toFixed(2)}`,
         );
 
+        this.logger.log(`[TIMING] getStablecoins completed in ${Date.now() - startTime}ms`);
         return { total_supply_usd, stablecoins };
       },
       'Failed to fetch stablecoins',

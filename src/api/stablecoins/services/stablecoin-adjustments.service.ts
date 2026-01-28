@@ -45,6 +45,9 @@ export class StablecoinAdjustmentsService {
    * - Lost tokens (self-held by contract + additional dead addresses)
    */
   async calculateTotalAdjustments(stablecoins: StablecoinToken[]): Promise<AdjustmentResult> {
+    const startTime = Date.now();
+    this.logger.log(`[TIMING] calculateTotalAdjustments started for ${stablecoins.length} stablecoins`);
+
     const byToken: Record<string, TokenAdjustment> = {};
 
     if (stablecoins.length === 0) {
@@ -56,11 +59,13 @@ export class StablecoinAdjustmentsService {
       byToken[token.symbol] = { amount: 0, usdValue: 0 };
     }
 
+    const parallelStart = Date.now();
     const [reserveHoldings, aavePositions, lostTokens] = await Promise.all([
       this.calculateReserveHoldings(stablecoins, byToken),
       this.calculateAavePositions(stablecoins, byToken),
       this.calculateLostTokens(stablecoins, byToken),
     ]);
+    this.logger.log(`[TIMING] Parallel adjustments fetch took ${Date.now() - parallelStart}ms`);
 
     const totalUsdValue = reserveHoldings + aavePositions + lostTokens;
 
@@ -70,6 +75,7 @@ export class StablecoinAdjustmentsService {
         `Total: $${totalUsdValue.toFixed(2)}`,
     );
 
+    this.logger.log(`[TIMING] calculateTotalAdjustments completed in ${Date.now() - startTime}ms`);
     return { totalUsdValue, byToken };
   }
 
@@ -80,6 +86,7 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
+    const startTime = Date.now();
     // Build all token/holder combinations and fetch in parallel
     const fetchTasks = stablecoins.flatMap((token) =>
       RESERVE_STABLECOIN_HOLDERS.map(async (holder) => {
@@ -109,6 +116,7 @@ export class StablecoinAdjustmentsService {
       }
     }
 
+    this.logger.log(`[TIMING] calculateReserveHoldings completed in ${Date.now() - startTime}ms`);
     return totalUsdValue;
   }
 
@@ -119,6 +127,7 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
+    const startTime = Date.now();
     const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
 
     // Build all token/holder combinations and fetch in parallel
@@ -157,6 +166,7 @@ export class StablecoinAdjustmentsService {
       }
     }
 
+    this.logger.log(`[TIMING] calculateAavePositions completed in ${Date.now() - startTime}ms`);
     return totalUsdValue;
   }
 
@@ -167,6 +177,7 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
+    const startTime = Date.now();
     // Fetch all self-held balances in parallel
     const fetchTasks = stablecoins.map(async (token) => {
       try {
@@ -195,6 +206,7 @@ export class StablecoinAdjustmentsService {
       }
     }
 
+    this.logger.log(`[TIMING] calculateLostTokens completed in ${Date.now() - startTime}ms`);
     return totalUsdValue;
   }
 
