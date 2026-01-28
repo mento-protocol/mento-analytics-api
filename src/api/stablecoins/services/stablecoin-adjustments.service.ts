@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { formatUnits, parseAbi } from 'viem';
 import { ChainClientService } from '@/common/services/chain-client.service';
 import { ExchangeRatesService } from '@/common/services/exchange-rates.service';
-import { Chain, MENTO_STABLECOIN_SYMBOLS } from '@types';
+import { Chain } from '@types';
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 import { ERC20_ABI, ViemAdapter, AAVESupplyCalculator } from '@mento-protocol/mento-sdk';
 import { RESERVE_STABLECOIN_HOLDERS, AAVE_STABLECOIN_HOLDERS } from '../config/adjustments.config';
@@ -45,25 +45,21 @@ export class StablecoinAdjustmentsService {
    * - Lost tokens (self-held by contract + additional dead addresses)
    */
   async calculateTotalAdjustments(stablecoins: StablecoinToken[]): Promise<AdjustmentResult> {
-    const mentoStablecoins = stablecoins.filter((token) =>
-      MENTO_STABLECOIN_SYMBOLS.includes(token.symbol as (typeof MENTO_STABLECOIN_SYMBOLS)[number]),
-    );
-
     const byToken: Record<string, TokenAdjustment> = {};
 
-    if (mentoStablecoins.length === 0) {
+    if (stablecoins.length === 0) {
       return { totalUsdValue: 0, byToken };
     }
 
     // Initialize per-token tracking
-    for (const token of mentoStablecoins) {
+    for (const token of stablecoins) {
       byToken[token.symbol] = { amount: 0, usdValue: 0 };
     }
 
     const [reserveHoldings, aavePositions, lostTokens] = await Promise.all([
-      this.calculateReserveHoldings(mentoStablecoins, byToken),
-      this.calculateAavePositions(mentoStablecoins, byToken),
-      this.calculateLostTokens(mentoStablecoins, byToken),
+      this.calculateReserveHoldings(stablecoins, byToken),
+      this.calculateAavePositions(stablecoins, byToken),
+      this.calculateLostTokens(stablecoins, byToken),
     ]);
 
     const totalUsdValue = reserveHoldings + aavePositions + lostTokens;

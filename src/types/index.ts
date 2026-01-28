@@ -118,21 +118,3 @@ export const ASSET_SYMBOLS = {
 } as const;
 
 export type AssetSymbol = (typeof ASSET_SYMBOLS)[keyof typeof ASSET_SYMBOLS];
-
-/**
- * Mento stablecoin symbols - these are the stablecoins issued by the Mento protocol
- * that need to be backed by reserve collateral.
- */
-export const MENTO_STABLECOIN_SYMBOLS = [
-  'cUSD',
-  'cEUR',
-  'cREAL',
-  'eXOF',
-  'cKES',
-  'PUSO',
-  'cCOP',
-  'USDm',
-  'EURm',
-] as const;
-
-export type MentoStablecoinSymbol = (typeof MENTO_STABLECOIN_SYMBOLS)[number];
