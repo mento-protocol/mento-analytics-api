@@ -80,22 +80,32 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
-    let totalUsdValue = 0;
-
-    for (const token of stablecoins) {
-      for (const holder of RESERVE_STABLECOIN_HOLDERS) {
+    // Build all token/holder combinations and fetch in parallel
+    const fetchTasks = stablecoins.flatMap((token) =>
+      RESERVE_STABLECOIN_HOLDERS.map(async (holder) => {
         try {
           const balance = await this.fetchERC20Balance(token.address, holder.address);
           if (BigInt(balance) > 0n) {
             const formattedAmount = Number(formatUnits(BigInt(balance), token.decimals));
             const usdValue = await this.convertToUsd(balance, token.decimals, token.symbol);
-            totalUsdValue += usdValue;
-            byToken[token.symbol].amount += formattedAmount;
-            byToken[token.symbol].usdValue += usdValue;
+            return { token, formattedAmount, usdValue };
           }
         } catch (error) {
           this.logger.warn(`Failed to fetch ${token.symbol} balance for ${holder.label}: ${error}`);
         }
+        return null;
+      }),
+    );
+
+    const results = await Promise.all(fetchTasks);
+
+    // Aggregate results
+    let totalUsdValue = 0;
+    for (const result of results) {
+      if (result) {
+        totalUsdValue += result.usdValue;
+        byToken[result.token.symbol].amount += result.formattedAmount;
+        byToken[result.token.symbol].usdValue += result.usdValue;
       }
     }
 
@@ -109,12 +119,11 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
-    let totalUsdValue = 0;
-
     const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
 
-    for (const token of stablecoins) {
-      for (const holder of AAVE_STABLECOIN_HOLDERS) {
+    // Build all token/holder combinations and fetch in parallel
+    const fetchTasks = stablecoins.flatMap((token) =>
+      AAVE_STABLECOIN_HOLDERS.map(async (holder) => {
         try {
           const calculator = new AAVESupplyCalculator(adapter, [holder.address]);
           const balance = await withRetry(
@@ -127,13 +136,24 @@ export class StablecoinAdjustmentsService {
           if (BigInt(balanceStr) > 0n) {
             const formattedAmount = Number(formatUnits(BigInt(balanceStr), token.decimals));
             const usdValue = await this.convertToUsd(balanceStr, token.decimals, token.symbol);
-            totalUsdValue += usdValue;
-            byToken[token.symbol].amount += formattedAmount;
-            byToken[token.symbol].usdValue += usdValue;
+            return { token, formattedAmount, usdValue };
           }
         } catch (error) {
           this.logger.warn(`Failed to fetch AAVE ${token.symbol} balance for ${holder.label}: ${error}`);
         }
+        return null;
+      }),
+    );
+
+    const results = await Promise.all(fetchTasks);
+
+    // Aggregate results
+    let totalUsdValue = 0;
+    for (const result of results) {
+      if (result) {
+        totalUsdValue += result.usdValue;
+        byToken[result.token.symbol].amount += result.formattedAmount;
+        byToken[result.token.symbol].usdValue += result.usdValue;
       }
     }
 
@@ -147,21 +167,31 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
-    let totalUsdValue = 0;
-
-    for (const token of stablecoins) {
+    // Fetch all self-held balances in parallel
+    const fetchTasks = stablecoins.map(async (token) => {
       try {
         // Check self-held balance (token contract holding its own tokens)
         const balance = await this.fetchERC20Balance(token.address, token.address);
         if (BigInt(balance) > 0n) {
           const formattedAmount = Number(formatUnits(BigInt(balance), token.decimals));
           const usdValue = await this.convertToUsd(balance, token.decimals, token.symbol);
-          totalUsdValue += usdValue;
-          byToken[token.symbol].amount += formattedAmount;
-          byToken[token.symbol].usdValue += usdValue;
+          return { token, formattedAmount, usdValue };
         }
       } catch (error) {
         this.logger.warn(`Failed to fetch ${token.symbol} self-held balance: ${error}`);
+      }
+      return null;
+    });
+
+    const results = await Promise.all(fetchTasks);
+
+    // Aggregate results
+    let totalUsdValue = 0;
+    for (const result of results) {
+      if (result) {
+        totalUsdValue += result.usdValue;
+        byToken[result.token.symbol].amount += result.formattedAmount;
+        byToken[result.token.symbol].usdValue += result.usdValue;
       }
     }
 

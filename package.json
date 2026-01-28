@@ -34,7 +34,7 @@
     "sentry:release:deploy": "./scripts/sentry-release.sh $(git rev-parse HEAD) --deploy production https://mento-analytics-api-mento-prod.us-central1.run.app"
   },
   "dependencies": {
-    "@mento-protocol/mento-sdk": "2.0.0-beta.11",
+    "@mento-protocol/mento-sdk": "2.0.0-beta.13",
     "@nestjs/cache-manager": "^2.3.0",
     "@nestjs/common": "^10.4.16",
     "@nestjs/config": "^3.3.0",

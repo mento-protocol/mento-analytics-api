@@ -1,16 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MentoService } from '@common/services/mento.service';
-import { ChainClientService } from '@common/services/chain-client.service';
 import { StablecoinDto, StablecoinsResponseDto } from './dto/stablecoin.dto';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { ICONS_BASE_URL } from './constants';
-import { formatUnits, parseAbi } from 'viem';
-import { withRetry, RETRY_CONFIGS } from '@/utils';
+import { formatUnits } from 'viem';
+import { withRetry } from '@/utils';
 import { getFiatTickerFromSymbol } from '@common/constants';
 import { StablecoinAdjustmentsService } from './services/stablecoin-adjustments.service';
-import { Chain } from '@types';
-
-const ERC20_TOTAL_SUPPLY_ABI = ['function totalSupply() view returns (uint256)'] as const;
 
 @Injectable()
 export class StablecoinsService {
@@ -20,7 +16,6 @@ export class StablecoinsService {
     private readonly mentoService: MentoService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly adjustmentsService: StablecoinAdjustmentsService,
-    private readonly chainClientService: ChainClientService,
   ) {}
 
   async getStablecoins(): Promise<StablecoinsResponseDto> {
@@ -37,8 +32,7 @@ export class StablecoinsService {
         const stablecoins: StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
             const fiatTicker = getFiatTickerFromSymbol(token.symbol);
-            const onChainTotalSupply = await this.fetchTotalSupply(token.address);
-            const grossSupply = Number(formatUnits(BigInt(onChainTotalSupply), token.decimals));
+            const grossSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
 
             // Apply per-token adjustment
             const tokenAdjustment = adjustments.byToken[token.symbol];
@@ -111,27 +105,5 @@ export class StablecoinsService {
       this.logger.warn(`Icon not found for ${symbol}, using default.svg`);
       return `${ICONS_BASE_URL}/default.svg`;
     }
-  }
-
-  /**
-   * Fetch totalSupply directly from the token contract on-chain.
-   * @param tokenAddress The address of the token contract.
-   * @returns The total supply as a string.
-   */
-  private async fetchTotalSupply(tokenAddress: string): Promise<string> {
-    return withRetry(
-      async () => {
-        return await this.chainClientService.executeRateLimited<string>(Chain.CELO, async (client) => {
-          const totalSupply = await client.readContract({
-            address: tokenAddress as `0x${string}`,
-            abi: parseAbi(ERC20_TOTAL_SUPPLY_ABI),
-            functionName: 'totalSupply',
-          });
-          return (totalSupply as bigint).toString();
-        });
-      },
-      `Failed to fetch totalSupply for ${tokenAddress}`,
-      { ...RETRY_CONFIGS.GENERAL_RPC, logger: this.logger },
-    );
   }
 }
