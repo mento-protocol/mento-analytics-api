@@ -1,4 +1,4 @@
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ReserveService } from './services/reserve.service';
 import {
@@ -18,8 +18,6 @@ import { createCacheKey } from '@common/config/cache.config';
 @ApiTags('reserve')
 @Controller('api/v1/reserve')
 export class ReserveController {
-  private readonly logger = new Logger(ReserveController.name);
-
   constructor(
     private readonly reserveService: ReserveService,
     private readonly stablecoinsService: StablecoinsService,
@@ -139,26 +137,16 @@ export class ReserveController {
     type: ReserveStatsResponseDto,
   })
   async getReserveStats(): Promise<ReserveStatsResponseDto> {
-    const startTime = Date.now();
-    this.logger.log('[TIMING] getReserveStats started');
-
     const cached = await this.cacheService.get<ReserveStatsResponseDto>(CACHE_KEYS.RESERVE_STATS);
     if (cached) {
-      this.logger.log(`[TIMING] getReserveStats returning cached in ${Date.now() - startTime}ms`);
       return cached;
     }
 
     // Fetch reserve holdings and stablecoins in parallel
-    const reserveStart = Date.now();
-    this.logger.log('[TIMING] Starting parallel fetch of reserve holdings and stablecoins');
-
     const [reserveHoldings, stablecoins] = await Promise.all([
       this.reserveService.getGroupedReserveHoldings(),
       this.stablecoinsService.getStablecoins(),
     ]);
-
-    this.logger.log(`[TIMING] Reserve holdings took ${Date.now() - reserveStart}ms`);
-    this.logger.log(`[TIMING] Total parallel fetch took ${Date.now() - reserveStart}ms`);
 
     const response = {
       total_reserve_value_usd: reserveHoldings.total_holdings_usd,
@@ -168,7 +156,6 @@ export class ReserveController {
     };
 
     await this.cacheService.set(CACHE_KEYS.RESERVE_STATS, response);
-    this.logger.log(`[TIMING] getReserveStats completed in ${Date.now() - startTime}ms`);
     return response;
   }
 }
