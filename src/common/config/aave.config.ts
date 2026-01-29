@@ -5,7 +5,7 @@ import { Chain } from '@types';
  * When tokens are supplied to AAVE, they are wrapped into aTokens that represent the
  * deposit position.
  */
-export const AAVE_TOKEN_MAPPINGS: Record<Chain, Record<string, string>> = {
+export const AAVE_TOKEN_MAPPINGS: Partial<Record<Chain, Record<string, string>>> = {
   [Chain.CELO]: {
     // cUSD -> aCelcUSD
     '0x765DE816845861e75A25fCA122bb6898B8B1282a': '0xBba98352628B0B0c4b40583F593fFCb630935a45',
@@ -16,6 +16,4 @@ export const AAVE_TOKEN_MAPPINGS: Record<Chain, Record<string, string>> = {
     // CELO -> aCelCELO
     '0x471EcE3750Da237f93B8E339c536989b8978a438': '0xC3e77dC389537Db1EEc7C33B95Cf3beECA71A209',
   },
-  [Chain.ETHEREUM]: {},
-  [Chain.BITCOIN]: {},
 };
