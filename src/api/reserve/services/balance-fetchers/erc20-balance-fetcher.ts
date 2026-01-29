@@ -10,7 +10,7 @@ const ERC4626_MAX_WITHDRAW_ABI = ['function maxWithdraw(address owner) external 
 export interface VaultBalanceResult {
   /** The underlying asset amount that can be withdrawn (maxWithdraw) */
   underlyingBalance: string;
-  /** The raw vault token balance (balanceOf) - used for USD value calculation */
+  /** The raw vault token balance (balanceOf) - used for display and USD value calculation */
   tokenBalance: string;
 }
 
@@ -53,8 +53,8 @@ export class ERC20BalanceFetcher {
   /**
    * Fetch vault token balances for ERC-4626 vault tokens.
    * Returns both the underlying asset value (maxWithdraw) and raw token balance (balanceOf).
-   * - underlyingBalance: Used for display (shows withdrawable underlying asset)
-   * - tokenBalance: Used for USD value calculation (actual token holdings × price)
+   * - underlyingBalance: The withdrawable underlying asset amount (from maxWithdraw)
+   * - tokenBalance: The actual vault token balance (from balanceOf) - used for display and USD calculation
    */
   async fetchVaultBalance(tokenAddress: string, holderAddress: string, chain: Chain): Promise<VaultBalanceResult> {
     return withRetry(

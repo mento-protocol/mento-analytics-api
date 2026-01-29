@@ -39,7 +39,7 @@ export class EthereumBalanceFetcher extends BaseBalanceFetcher {
     if (isVault && tokenAddress) {
       const vaultResult = await this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.ETHEREUM);
       return {
-        displayBalance: vaultResult.underlyingBalance,
+        displayBalance: vaultResult.tokenBalance,
         valueCalculationBalance: vaultResult.tokenBalance,
       };
     }
