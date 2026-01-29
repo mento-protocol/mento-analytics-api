@@ -54,7 +54,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Operational Multisig',
-    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH'],
+    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH', 'USDGLO'],
     description: 'Holds reserve assets for rebalancing purposes',
   },
   {
@@ -74,12 +74,12 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     description: 'Reserve assets held in the Aave protocol',
   },
   {
-    address: '0x9d65E69aC940dCB469fd7C46368C1e094250a400',
+    address: '0x619600F4ec13C38868841cB83100F611eCF94eE8',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
-    label: 'Celo Community Shared Reserve',
+    label: 'Falcon Finance Custodied Funds',
     assets: ['CELO'],
-    description: 'Holds reserve assets',
+    description: 'Reserve assets custodied by Falcon Finance',
   },
   {
     address: '0xaa8299fc6a685b5f9ce9bda8d0b3ea3d54731976',

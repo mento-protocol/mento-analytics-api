@@ -113,6 +113,8 @@ export const ASSET_SYMBOLS = {
   stEUR: 'stEUR',
   axlEUROC: 'axlEUROC',
   EURA: 'EURA',
+  USDm: 'USDm',
+  EURm: 'EURm',
 } as const;
 
 export type AssetSymbol = (typeof ASSET_SYMBOLS)[keyof typeof ASSET_SYMBOLS];

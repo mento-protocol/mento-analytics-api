@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 import { Chain } from '@/types';
 import { parseAbi } from 'viem';
-import { ERC20_ABI } from '@mento-protocol/mento-sdk';
+import { ERC20_ABI } from '@/common/constants';
 import { ChainClientService } from '@/common/services/chain-client.service';
 
 const ERC4626_MAX_WITHDRAW_ABI = ['function maxWithdraw(address owner) external view returns (uint256)'] as const;

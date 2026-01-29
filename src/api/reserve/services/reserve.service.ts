@@ -66,13 +66,10 @@ export class ReserveService {
    */
   private async fetchReserveHoldingsInternal(): Promise<AssetBalance[]> {
     try {
-      this.logger.debug('Starting reserve holdings fetch');
-
       const allBalances = (
         await Promise.all(RESERVE_ADDRESS_CONFIGS.map((config) => this.balanceService.fetchBalancesByConfig(config)))
       ).flat();
 
-      this.logger.debug(`Completed reserve holdings fetch - ${allBalances.length} balances`);
       return allBalances;
     } catch (error) {
       this.logger.error('Failed to fetch reserve holdings:', error);

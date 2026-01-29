@@ -11,9 +11,9 @@ export class ChainClientService {
   private clients = new Map<Chain, PublicClient>();
   private blockWatchers = new Map<Chain, () => void>();
   private rpcLimiters = new Map<Chain, ReturnType<typeof pLimit>>();
-  private globalRpcLimiter = pLimit(1);
+  private globalRpcLimiter = pLimit(10);
   private lastRequestTime = 0;
-  private readonly minDelayBetweenRequests = 500; // ms
+  private readonly minDelayBetweenRequests = 50; // ms
   private readonly logger = new Logger(ChainClientService.name);
 
   constructor(private config: ConfigService) {
@@ -42,9 +42,9 @@ export class ChainClientService {
     });
     this.clients.set(Chain.ETHEREUM, ethereumClient as PublicClient);
 
-    // Initialize rate limiters (1 concurrent request per chain)
-    this.rpcLimiters.set(Chain.CELO, pLimit(1));
-    this.rpcLimiters.set(Chain.ETHEREUM, pLimit(1));
+    // Initialize rate limiters (5 concurrent requests per chain)
+    this.rpcLimiters.set(Chain.CELO, pLimit(5));
+    this.rpcLimiters.set(Chain.ETHEREUM, pLimit(5));
 
     this.logger.log('RPC clients initialized with enhanced WebSocket configuration');
   }

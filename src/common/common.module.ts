@@ -6,6 +6,7 @@ import { CoinMarketCapPriceFetcherService } from './services/coinmarketcap-price
 import { DefiLlamaPriceFetcherService } from './services/defillama-price-fetcher.service';
 import { ChainClientService } from './services/chain-client.service';
 import { CacheService } from './services/cache.service';
+import { AAVESupplyCalculator, UniV3SupplyCalculator } from './services/calculators';
 
 @Global()
 @Module({
@@ -21,6 +22,8 @@ import { CacheService } from './services/cache.service';
     DefiLlamaPriceFetcherService,
     ChainClientService,
     CacheService,
+    AAVESupplyCalculator,
+    UniV3SupplyCalculator,
   ],
   exports: [
     MentoService,
@@ -29,6 +32,8 @@ import { CacheService } from './services/cache.service';
     DefiLlamaPriceFetcherService,
     ChainClientService,
     CacheService,
+    AAVESupplyCalculator,
+    UniV3SupplyCalculator,
   ],
 })
 export class CommonModule {}

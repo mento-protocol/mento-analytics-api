@@ -142,14 +142,16 @@ export class ReserveController {
       return cached;
     }
 
-    // TODO: Move this calculation to a service so it can be reused by the cache warmer
-    const { total_holdings_usd: total_reserve_value_usd } = await this.reserveService.getGroupedReserveHoldings();
-    const { total_supply_usd: total_outstanding_stables_usd } = await this.stablecoinsService.getStablecoins();
+    // Fetch reserve holdings and stablecoins in parallel
+    const [reserveHoldings, stablecoins] = await Promise.all([
+      this.reserveService.getGroupedReserveHoldings(),
+      this.stablecoinsService.getStablecoins(),
+    ]);
 
     const response = {
-      total_reserve_value_usd,
-      total_outstanding_stables_usd,
-      collateralization_ratio: total_reserve_value_usd / total_outstanding_stables_usd,
+      total_reserve_value_usd: reserveHoldings.total_holdings_usd,
+      total_outstanding_stables_usd: stablecoins.total_supply_usd,
+      collateralization_ratio: reserveHoldings.total_holdings_usd / stablecoins.total_supply_usd,
       timestamp: new Date().toISOString(),
     };
 
