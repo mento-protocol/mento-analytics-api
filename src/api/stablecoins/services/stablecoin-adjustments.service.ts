@@ -4,9 +4,9 @@ import { ChainClientService } from '@/common/services/chain-client.service';
 import { ExchangeRatesService } from '@/common/services/exchange-rates.service';
 import { Chain } from '@types';
 import { withRetry, RETRY_CONFIGS } from '@/utils';
-import { ERC20_ABI, ViemAdapter, AAVESupplyCalculator } from '@mento-protocol/mento-sdk';
+import { ERC20_ABI, getFiatTickerFromSymbol } from '@/common/constants';
 import { RESERVE_STABLECOIN_HOLDERS, AAVE_STABLECOIN_HOLDERS } from '../config/adjustments.config';
-import { getFiatTickerFromSymbol } from '@/common/constants';
+import { AAVESupplyCalculator } from '@/common/services/calculators';
 
 interface StablecoinToken {
   symbol: string;
@@ -35,6 +35,7 @@ export class StablecoinAdjustmentsService {
   constructor(
     private readonly chainClientService: ChainClientService,
     private readonly exchangeRatesService: ExchangeRatesService,
+    private readonly aaveCalculator: AAVESupplyCalculator,
   ) {}
 
   /**
@@ -119,15 +120,12 @@ export class StablecoinAdjustmentsService {
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
-    const adapter = new ViemAdapter(this.chainClientService.getClient(Chain.CELO));
-
     // Build all token/holder combinations and fetch in parallel
     const fetchTasks = stablecoins.flatMap((token) =>
       AAVE_STABLECOIN_HOLDERS.map(async (holder) => {
         try {
-          const calculator = new AAVESupplyCalculator(adapter, [holder.address]);
           const balance = await withRetry(
-            () => calculator.getAmount(token.address),
+            () => this.aaveCalculator.getAmount(token.address, [holder.address], Chain.CELO),
             `Failed to fetch AAVE balance for ${token.symbol}`,
             { ...RETRY_CONFIGS.SDK_OPERATION, logger: this.logger },
           );
