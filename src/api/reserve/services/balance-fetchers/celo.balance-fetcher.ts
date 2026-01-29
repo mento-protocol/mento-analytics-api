@@ -50,7 +50,7 @@ export class CeloBalanceFetcher extends BaseBalanceFetcher {
     if (isVault && tokenAddress) {
       const vaultResult = await this.erc20Fetcher.fetchVaultBalance(tokenAddress, accountAddress, Chain.CELO);
       return {
-        displayBalance: vaultResult.underlyingBalance,
+        displayBalance: vaultResult.tokenBalance,
         valueCalculationBalance: vaultResult.tokenBalance,
       };
     }
