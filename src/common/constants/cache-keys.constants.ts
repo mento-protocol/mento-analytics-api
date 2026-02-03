@@ -1,5 +1,5 @@
-import { createCacheKey } from '../config/cache.config';
 import { Chain } from '@types';
+import { createCacheKey } from '../config/cache.config';
 
 /**
  * Raw key names for reference
@@ -10,6 +10,7 @@ const RAW_KEYS = {
   RESERVE_HOLDINGS_GROUPED: 'reserve-holdings-grouped',
   RESERVE_STATS: 'reserve-stats',
   STABLECOINS: 'stablecoins',
+  HEALTH: 'health',
 };
 
 /**
@@ -21,6 +22,7 @@ export const CACHE_KEYS = {
   RESERVE_HOLDINGS_GROUPED: createCacheKey(RAW_KEYS.RESERVE_HOLDINGS_GROUPED),
   RESERVE_STATS: createCacheKey(RAW_KEYS.RESERVE_STATS),
   STABLECOINS: createCacheKey(RAW_KEYS.STABLECOINS),
+  HEALTH: createCacheKey(RAW_KEYS.HEALTH),
 
   // Chain-specific cache keys
   RESERVE_HOLDINGS_FOR_CHAIN: (chain: Chain) => createCacheKey(`${RAW_KEYS.RESERVE_HOLDINGS}-${chain}`),
@@ -40,4 +42,5 @@ export const RAW_TO_PREFIXED_MAP: Record<string, string> = {
   [RAW_KEYS.RESERVE_HOLDINGS_GROUPED]: CACHE_KEYS.RESERVE_HOLDINGS_GROUPED,
   [RAW_KEYS.RESERVE_STATS]: CACHE_KEYS.RESERVE_STATS,
   [RAW_KEYS.STABLECOINS]: CACHE_KEYS.STABLECOINS,
+  [RAW_KEYS.HEALTH]: CACHE_KEYS.HEALTH,
 };

@@ -8,6 +8,10 @@ import './instrument';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Trust proxy headers (required for Cloud Run behind Google Load Balancer)
+  // This ensures rate limiting uses the real client IP from X-Forwarded-For
+  app.set('trust proxy', true);
+
   app.useLogger(app.get(Logger));
   app.useStaticAssets('public');
 

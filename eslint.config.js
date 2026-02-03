@@ -18,37 +18,57 @@ const compat = new FlatCompat({
     allConfig: js.configs.all
 });
 
-module.exports = defineConfig([{
-    languageOptions: {
-        parser: tsParser,
-        sourceType: "module",
-
-        parserOptions: {
-            project: "tsconfig.json",
-            tsconfigRootDir: __dirname,
+module.exports = defineConfig([
+    // Config for test files - no type-aware linting
+    {
+        files: ["**/*.spec.ts", "vitest.config.ts"],
+        languageOptions: {
+            parser: tsParser,
+            sourceType: "module",
+            globals: {
+                ...globals.node,
+            },
         },
-
-        globals: {
-            ...globals.node,
-            ...globals.jest,
+        plugins: {
+            "@typescript-eslint": typescriptEslintEslintPlugin,
+        },
+        extends: compat.extends("plugin:prettier/recommended"),
+        rules: {
+            "prettier/prettier": ["error", {
+                endOfLine: "auto",
+                printWidth: 120,
+            }],
         },
     },
-
-    plugins: {
-        "@typescript-eslint": typescriptEslintEslintPlugin,
+    // Config for source files - with type-aware linting
+    {
+        files: ["src/**/*.ts"],
+        ignores: ["**/*.spec.ts"],
+        languageOptions: {
+            parser: tsParser,
+            sourceType: "module",
+            parserOptions: {
+                project: "tsconfig.json",
+                tsconfigRootDir: __dirname,
+            },
+            globals: {
+                ...globals.node,
+            },
+        },
+        plugins: {
+            "@typescript-eslint": typescriptEslintEslintPlugin,
+        },
+        extends: compat.extends("plugin:@typescript-eslint/recommended", "plugin:prettier/recommended"),
+        rules: {
+            "@typescript-eslint/interface-name-prefix": "off",
+            "@typescript-eslint/explicit-function-return-type": "off",
+            "@typescript-eslint/explicit-module-boundary-types": "off",
+            "@typescript-eslint/no-explicit-any": "off",
+            "prettier/prettier": ["error", {
+                endOfLine: "auto",
+                printWidth: 120,
+            }],
+        },
     },
-
-    extends: compat.extends("plugin:@typescript-eslint/recommended", "plugin:prettier/recommended"),
-
-    rules: {
-        "@typescript-eslint/interface-name-prefix": "off",
-        "@typescript-eslint/explicit-function-return-type": "off",
-        "@typescript-eslint/explicit-module-boundary-types": "off",
-        "@typescript-eslint/no-explicit-any": "off",
-
-        "prettier/prettier": ["error", {
-            endOfLine: "auto",
-            printWidth: 120,
-        }],
-    },
-}, globalIgnores(["**/.eslintrc.js"])]);
+    globalIgnores(["**/.eslintrc.js"]),
+]);

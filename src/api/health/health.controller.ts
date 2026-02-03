@@ -1,9 +1,14 @@
+import { CACHE_KEYS } from '@common/constants';
 import { MentoService } from '@common/services/mento.service';
-import { Controller, Get } from '@nestjs/common';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { Controller, Get, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as Sentry from '@sentry/nestjs';
 import * as WebSocket from 'ws';
+
+/** Health check cache TTL: 30 seconds */
+const HEALTH_CACHE_TTL = 30 * 1000;
 
 class HealthCheckResponse {
   @ApiProperty({ example: 'ok' })
@@ -52,6 +57,7 @@ export class HealthController {
   constructor(
     private readonly mentoService: MentoService,
     private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   @Get()
@@ -62,6 +68,12 @@ export class HealthController {
     type: HealthCheckResponse,
   })
   async checkHealth(): Promise<HealthCheckResponse> {
+    // Return cached response if available (prevents resource exhaustion attacks)
+    const cached = await this.cacheManager.get<HealthCheckResponse>(CACHE_KEYS.HEALTH);
+    if (cached) {
+      return cached;
+    }
+
     const healthStatuses = {
       mentoSdk: await this.checkMentoSdkConnection(),
       external_apis: await this.checkExternalApis(),
@@ -70,11 +82,16 @@ export class HealthController {
 
     const hasErrors = Object.values(healthStatuses).some((healthCheck) => healthCheck.status === 'error');
 
-    return {
+    const response: HealthCheckResponse = {
       status: hasErrors ? 'error' : 'ok',
       timestamp: new Date().toISOString(),
       healthStatuses,
     };
+
+    // Cache for 30 seconds to prevent DoS via repeated health checks
+    await this.cacheManager.set(CACHE_KEYS.HEALTH, response, HEALTH_CACHE_TTL);
+
+    return response;
   }
 
   private async checkMentoSdkConnection() {
