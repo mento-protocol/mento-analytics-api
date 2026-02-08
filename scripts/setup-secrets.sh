@@ -1,4 +1,7 @@
 #!/bin/bash
+# shellcheck disable=SC2310
+# SC2310: Functions are called in if-conditions throughout this interactive script.
+# Each function handles errors explicitly; set -e disabling in conditions is acceptable here.
 
 # Unified setup script for all Mento Analytics API secrets
 # This script creates and manages all secrets needed for preview and production deployments
@@ -11,7 +14,7 @@ source "${SCRIPT_DIR}/shared-utils.sh"
 
 create_secret_if_not_exists() {
 	local secret_name="$1"
-	local description="$2"
+	local _description="$2"
 	local labels="$3"
 
 	echo -n "Checking if secret '${secret_name}' exists... "
@@ -38,7 +41,8 @@ check_secret_has_value() {
 
 	echo -n "Checking if secret '${secret_name}' has a value... "
 
-	local version_count=$(gcloud secrets versions list "${secret_name}" --project="${PROJECT_ID}" --format="value(name)" | wc -l)
+	local version_count
+	version_count=$(gcloud secrets versions list "${secret_name}" --project="${PROJECT_ID}" --format="value(name)" | wc -l)
 
 	if [[ ${version_count} -gt 0 ]]; then
 		print_success "has value"
@@ -75,7 +79,7 @@ prompt_for_api_key() {
 	echo -n "Enter your API key (or press Enter to skip): "
 
 	# Read without echoing to terminal for security
-	read -s api_key
+	read -rs api_key
 	echo # Add newline since read -s doesn't
 
 	if [[ -n ${api_key} ]]; then
@@ -83,7 +87,7 @@ prompt_for_api_key() {
 		return 0
 	else
 		echo "Skipping real API key, will use placeholder..."
-		add_secret_value "${secret_name}" "preview-placeholder-$(echo "${secret_name}" | cut -d'-' -f1)" "placeholder"
+		add_secret_value "${secret_name}" "preview-placeholder-${secret_name%%-*}" "placeholder"
 		return 1
 	fi
 }
@@ -99,7 +103,7 @@ prompt_for_rpc_url() {
 	echo -n "Enter your RPC URL with API key (or press Enter to skip): "
 
 	# Read without echoing to terminal for security
-	read -s rpc_url
+	read -rs rpc_url
 	echo # Add newline since read -s doesn't
 
 	if [[ -n ${rpc_url} ]]; then
@@ -137,16 +141,8 @@ setup_api_keys() {
 	print_section "Setting up API Keys for ${environment}"
 
 	# Create API key secrets
-	CREATED_CMC=false
-	CREATED_ER=false
-
-	if create_secret_if_not_exists "coinmarketcap-api-key-${environment}" "CoinMarketCap API key for ${environment} deployments" "purpose=api-keys,environment=${environment}"; then
-		CREATED_CMC=true
-	fi
-
-	if create_secret_if_not_exists "exchange-rates-api-key-${environment}" "Exchange Rates API key for ${environment} deployments" "purpose=api-keys,environment=${environment}"; then
-		CREATED_ER=true
-	fi
+	create_secret_if_not_exists "coinmarketcap-api-key-${environment}" "CoinMarketCap API key for ${environment} deployments" "purpose=api-keys,environment=${environment}" || true
+	create_secret_if_not_exists "exchange-rates-api-key-${environment}" "Exchange Rates API key for ${environment} deployments" "purpose=api-keys,environment=${environment}" || true
 
 	# Grant access
 	grant_access_to_default_sa "coinmarketcap-api-key-${environment}"
@@ -168,7 +164,7 @@ setup_api_keys() {
 	if [[ ${NEEDS_CMC_VALUE} == false ]] && [[ ${NEEDS_ER_VALUE} == false ]]; then
 		echo ""
 		echo "Both API key secrets already have values."
-		read -p "Do you want to update them with new API keys? (y/N) " -n 1 -r
+		read -rp "Do you want to update them with new API keys? (y/N) " -n 1
 		echo
 		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			NEEDS_CMC_VALUE=true
@@ -192,16 +188,8 @@ setup_rpc_urls() {
 	print_section "Setting up RPC URLs for ${environment}"
 
 	# Create RPC URL secrets
-	CREATED_CELO=false
-	CREATED_ETH=false
-
-	if create_secret_if_not_exists "celo-rpc-url-${environment}" "Celo RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}"; then
-		CREATED_CELO=true
-	fi
-
-	if create_secret_if_not_exists "eth-rpc-url-${environment}" "Ethereum RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}"; then
-		CREATED_ETH=true
-	fi
+	create_secret_if_not_exists "celo-rpc-url-${environment}" "Celo RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}" || true
+	create_secret_if_not_exists "eth-rpc-url-${environment}" "Ethereum RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}" || true
 
 	# Grant access
 	grant_access_to_default_sa "celo-rpc-url-${environment}"
@@ -223,7 +211,7 @@ setup_rpc_urls() {
 	if [[ ${NEEDS_CELO_VALUE} == false ]] && [[ ${NEEDS_ETH_VALUE} == false ]]; then
 		echo ""
 		echo "Both RPC URL secrets already have values."
-		read -p "Do you want to update them with new RPC URLs? (y/N) " -n 1 -r
+		read -rp "Do you want to update them with new RPC URLs? (y/N) " -n 1
 		echo
 		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			NEEDS_CELO_VALUE=true
@@ -280,7 +268,7 @@ main() {
 	echo "2) Production only"
 	echo "3) Both preview and production"
 	echo ""
-	read -p "Enter your choice (1-3): " -n 1 -r
+	read -rp "Enter your choice (1-3): " -n 1
 	echo
 
 	case ${REPLY} in
@@ -306,7 +294,7 @@ main() {
 	echo "2) RPC URLs only"
 	echo "3) Both API Keys and RPC URLs"
 	echo ""
-	read -p "Enter your choice (1-3): " -n 1 -r
+	read -rp "Enter your choice (1-3): " -n 1
 	echo
 
 	case ${REPLY} in

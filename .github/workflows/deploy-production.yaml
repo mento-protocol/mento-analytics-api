@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
 
+permissions: {} # Restrict default permissions; override at job level
+
 env:
   GCP_PROJECT_ID: mento-prod
   GCP_REGION: us-central1
@@ -35,8 +37,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: 22
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

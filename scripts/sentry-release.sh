@@ -24,6 +24,7 @@ echo -e "Release: ${RELEASE_VERSION}"
 # Load environment variables from .env file if it exists
 if [[ -f ".env" ]]; then
 	echo -e "${YELLOW}Loading environment variables from .env file...${NC}"
+	# shellcheck disable=SC2046
 	export $(grep -v '^#' .env | xargs)
 fi
 

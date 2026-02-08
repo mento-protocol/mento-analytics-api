@@ -1,4 +1,7 @@
 #!/bin/bash
+# shellcheck disable=SC2310
+# SC2310: Functions are called in if-conditions throughout this interactive script.
+# Each function handles errors explicitly; set -e disabling in conditions is acceptable here.
 
 # Admin setup script for preview deployments
 # This script should be run by a Project Owner or someone with IAM Admin permissions
@@ -39,8 +42,8 @@ print_error() {
 # Check if user has specific permission
 check_specific_permission() {
 	local permission=$1
-	local resource_type=$2
-	local resource_id=$3
+	local _resource_type=$2
+	local _resource_id=$3
 
 	# Test the permission by attempting a dry-run operation
 	case "${permission}" in
@@ -107,6 +110,10 @@ validate_required_permissions() {
 			print_success "Can grant service account roles"
 		fi
 		;;
+	*)
+		print_error "Unknown operation: ${operation}"
+		return 1
+		;;
 	esac
 
 	if [[ ${has_all_permissions} == false ]]; then
@@ -155,7 +162,7 @@ grant_permissions() {
 	fi
 
 	if [[ -z ${USER_EMAIL} ]]; then
-		read -p "Enter the email of the user who needs permissions: " USER_EMAIL
+		read -rp "Enter the email of the user who needs permissions: " USER_EMAIL
 	fi
 
 	echo "Granting permissions to: ${USER_EMAIL}"
@@ -196,8 +203,8 @@ create_wif_as_owner() {
 	echo ""
 
 	# Get GitHub info
-	read -p "Enter GitHub repository owner/organization: " GITHUB_ORG
-	read -p "Enter GitHub repository name (default: mento-analytics-api): " GITHUB_REPO
+	read -rp "Enter GitHub repository owner/organization: " GITHUB_ORG
+	read -rp "Enter GitHub repository name (default: mento-analytics-api): " GITHUB_REPO
 	GITHUB_REPO="${GITHUB_REPO:-mento-analytics-api}"
 
 	# Create resources
@@ -312,7 +319,7 @@ main() {
 		echo "2. Grant permissions to another user"
 		echo "3. Exit"
 		echo ""
-		read -p "Enter your choice (1-3): " choice
+		read -rp "Enter your choice (1-3): " choice
 
 		case ${choice} in
 		1)
@@ -335,7 +342,7 @@ main() {
 		echo ""
 		echo "This script needs to be run by a Project Owner to grant you permissions."
 		echo ""
-		read -p "Are you running this as a Project Owner? (y/N) " -n 1 -r
+		read -rp "Are you running this as a Project Owner? (y/N) " -n 1
 		echo
 		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			USER_EMAIL="${CURRENT_USER}"

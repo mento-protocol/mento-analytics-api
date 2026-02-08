@@ -18,11 +18,11 @@ options:
 
 steps:
   # Step 1: Generate a safe cloud run service name from the git branch name
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'generate-service-name'
-    entrypoint: 'bash'
+  - name: gcr.io/cloud-builders/gcloud
+    id: generate-service-name
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         # Convert branch name to a safe service name (lowercase, alphanumeric, hyphens only)
         # Cloud Run service name limit is 63 characters
@@ -42,11 +42,11 @@ steps:
         echo "Preview service name: $$SERVICE_NAME"
 
   # Step 2: Deploy to Cloud Run using pre-built image
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'deploy'
-    entrypoint: 'bash'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
 
@@ -89,11 +89,11 @@ steps:
           --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest,CELO_RPC_URL=celo-rpc-url-preview:latest,ETH_RPC_URL=eth-rpc-url-preview:latest"
 
   # Step 3: Get the service URL and save it
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'get-url'
-    entrypoint: 'bash'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: get-url
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         SERVICE_NAME=$$(cat /workspace/service_name.txt)
 
@@ -109,6 +109,6 @@ steps:
 
 # Tags for this build
 tags:
-  - 'preview-deployment'
+  - preview-deployment
 
-timeout: '300s'
+timeout: 300s

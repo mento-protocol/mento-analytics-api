@@ -59,7 +59,7 @@ deploy_preview() {
 		fi
 
 		print_warning "No branch specified. Current branch is: ${branch}"
-		read -p "Deploy preview for current branch '${branch}'? (y/N) " -n 1 -r
+		read -rp "Deploy preview for current branch '${branch}'? (y/N) " -n 1
 		echo
 
 		if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
@@ -71,14 +71,17 @@ deploy_preview() {
 	print_info "Deploying preview for branch: ${branch}"
 
 	# Trigger the build
-	local safe_branch_name=$(get_safe_branch_name "${branch}")
+	local safe_branch_name
+	safe_branch_name=$(get_safe_branch_name "${branch}")
 
 	print_info "Submitting build and streaming logs..."
 
 	# Submit build asynchronously to get build ID quickly
-	local build_id=$(gcloud builds submit \
+	local build_id
+	# shellcheck disable=SC2312
+	build_id=$(gcloud builds submit \
 		--config=cloudbuild-preview.yaml \
-		--substitutions=_BRANCH_NAME="${branch}",_BRANCH_TAG="${safe_branch_name}",_SHORT_SHA=$(git rev-parse --short HEAD),_COMMIT_SHA=$(git rev-parse HEAD) \
+		--substitutions="_BRANCH_NAME=${branch},_BRANCH_TAG=${safe_branch_name},_SHORT_SHA=$(git rev-parse --short HEAD),_COMMIT_SHA=$(git rev-parse HEAD)" \
 		--project="${PROJECT_ID}" \
 		--async \
 		--format='value(id)')
@@ -136,7 +139,7 @@ delete_preview() {
 		fi
 
 		print_warning "No branch specified. Current branch is: ${branch}"
-		read -p "Delete preview for current branch '${branch}'? (y/N) " -n 1 -r
+		read -rp "Delete preview for current branch '${branch}'? (y/N) " -n 1
 		echo
 
 		if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
@@ -145,7 +148,8 @@ delete_preview() {
 		fi
 	fi
 
-	local service_name=$(get_preview_service_name "${branch}")
+	local service_name
+	service_name=$(get_preview_service_name "${branch}")
 
 	print_warning "Deleting preview deployment: ${service_name}"
 
@@ -170,12 +174,14 @@ delete_preview() {
 # Cleanup old preview deployments
 cleanup_old_previews() {
 	local days=${1:-7}
-	local cutoff_date=$(date -d "${days} days ago" +%Y-%m-%d 2>/dev/null || date -v -"${days}"d +%Y-%m-%d)
+	local cutoff_date
+	cutoff_date=$(date -d "${days} days ago" +%Y-%m-%d 2>/dev/null || date -v -"${days}"d +%Y-%m-%d)
 
 	print_info "Cleaning up preview deployments older than ${days} days (before ${cutoff_date})..."
 
 	# Get list of old services
-	local old_services=$(gcloud run services list \
+	local old_services
+	old_services=$(gcloud run services list \
 		--platform=managed \
 		--region="${REGION}" \
 		--project="${PROJECT_ID}" \
@@ -191,7 +197,7 @@ cleanup_old_previews() {
 	echo "${old_services}"
 	echo ""
 
-	read -p "Do you want to delete these deployments? (y/N) " -n 1 -r
+	read -rp "Do you want to delete these deployments? (y/N) " -n 1
 	echo
 
 	if [[ ${REPLY} =~ ^[Yy]$ ]]; then

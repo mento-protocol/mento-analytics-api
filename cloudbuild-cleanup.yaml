@@ -25,11 +25,11 @@ options:
 
 steps:
   # Step 1: Generate the service name from branch name
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'generate-service-name'
-    entrypoint: 'bash'
+  - name: gcr.io/cloud-builders/gcloud
+    id: generate-service-name
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         # Convert branch name to a safe service name (must match the logic in cloudbuild-preview.yaml)
         # Prefix 'analytics-api-preview-' is 22 chars, leaving 41 chars for branch name
@@ -48,11 +48,11 @@ steps:
         echo "Service to delete: $$SERVICE_NAME"
 
   # Step 2: Delete the Cloud Run service
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'delete-service'
-    entrypoint: 'bash'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: delete-service
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         SERVICE_NAME=$(cat /workspace/service_name.txt)
 
@@ -76,11 +76,11 @@ steps:
         fi
 
   # Step 3: Clean up old container images (optional, helps manage storage costs)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'cleanup-images'
-    entrypoint: 'bash'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: cleanup-images
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         # CRITICAL: Only clean up preview images, never touch production images or 'latest' tag
         # All images (production and preview) are stored in the same repository: mento-analytics-api
@@ -138,7 +138,7 @@ steps:
 
 # Tags for this build
 tags:
-  - 'preview-cleanup'
-  - '${_BRANCH_TAG}'
+  - preview-cleanup
+  - ${_BRANCH_TAG}
 
-timeout: '300s'
+timeout: 300s

@@ -81,7 +81,7 @@ get_project_info() {
 		echo ""
 	fi
 
-	read -p "Enter GCP Project ID (default: ${PROJECT_ID}): " input
+	read -rp "Enter GCP Project ID (default: ${PROJECT_ID}): " input
 	PROJECT_ID="${input:-${PROJECT_ID}}"
 
 	# Set project
@@ -105,10 +105,10 @@ get_github_info() {
 		fi
 	fi
 
-	read -p "Enter GitHub repository owner/organization (default: ${GITHUB_REPO_OWNER}): " input
+	read -rp "Enter GitHub repository owner/organization (default: ${GITHUB_REPO_OWNER}): " input
 	GITHUB_REPO_OWNER="${input:-${GITHUB_REPO_OWNER}}"
 
-	read -p "Enter GitHub repository name (default: ${GITHUB_REPO_NAME}): " input
+	read -rp "Enter GitHub repository name (default: ${GITHUB_REPO_NAME}): " input
 	GITHUB_REPO_NAME="${input:-${GITHUB_REPO_NAME}}"
 
 	if [[ -z ${GITHUB_REPO_OWNER} ]] || [[ -z ${GITHUB_REPO_NAME} ]]; then
@@ -267,11 +267,12 @@ generate_github_secrets() {
 	# If GitHub CLI is available, offer to set secrets
 	if [[ ${GH_CLI_AVAILABLE} == true ]]; then
 		echo ""
-		read -p "Would you like to set these secrets using GitHub CLI? (y/N) " -n 1 -r
+		read -rp "Would you like to set these secrets using GitHub CLI? (y/N) " -n 1
 		echo
 		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			echo "Setting GitHub secrets..."
 
+			# shellcheck disable=SC2312
 			cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
 			gh secret set WIF_PROVIDER --body="${WIF_PROVIDER}"
@@ -352,7 +353,7 @@ main() {
 	echo "- Service Account: ${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 	echo ""
 
-	read -p "Continue with setup? (y/N) " -n 1 -r
+	read -rp "Continue with setup? (y/N) " -n 1
 	echo
 	if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
 		echo "Setup cancelled"

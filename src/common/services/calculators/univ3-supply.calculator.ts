@@ -3,7 +3,7 @@ import { parseAbi, PublicClient } from 'viem';
 import BigNumber from 'bignumber.js';
 import { ChainClientService } from '@/common/services/chain-client.service';
 import { Chain } from '@types';
-import { ERC20_ABI, UNIV3_POSITION_MANAGER_ABI, UNIV3_FACTORY_ABI, UNIV3_POOL_ABI } from '@/common/constants';
+import { UNIV3_POSITION_MANAGER_ABI, UNIV3_FACTORY_ABI, UNIV3_POOL_ABI } from '@/common/constants';
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 
 const BATCH_SIZE = 5;

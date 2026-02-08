@@ -1,4 +1,7 @@
 #!/bin/bash
+# shellcheck disable=SC2310
+# SC2310: Functions are called in if-conditions throughout this interactive script.
+# Each function handles errors explicitly; set -e disabling in conditions is acceptable here.
 
 # One-time setup script for preview deployment secrets
 # This creates preview-specific secrets that will be shared by all preview deployments
@@ -60,7 +63,8 @@ check_secret_has_value() {
 
 	echo -n "Checking if secret '${secret_name}' has a value... "
 
-	local version_count=$(gcloud secrets versions list "${secret_name}" --project="${PROJECT_ID}" --format="value(name)" | wc -l)
+	local version_count
+	version_count=$(gcloud secrets versions list "${secret_name}" --project="${PROJECT_ID}" --format="value(name)" | wc -l)
 
 	if [[ ${version_count} -gt 0 ]]; then
 		print_success "has value"
@@ -97,7 +101,7 @@ prompt_for_api_key() {
 	echo -n "Enter your API key (or press Enter to skip): "
 
 	# Read without echoing to terminal for security
-	read -s api_key
+	read -rs api_key
 	echo # Add newline since read -s doesn't
 
 	if [[ -n ${api_key} ]]; then
@@ -105,7 +109,7 @@ prompt_for_api_key() {
 		return 0
 	else
 		echo "Skipping real API key, will use placeholder..."
-		add_secret_value "${secret_name}" "preview-placeholder-$(echo "${secret_name}" | cut -d'-' -f1)" "placeholder"
+		add_secret_value "${secret_name}" "preview-placeholder-${secret_name%%-*}" "placeholder"
 		return 1
 	fi
 }
@@ -142,7 +146,7 @@ main() {
 	echo "Project: ${PROJECT_ID}"
 	echo ""
 
-	read -p "Continue? (y/N) " -n 1 -r
+	read -rp "Continue? (y/N) " -n 1
 	echo
 	if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
 		echo "Setup cancelled"
@@ -152,18 +156,11 @@ main() {
 	print_section "Creating Preview Secrets"
 
 	# Create secrets
-	CREATED_CMC=false
-	CREATED_ER=false
 	NEEDS_CMC_VALUE=false
 	NEEDS_ER_VALUE=false
 
-	if create_secret_if_not_exists "coinmarketcap-api-key-preview"; then
-		CREATED_CMC=true
-	fi
-
-	if create_secret_if_not_exists "exchange-rates-api-key-preview"; then
-		CREATED_ER=true
-	fi
+	create_secret_if_not_exists "coinmarketcap-api-key-preview" || true
+	create_secret_if_not_exists "exchange-rates-api-key-preview" || true
 
 	print_section "Granting Access"
 
@@ -185,7 +182,7 @@ main() {
 	if [[ ${NEEDS_CMC_VALUE} == false ]] && [[ ${NEEDS_ER_VALUE} == false ]]; then
 		echo ""
 		echo "Both secrets already have values."
-		read -p "Do you want to update them with new API keys? (y/N) " -n 1 -r
+		read -rp "Do you want to update them with new API keys? (y/N) " -n 1
 		echo
 		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			NEEDS_CMC_VALUE=true

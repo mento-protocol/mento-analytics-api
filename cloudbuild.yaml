@@ -14,11 +14,11 @@ options:
 
 steps:
   # Step 1: Deploy to Cloud Run using pre-built image
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'deploy'
-    entrypoint: 'bash'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
         echo "Deploying pre-built image: ${_IMAGE_TAG}"
 
@@ -51,8 +51,8 @@ steps:
 
 # Tags for this build
 tags:
-  - 'gcp-cloud-build-deploy-cloud-run'
-  - 'gcp-cloud-build-deploy-cloud-run-managed'
-  - '${_SERVICE_NAME}'
+  - gcp-cloud-build-deploy-cloud-run
+  - gcp-cloud-build-deploy-cloud-run-managed
+  - ${_SERVICE_NAME}
 
-timeout: '300s'
+timeout: 300s

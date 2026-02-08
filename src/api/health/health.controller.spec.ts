@@ -222,7 +222,6 @@ describe('HealthController', () => {
 
       const result = await controller.checkHealth();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((controller as any).checkWebSocketConnection).toHaveBeenCalledWith('wss://forno.celo.org/ws');
       expect(result.healthStatuses.external_apis).toEqual({ status: 'ok' });
     });
@@ -235,12 +234,10 @@ describe('HealthController', () => {
 
       vi.spyOn(controller as any, 'checkWebSocketConnection').mockResolvedValue(true);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((controller as any).checkWebSocketConnection).not.toHaveBeenCalled();
 
       await controller.checkHealth();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((controller as any).checkWebSocketConnection).toHaveBeenCalledWith('ws://localhost:8545');
     });
 
@@ -315,7 +312,7 @@ describe('HealthController', () => {
 
     it('should return "Unknown error" for non-Error exceptions in Sentry check', async () => {
       mockCaptureMessage.mockImplementation(() => {
-        throw 'string error'; // eslint-disable-line no-throw-literal
+        throw 'string error';
       });
 
       const result = await controller.checkHealth();

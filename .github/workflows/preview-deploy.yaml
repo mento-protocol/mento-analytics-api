@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions: {} # Restrict default permissions; override at job level
+
 env:
   GCP_PROJECT_ID: mento-prod
   GCP_REGION: us-central1
@@ -36,8 +38,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: 22
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -68,9 +70,12 @@ jobs:
 
       - name: Extract branch name
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BRANCH_NAME="${{ github.head_ref }}"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            BRANCH_NAME="$HEAD_REF"
           else
             BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           fi
