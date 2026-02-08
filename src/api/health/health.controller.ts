@@ -8,7 +8,7 @@ import * as Sentry from '@sentry/nestjs';
 import * as WebSocket from 'ws';
 
 /** Health check cache TTL: 30 seconds */
-const HEALTH_CACHE_TTL = 30 * 1000;
+export const HEALTH_CACHE_TTL = 30 * 1000;
 
 class HealthCheckResponse {
   @ApiProperty({ example: 'ok' })
