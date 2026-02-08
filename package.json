@@ -29,6 +29,7 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --single-thread",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org mento-labs --project analytics-api ./dist && sentry-cli sourcemaps upload --org mento-labs --project analytics-api ./dist",
+    "docker:smoke-test": "./scripts/docker-smoke-test.sh",
     "sentry:release": "./scripts/sentry-release.sh",
     "sentry:release:deploy": "./scripts/sentry-release.sh $(git rev-parse HEAD) --deploy production https://mento-analytics-api-mento-prod.us-central1.run.app"
   },

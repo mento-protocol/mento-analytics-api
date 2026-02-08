@@ -8,11 +8,11 @@ This guide explains how environment variables are managed across different envir
 
 We use a **per-environment secrets** approach:
 
-| Environment | Secret Names | Purpose |
-|------------|--------------|---------|
-| Production | `*-prod` | Production secrets with full quotas |
-| Preview | `*-preview` | Shared secrets for all preview deployments |
-| Local Dev | `.env` file | Developer's personal keys |
+| Environment | Secret Names | Purpose                                    |
+| ----------- | ------------ | ------------------------------------------ |
+| Production  | `*-prod`     | Production secrets with full quotas        |
+| Preview     | `*-preview`  | Shared secrets for all preview deployments |
+| Local Dev   | `.env` file  | Developer's personal keys                  |
 
 ## Required Environment Variables
 
