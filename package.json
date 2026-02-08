@@ -27,6 +27,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "test:debug": "vitest --inspect-brk --single-thread",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org mento-labs --project analytics-api ./dist && sentry-cli sourcemaps upload --org mento-labs --project analytics-api ./dist",
     "docker:smoke-test": "./scripts/docker-smoke-test.sh",

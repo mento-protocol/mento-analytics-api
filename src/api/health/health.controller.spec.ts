@@ -218,7 +218,7 @@ describe('HealthController', () => {
         return defaultConfig[key];
       });
 
-      vi.spyOn(controller as never, 'checkWebSocketConnection' as never).mockResolvedValue(true as never);
+      vi.spyOn(controller as any, 'checkWebSocketConnection').mockResolvedValue(true);
 
       const result = await controller.checkHealth();
 
@@ -233,7 +233,7 @@ describe('HealthController', () => {
         return defaultConfig[key];
       });
 
-      vi.spyOn(controller as never, 'checkWebSocketConnection' as never).mockResolvedValue(true as never);
+      vi.spyOn(controller as any, 'checkWebSocketConnection').mockResolvedValue(true);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((controller as any).checkWebSocketConnection).not.toHaveBeenCalled();
@@ -250,7 +250,7 @@ describe('HealthController', () => {
         return defaultConfig[key];
       });
 
-      vi.spyOn(controller as never, 'checkWebSocketConnection' as never).mockResolvedValue(false as never);
+      vi.spyOn(controller as any, 'checkWebSocketConnection').mockResolvedValue(false);
 
       const result = await controller.checkHealth();
 

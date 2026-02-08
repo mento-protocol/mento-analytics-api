@@ -38,17 +38,13 @@ module.exports = defineConfig([
       ],
     },
   },
-  // Config for source files - with type-aware linting
+  // Config for source files
   {
     files: ['src/**/*.ts'],
     ignores: ['**/*.spec.ts'],
     languageOptions: {
       parser: tsParser,
       sourceType: 'module',
-      parserOptions: {
-        project: 'tsconfig.json',
-        tsconfigRootDir: __dirname,
-      },
       globals: {
         ...globals.node,
       },
@@ -71,5 +67,5 @@ module.exports = defineConfig([
       ],
     },
   },
-  globalIgnores(['**/.eslintrc.js']),
+  globalIgnores(['dist/**']),
 ]);

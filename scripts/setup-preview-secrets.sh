@@ -36,21 +36,21 @@ print_error() {
 create_secret_if_not_exists() {
 	local secret_name=$1
 
-	echo -n "Checking if secret '$secret_name' exists... "
+	echo -n "Checking if secret '${secret_name}' exists... "
 
-	if gcloud secrets describe "$secret_name" --project="$PROJECT_ID" >/dev/null 2>&1; then
+	if gcloud secrets describe "${secret_name}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_warning "already exists"
 		return 0
 	else
 		echo "not found, creating..."
 
 		# Create the secret
-		gcloud secrets create "$secret_name" \
+		gcloud secrets create "${secret_name}" \
 			--replication-policy="automatic" \
 			--labels="purpose=preview-deployments" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 
-		print_success "Secret created: $secret_name"
+		print_success "Secret created: ${secret_name}"
 		return 1
 	fi
 }
@@ -58,11 +58,11 @@ create_secret_if_not_exists() {
 check_secret_has_value() {
 	local secret_name=$1
 
-	echo -n "Checking if secret '$secret_name' has a value... "
+	echo -n "Checking if secret '${secret_name}' has a value... "
 
-	local version_count=$(gcloud secrets versions list "$secret_name" --project="$PROJECT_ID" --format="value(name)" | wc -l)
+	local version_count=$(gcloud secrets versions list "${secret_name}" --project="${PROJECT_ID}" --format="value(name)" | wc -l)
 
-	if [ "$version_count" -gt 0 ]; then
+	if [[ ${version_count} -gt 0 ]]; then
 		print_success "has value"
 		return 0
 	else
@@ -76,12 +76,12 @@ add_secret_value() {
 	local value=$2
 	local value_type=$3 # "real" or "placeholder"
 
-	echo -n "Adding $value_type value to '$secret_name'... "
+	echo -n "Adding ${value_type} value to '${secret_name}'... "
 
-	if echo -n "$value" | gcloud secrets versions add "$secret_name" --data-file=- --project="$PROJECT_ID" >/dev/null 2>&1; then
-		print_success "$value_type added"
+	if echo -n "${value}" | gcloud secrets versions add "${secret_name}" --data-file=- --project="${PROJECT_ID}" >/dev/null 2>&1; then
+		print_success "${value_type} added"
 	else
-		print_error "failed to add $value_type"
+		print_error "failed to add ${value_type}"
 		return 1
 	fi
 }
@@ -92,20 +92,20 @@ prompt_for_api_key() {
 	local url=$3
 
 	echo ""
-	echo -e "${BLUE}$service_name API Key${NC}"
-	echo "Get your API key from: $url"
+	echo -e "${BLUE}${service_name} API Key${NC}"
+	echo "Get your API key from: ${url}"
 	echo -n "Enter your API key (or press Enter to skip): "
 
 	# Read without echoing to terminal for security
 	read -s api_key
 	echo # Add newline since read -s doesn't
 
-	if [ -n "$api_key" ]; then
-		add_secret_value "$secret_name" "$api_key" "real API key"
+	if [[ -n ${api_key} ]]; then
+		add_secret_value "${secret_name}" "${api_key}" "real API key"
 		return 0
 	else
 		echo "Skipping real API key, will use placeholder..."
-		add_secret_value "$secret_name" "preview-placeholder-$(echo $secret_name | cut -d'-' -f1)" "placeholder"
+		add_secret_value "${secret_name}" "preview-placeholder-$(echo "${secret_name}" | cut -d'-' -f1)" "placeholder"
 		return 1
 	fi
 }
@@ -114,15 +114,15 @@ grant_access_to_default_sa() {
 	local secret_name=$1
 
 	# Get the default compute service account
-	PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+	PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
 	COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
 	echo -n "Granting access to default compute service account... "
 
-	if gcloud secrets add-iam-policy-binding "$secret_name" \
-		--member="serviceAccount:$COMPUTE_SA" \
+	if gcloud secrets add-iam-policy-binding "${secret_name}" \
+		--member="serviceAccount:${COMPUTE_SA}" \
 		--role="roles/secretmanager.secretAccessor" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_success "granted"
 	else
 		print_warning "may already have access"
@@ -139,12 +139,12 @@ main() {
 	echo "- Test/sandbox API keys for CoinMarketCap"
 	echo "- Test/sandbox API keys for Exchange Rates API"
 	echo ""
-	echo "Project: $PROJECT_ID"
+	echo "Project: ${PROJECT_ID}"
 	echo ""
 
 	read -p "Continue? (y/N) " -n 1 -r
 	echo
-	if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+	if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
 		echo "Setup cancelled"
 		exit 0
 	fi
@@ -182,12 +182,12 @@ main() {
 	fi
 
 	# If secrets already have values, ask if user wants to update them
-	if [ "$NEEDS_CMC_VALUE" = false ] && [ "$NEEDS_ER_VALUE" = false ]; then
+	if [[ ${NEEDS_CMC_VALUE} == false ]] && [[ ${NEEDS_ER_VALUE} == false ]]; then
 		echo ""
 		echo "Both secrets already have values."
 		read -p "Do you want to update them with new API keys? (y/N) " -n 1 -r
 		echo
-		if [[ $REPLY =~ ^[Yy]$ ]]; then
+		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			NEEDS_CMC_VALUE=true
 			NEEDS_ER_VALUE=true
 		fi
@@ -197,13 +197,13 @@ main() {
 	ADDED_REAL_CMC=false
 	ADDED_REAL_ER=false
 
-	if [ "$NEEDS_CMC_VALUE" = true ]; then
+	if [[ ${NEEDS_CMC_VALUE} == true ]]; then
 		if prompt_for_api_key "CoinMarketCap" "coinmarketcap-api-key-preview" "https://coinmarketcap.com/api/"; then
 			ADDED_REAL_CMC=true
 		fi
 	fi
 
-	if [ "$NEEDS_ER_VALUE" = true ]; then
+	if [[ ${NEEDS_ER_VALUE} == true ]]; then
 		if prompt_for_api_key "Exchange Rates API" "exchange-rates-api-key-preview" "https://exchangeratesapi.io/"; then
 			ADDED_REAL_ER=true
 		fi
@@ -211,31 +211,31 @@ main() {
 
 	print_section "Setup Summary"
 
-	if [ "$NEEDS_CMC_VALUE" = true ] || [ "$NEEDS_ER_VALUE" = true ]; then
+	if [[ ${NEEDS_CMC_VALUE} == true ]] || [[ ${NEEDS_ER_VALUE} == true ]]; then
 		echo "✅ All secrets now have values and deployments will work!"
 		echo ""
 
-		if [ "$ADDED_REAL_CMC" = true ] || [ "$ADDED_REAL_ER" = true ]; then
+		if [[ ${ADDED_REAL_CMC} == true ]] || [[ ${ADDED_REAL_ER} == true ]]; then
 			echo "Real API keys added for:"
-			[ "$ADDED_REAL_CMC" = true ] && echo "  - CoinMarketCap"
-			[ "$ADDED_REAL_ER" = true ] && echo "  - Exchange Rates API"
+			[[ ${ADDED_REAL_CMC} == true ]] && echo "  - CoinMarketCap"
+			[[ ${ADDED_REAL_ER} == true ]] && echo "  - Exchange Rates API"
 		fi
 
-		if [ "$ADDED_REAL_CMC" = false ] && [ "$NEEDS_CMC_VALUE" = true ]; then
+		if [[ ${ADDED_REAL_CMC} == false ]] && [[ ${NEEDS_CMC_VALUE} == true ]]; then
 			echo "Placeholder added for CoinMarketCap (API calls will fail)"
 		fi
 
-		if [ "$ADDED_REAL_ER" = false ] && [ "$NEEDS_ER_VALUE" = true ]; then
+		if [[ ${ADDED_REAL_ER} == false ]] && [[ ${NEEDS_ER_VALUE} == true ]]; then
 			echo "Placeholder added for Exchange Rates API (API calls will fail)"
 		fi
 		echo ""
 		echo "To update any secret later:"
-		echo -e "${YELLOW}echo -n 'NEW_KEY' | gcloud secrets versions add SECRET_NAME --data-file=- --project=$PROJECT_ID${NC}"
+		echo -e "${YELLOW}echo -n 'NEW_KEY' | gcloud secrets versions add SECRET_NAME --data-file=- --project=${PROJECT_ID}${NC}"
 	else
 		echo "All secrets already have values. To update them:"
 		echo ""
-		echo -e "${YELLOW}echo -n 'NEW_KEY' | gcloud secrets versions add coinmarketcap-api-key-preview --data-file=- --project=$PROJECT_ID${NC}"
-		echo -e "${YELLOW}echo -n 'NEW_KEY' | gcloud secrets versions add exchange-rates-api-key-preview --data-file=- --project=$PROJECT_ID${NC}"
+		echo -e "${YELLOW}echo -n 'NEW_KEY' | gcloud secrets versions add coinmarketcap-api-key-preview --data-file=- --project=${PROJECT_ID}${NC}"
+		echo -e "${YELLOW}echo -n 'NEW_KEY' | gcloud secrets versions add exchange-rates-api-key-preview --data-file=- --project=${PROJECT_ID}${NC}"
 	fi
 
 	print_section "Important Notes"

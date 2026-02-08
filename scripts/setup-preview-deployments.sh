@@ -75,48 +75,48 @@ get_project_info() {
 	# Get current project
 	CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null || echo "")
 
-	if [ -z "$CURRENT_PROJECT" ]; then
+	if [[ -z ${CURRENT_PROJECT} ]]; then
 		echo "No default project set. Available projects:"
 		gcloud projects list --format="table(projectId,name)"
 		echo ""
 	fi
 
-	read -p "Enter GCP Project ID (default: $PROJECT_ID): " input
-	PROJECT_ID="${input:-$PROJECT_ID}"
+	read -p "Enter GCP Project ID (default: ${PROJECT_ID}): " input
+	PROJECT_ID="${input:-${PROJECT_ID}}"
 
 	# Set project
-	gcloud config set project "$PROJECT_ID" >/dev/null 2>&1
+	gcloud config set project "${PROJECT_ID}" >/dev/null 2>&1
 
 	# Get project number
-	PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+	PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
 
-	print_success "Using project: $PROJECT_ID (number: $PROJECT_NUMBER)"
+	print_success "Using project: ${PROJECT_ID} (number: ${PROJECT_NUMBER})"
 }
 
 get_github_info() {
 	print_section "GitHub Repository Information"
 
 	# Try to get from git remote if not provided
-	if [ -z "$GITHUB_REPO_OWNER" ] && command -v git &>/dev/null; then
+	if [[ -z ${GITHUB_REPO_OWNER} ]] && command -v git &>/dev/null; then
 		REMOTE_URL=$(git config --get remote.origin.url 2>/dev/null || echo "")
-		if [[ $REMOTE_URL =~ github.com[:/]([^/]+)/([^/.]+) ]]; then
+		if [[ ${REMOTE_URL} =~ github.com[:/]([^/]+)/([^/.]+) ]]; then
 			GITHUB_REPO_OWNER="${BASH_REMATCH[1]}"
 			GITHUB_REPO_NAME="${BASH_REMATCH[2]}"
 		fi
 	fi
 
-	read -p "Enter GitHub repository owner/organization (default: $GITHUB_REPO_OWNER): " input
-	GITHUB_REPO_OWNER="${input:-$GITHUB_REPO_OWNER}"
+	read -p "Enter GitHub repository owner/organization (default: ${GITHUB_REPO_OWNER}): " input
+	GITHUB_REPO_OWNER="${input:-${GITHUB_REPO_OWNER}}"
 
-	read -p "Enter GitHub repository name (default: $GITHUB_REPO_NAME): " input
-	GITHUB_REPO_NAME="${input:-$GITHUB_REPO_NAME}"
+	read -p "Enter GitHub repository name (default: ${GITHUB_REPO_NAME}): " input
+	GITHUB_REPO_NAME="${input:-${GITHUB_REPO_NAME}}"
 
-	if [ -z "$GITHUB_REPO_OWNER" ] || [ -z "$GITHUB_REPO_NAME" ]; then
+	if [[ -z ${GITHUB_REPO_OWNER} ]] || [[ -z ${GITHUB_REPO_NAME} ]]; then
 		print_error "GitHub repository information is required"
 		exit 1
 	fi
 
-	print_success "GitHub repository: $GITHUB_REPO_OWNER/$GITHUB_REPO_NAME"
+	print_success "GitHub repository: ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}"
 }
 
 enable_apis() {
@@ -133,8 +133,8 @@ enable_apis() {
 	)
 
 	for api in "${REQUIRED_APIS[@]}"; do
-		echo -n "Enabling $api... "
-		if gcloud services enable "$api" --project="$PROJECT_ID" >/dev/null 2>&1; then
+		echo -n "Enabling ${api}... "
+		if gcloud services enable "${api}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
 			print_success "enabled"
 		else
 			print_warning "may already be enabled"
@@ -148,15 +148,15 @@ create_service_account() {
 	SA_EMAIL="${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 	# Check if service account exists
-	if gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" >/dev/null 2>&1; then
-		print_warning "Service account already exists: $SA_EMAIL"
+	if gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+		print_warning "Service account already exists: ${SA_EMAIL}"
 	else
 		echo "Creating service account..."
-		gcloud iam service-accounts create "$SERVICE_ACCOUNT_NAME" \
+		gcloud iam service-accounts create "${SERVICE_ACCOUNT_NAME}" \
 			--display-name="GitHub Actions Preview Deployments" \
 			--description="Service account for GitHub Actions to deploy preview environments" \
-			--project="$PROJECT_ID"
-		print_success "Service account created: $SA_EMAIL"
+			--project="${PROJECT_ID}"
+		print_success "Service account created: ${SA_EMAIL}"
 	fi
 
 	# Grant necessary roles
@@ -171,10 +171,10 @@ create_service_account() {
 	)
 
 	for role in "${REQUIRED_ROLES[@]}"; do
-		echo -n "Granting $role... "
-		if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-			--member="serviceAccount:$SA_EMAIL" \
-			--role="$role" \
+		echo -n "Granting ${role}... "
+		if gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+			--member="serviceAccount:${SA_EMAIL}" \
+			--role="${role}" \
 			--condition=None >/dev/null 2>&1; then
 			print_success "granted"
 		else
@@ -188,43 +188,43 @@ setup_workload_identity() {
 
 	# Create workload identity pool
 	echo "Creating Workload Identity Pool..."
-	if gcloud iam workload-identity-pools describe "$WIF_POOL_NAME" \
+	if gcloud iam workload-identity-pools describe "${WIF_POOL_NAME}" \
 		--location="global" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_warning "Workload Identity Pool already exists"
 	else
-		gcloud iam workload-identity-pools create "$WIF_POOL_NAME" \
+		gcloud iam workload-identity-pools create "${WIF_POOL_NAME}" \
 			--location="global" \
 			--description="Pool for GitHub Actions" \
 			--display-name="GitHub Actions Pool" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 		print_success "Workload Identity Pool created"
 	fi
 
 	# Create workload identity provider
 	echo "Creating Workload Identity Provider..."
-	if gcloud iam workload-identity-pools providers describe "$WIF_PROVIDER_NAME" \
+	if gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER_NAME}" \
 		--location="global" \
-		--workload-identity-pool="$WIF_POOL_NAME" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
+		--workload-identity-pool="${WIF_POOL_NAME}" \
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_warning "Workload Identity Provider already exists"
 	else
-		gcloud iam workload-identity-pools providers create-oidc "$WIF_PROVIDER_NAME" \
+		gcloud iam workload-identity-pools providers create-oidc "${WIF_PROVIDER_NAME}" \
 			--location="global" \
-			--workload-identity-pool="$WIF_POOL_NAME" \
+			--workload-identity-pool="${WIF_POOL_NAME}" \
 			--issuer-uri="https://token.actions.githubusercontent.com" \
 			--attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
 			--attribute-condition="assertion.repository_owner == '${GITHUB_REPO_OWNER}'" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 		print_success "Workload Identity Provider created"
 	fi
 
 	# Grant service account access
 	echo "Configuring service account access..."
-	gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+	gcloud iam service-accounts add-iam-policy-binding "${SA_EMAIL}" \
 		--role="roles/iam.workloadIdentityUser" \
 		--member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL_NAME}/attribute.repository/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}" \
-		--project="$PROJECT_ID" >/dev/null 2>&1
+		--project="${PROJECT_ID}" >/dev/null 2>&1
 
 	print_success "Workload Identity Federation configured"
 }
@@ -235,17 +235,17 @@ create_artifact_registry() {
 	AR_REPOSITORY="cloud-run-source-deploy"
 
 	# Check if repository exists
-	if gcloud artifacts repositories describe "$AR_REPOSITORY" \
-		--location="$REGION" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
+	if gcloud artifacts repositories describe "${AR_REPOSITORY}" \
+		--location="${REGION}" \
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_warning "Artifact Registry repository already exists"
 	else
 		echo "Creating Artifact Registry repository..."
-		gcloud artifacts repositories create "$AR_REPOSITORY" \
-			--location="$REGION" \
+		gcloud artifacts repositories create "${AR_REPOSITORY}" \
+			--location="${REGION}" \
 			--repository-format="docker" \
 			--description="Docker repository for Cloud Run deployments" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 		print_success "Artifact Registry repository created"
 	fi
 }
@@ -258,31 +258,31 @@ generate_github_secrets() {
 	echo "Add these secrets to your GitHub repository:"
 	echo ""
 	echo -e "${YELLOW}WIF_PROVIDER:${NC}"
-	echo "$WIF_PROVIDER"
+	echo "${WIF_PROVIDER}"
 	echo ""
 	echo -e "${YELLOW}WIF_SERVICE_ACCOUNT:${NC}"
-	echo "$SA_EMAIL"
+	echo "${SA_EMAIL}"
 	echo ""
 
 	# If GitHub CLI is available, offer to set secrets
-	if [ "$GH_CLI_AVAILABLE" = true ]; then
+	if [[ ${GH_CLI_AVAILABLE} == true ]]; then
 		echo ""
 		read -p "Would you like to set these secrets using GitHub CLI? (y/N) " -n 1 -r
 		echo
-		if [[ $REPLY =~ ^[Yy]$ ]]; then
+		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			echo "Setting GitHub secrets..."
 
 			cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
-			gh secret set WIF_PROVIDER --body="$WIF_PROVIDER"
-			gh secret set WIF_SERVICE_ACCOUNT --body="$SA_EMAIL"
+			gh secret set WIF_PROVIDER --body="${WIF_PROVIDER}"
+			gh secret set WIF_SERVICE_ACCOUNT --body="${SA_EMAIL}"
 
 			print_success "GitHub secrets configured"
 		fi
 	else
 		echo ""
 		echo "To add these secrets manually:"
-		echo "1. Go to: https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/settings/secrets/actions"
+		echo "1. Go to: https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/settings/secrets/actions"
 		echo "2. Click 'New repository secret' for each secret above"
 	fi
 }
@@ -291,24 +291,24 @@ verify_setup() {
 	print_section "Verification"
 
 	echo "Checking service account..."
-	if gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" >/dev/null 2>&1; then
+	if gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_success "Service account exists"
 	else
 		print_error "Service account not found"
 	fi
 
 	echo "Checking Workload Identity Pool..."
-	if gcloud iam workload-identity-pools describe "$WIF_POOL_NAME" \
+	if gcloud iam workload-identity-pools describe "${WIF_POOL_NAME}" \
 		--location="global" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
 		print_success "Workload Identity Pool exists"
 	else
 		print_error "Workload Identity Pool not found"
 	fi
 
 	echo "Checking APIs..."
-	ENABLED_APIS=$(gcloud services list --enabled --project="$PROJECT_ID" --format="value(name)")
-	if echo "$ENABLED_APIS" | grep -q "cloudbuild.googleapis.com"; then
+	ENABLED_APIS=$(gcloud services list --enabled --project="${PROJECT_ID}" --format="value(name)")
+	if echo "${ENABLED_APIS}" | grep -q "cloudbuild.googleapis.com"; then
 		print_success "Required APIs are enabled"
 	else
 		print_warning "Some APIs might not be enabled"
@@ -327,9 +327,9 @@ print_next_steps() {
 	echo "3. Create a pull request or push to a feature branch to test"
 	echo ""
 	echo "4. Monitor the deployment:"
-	echo "   - GitHub Actions: https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/actions"
-	echo "   - Cloud Build: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_ID"
-	echo "   - Cloud Run: https://console.cloud.google.com/run?project=$PROJECT_ID"
+	echo "   - GitHub Actions: https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/actions"
+	echo "   - Cloud Build: https://console.cloud.google.com/cloud-build/builds?project=${PROJECT_ID}"
+	echo "   - Cloud Run: https://console.cloud.google.com/run?project=${PROJECT_ID}"
 	echo ""
 	print_success "Setup complete!"
 }
@@ -346,15 +346,15 @@ main() {
 
 	echo ""
 	echo "Configuration Summary:"
-	echo "- Project ID: $PROJECT_ID"
-	echo "- Region: $REGION"
-	echo "- GitHub Repository: $GITHUB_REPO_OWNER/$GITHUB_REPO_NAME"
+	echo "- Project ID: ${PROJECT_ID}"
+	echo "- Region: ${REGION}"
+	echo "- GitHub Repository: ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}"
 	echo "- Service Account: ${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 	echo ""
 
 	read -p "Continue with setup? (y/N) " -n 1 -r
 	echo
-	if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+	if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
 		echo "Setup cancelled"
 		exit 0
 	fi

@@ -43,18 +43,18 @@ check_specific_permission() {
 	local resource_id=$3
 
 	# Test the permission by attempting a dry-run operation
-	case "$permission" in
+	case "${permission}" in
 	"iam.serviceAccounts.create")
 		gcloud iam service-accounts create test-permission-check-$$ \
-			--dry-run --project="$PROJECT_ID" >/dev/null 2>&1
+			--dry-run --project="${PROJECT_ID}" >/dev/null 2>&1
 		;;
 	"iam.workloadIdentityPools.create")
 		gcloud iam workload-identity-pools create test-permission-check-$$ \
-			--location="global" --dry-run --project="$PROJECT_ID" >/dev/null 2>&1
+			--location="global" --dry-run --project="${PROJECT_ID}" >/dev/null 2>&1
 		;;
 	"resourcemanager.projects.setIamPolicy")
 		# Check if we can get IAM policy (read permission is usually granted if write is)
-		gcloud projects get-iam-policy "$PROJECT_ID" >/dev/null 2>&1
+		gcloud projects get-iam-policy "${PROJECT_ID}" >/dev/null 2>&1
 		;;
 	*)
 		return 1
@@ -67,12 +67,12 @@ validate_required_permissions() {
 	local operation=$1
 	local has_all_permissions=true
 
-	print_section "Validating Required Permissions for: $operation"
+	print_section "Validating Required Permissions for: ${operation}"
 
-	case "$operation" in
+	case "${operation}" in
 	"grant_permissions")
 		echo "Checking permission to modify IAM policies..."
-		if ! check_specific_permission "resourcemanager.projects.setIamPolicy" "project" "$PROJECT_ID"; then
+		if ! check_specific_permission "resourcemanager.projects.setIamPolicy" "project" "${PROJECT_ID}"; then
 			print_error "Missing permission: resourcemanager.projects.setIamPolicy"
 			print_error "You need 'roles/resourcemanager.projectIamAdmin' or 'roles/owner'"
 			has_all_permissions=false
@@ -82,7 +82,7 @@ validate_required_permissions() {
 		;;
 	"create_resources")
 		echo "Checking permission to create service accounts..."
-		if ! check_specific_permission "iam.serviceAccounts.create" "project" "$PROJECT_ID"; then
+		if ! check_specific_permission "iam.serviceAccounts.create" "project" "${PROJECT_ID}"; then
 			print_error "Missing permission: iam.serviceAccounts.create"
 			print_error "You need 'roles/iam.serviceAccountAdmin' or 'roles/owner'"
 			has_all_permissions=false
@@ -91,7 +91,7 @@ validate_required_permissions() {
 		fi
 
 		echo "Checking permission to create workload identity pools..."
-		if ! check_specific_permission "iam.workloadIdentityPools.create" "project" "$PROJECT_ID"; then
+		if ! check_specific_permission "iam.workloadIdentityPools.create" "project" "${PROJECT_ID}"; then
 			print_error "Missing permission: iam.workloadIdentityPools.create"
 			print_error "You need 'roles/iam.workloadIdentityPoolAdmin' or 'roles/owner'"
 			has_all_permissions=false
@@ -100,7 +100,7 @@ validate_required_permissions() {
 		fi
 
 		echo "Checking permission to modify service account IAM policies..."
-		if ! check_specific_permission "resourcemanager.projects.setIamPolicy" "project" "$PROJECT_ID"; then
+		if ! check_specific_permission "resourcemanager.projects.setIamPolicy" "project" "${PROJECT_ID}"; then
 			print_error "Missing permission to grant service account roles"
 			has_all_permissions=false
 		else
@@ -109,9 +109,9 @@ validate_required_permissions() {
 		;;
 	esac
 
-	if [ "$has_all_permissions" = false ]; then
+	if [[ ${has_all_permissions} == false ]]; then
 		echo ""
-		print_error "Missing required permissions for operation: $operation"
+		print_error "Missing required permissions for operation: ${operation}"
 		echo "Please ensure you have the necessary roles or ask a Project Owner to run this script."
 		return 1
 	fi
@@ -126,17 +126,17 @@ check_permissions() {
 	# Get current user
 	CURRENT_USER=$(gcloud config get-value account 2>/dev/null || echo "")
 
-	if [ -z "$CURRENT_USER" ]; then
+	if [[ -z ${CURRENT_USER} ]]; then
 		print_error "No active gcloud account found. Please run: gcloud auth login"
 		exit 1
 	fi
 
-	echo "Current user: $CURRENT_USER"
+	echo "Current user: ${CURRENT_USER}"
 
 	# Check if user has owner role
-	if gcloud projects get-iam-policy "$PROJECT_ID" \
+	if gcloud projects get-iam-policy "${PROJECT_ID}" \
 		--flatten="bindings[].members" \
-		--filter="bindings.members:user:$CURRENT_USER AND bindings.role:roles/owner" \
+		--filter="bindings.members:user:${CURRENT_USER} AND bindings.role:roles/owner" \
 		--format="value(bindings.role)" | grep -q "roles/owner"; then
 		print_success "You have Project Owner permissions"
 		return 0
@@ -154,11 +154,11 @@ grant_permissions() {
 		return 1
 	fi
 
-	if [ -z "$USER_EMAIL" ]; then
+	if [[ -z ${USER_EMAIL} ]]; then
 		read -p "Enter the email of the user who needs permissions: " USER_EMAIL
 	fi
 
-	echo "Granting permissions to: $USER_EMAIL"
+	echo "Granting permissions to: ${USER_EMAIL}"
 
 	# Required roles for setting up Workload Identity Federation
 	REQUIRED_ROLES=(
@@ -170,10 +170,10 @@ grant_permissions() {
 	)
 
 	for role in "${REQUIRED_ROLES[@]}"; do
-		echo -n "Granting $role... "
-		if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-			--member="user:$USER_EMAIL" \
-			--role="$role" \
+		echo -n "Granting ${role}... "
+		if gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+			--member="user:${USER_EMAIL}" \
+			--role="${role}" \
 			--condition=None >/dev/null 2>&1; then
 			print_success "granted"
 		else
@@ -181,7 +181,7 @@ grant_permissions() {
 		fi
 	done
 
-	print_success "Permissions granted to $USER_EMAIL"
+	print_success "Permissions granted to ${USER_EMAIL}"
 }
 
 create_wif_as_owner() {
@@ -201,7 +201,7 @@ create_wif_as_owner() {
 	GITHUB_REPO="${GITHUB_REPO:-mento-analytics-api}"
 
 	# Create resources
-	PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+	PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
 	WIF_POOL_NAME="github-actions-pool"
 	WIF_PROVIDER_NAME="github-provider"
 	SERVICE_ACCOUNT_NAME="github-preview-deployments"
@@ -209,46 +209,46 @@ create_wif_as_owner() {
 
 	# Create service account
 	echo "Creating service account..."
-	if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" >/dev/null 2>&1; then
-		gcloud iam service-accounts create "$SERVICE_ACCOUNT_NAME" \
+	if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+		gcloud iam service-accounts create "${SERVICE_ACCOUNT_NAME}" \
 			--display-name="GitHub Actions Preview Deployments" \
 			--description="Service account for GitHub Actions to deploy preview environments" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 	fi
 
 	# Create workload identity pool
 	echo "Creating Workload Identity Pool..."
-	if ! gcloud iam workload-identity-pools describe "$WIF_POOL_NAME" \
+	if ! gcloud iam workload-identity-pools describe "${WIF_POOL_NAME}" \
 		--location="global" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
-		gcloud iam workload-identity-pools create "$WIF_POOL_NAME" \
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
+		gcloud iam workload-identity-pools create "${WIF_POOL_NAME}" \
 			--location="global" \
 			--description="Pool for GitHub Actions" \
 			--display-name="GitHub Actions Pool" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 	fi
 
 	# Create workload identity provider
 	echo "Creating Workload Identity Provider..."
-	if ! gcloud iam workload-identity-pools providers describe "$WIF_PROVIDER_NAME" \
+	if ! gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER_NAME}" \
 		--location="global" \
-		--workload-identity-pool="$WIF_POOL_NAME" \
-		--project="$PROJECT_ID" >/dev/null 2>&1; then
-		gcloud iam workload-identity-pools providers create-oidc "$WIF_PROVIDER_NAME" \
+		--workload-identity-pool="${WIF_POOL_NAME}" \
+		--project="${PROJECT_ID}" >/dev/null 2>&1; then
+		gcloud iam workload-identity-pools providers create-oidc "${WIF_PROVIDER_NAME}" \
 			--location="global" \
-			--workload-identity-pool="$WIF_POOL_NAME" \
+			--workload-identity-pool="${WIF_POOL_NAME}" \
 			--issuer-uri="https://token.actions.githubusercontent.com" \
 			--attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
 			--attribute-condition="assertion.repository_owner == '${GITHUB_ORG}'" \
-			--project="$PROJECT_ID"
+			--project="${PROJECT_ID}"
 	fi
 
 	# Grant service account access
 	echo "Configuring service account access..."
-	gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+	gcloud iam service-accounts add-iam-policy-binding "${SA_EMAIL}" \
 		--role="roles/iam.workloadIdentityUser" \
 		--member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL_NAME}/attribute.repository/${GITHUB_ORG}/${GITHUB_REPO}" \
-		--project="$PROJECT_ID"
+		--project="${PROJECT_ID}"
 
 	# Grant service account roles
 	echo "Granting service account roles..."
@@ -261,9 +261,9 @@ create_wif_as_owner() {
 	)
 
 	for role in "${REQUIRED_ROLES[@]}"; do
-		gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-			--member="serviceAccount:$SA_EMAIL" \
-			--role="$role" \
+		gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+			--member="serviceAccount:${SA_EMAIL}" \
+			--role="${role}" \
 			--condition=None >/dev/null 2>&1
 	done
 
@@ -272,10 +272,10 @@ create_wif_as_owner() {
 	WIF_PROVIDER="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL_NAME}/providers/${WIF_PROVIDER_NAME}"
 
 	echo -e "${YELLOW}WIF_PROVIDER:${NC}"
-	echo "$WIF_PROVIDER"
+	echo "${WIF_PROVIDER}"
 	echo ""
 	echo -e "${YELLOW}WIF_SERVICE_ACCOUNT:${NC}"
-	echo "$SA_EMAIL"
+	echo "${SA_EMAIL}"
 	echo ""
 
 	print_success "Setup complete!"
@@ -303,7 +303,7 @@ main() {
 	echo ""
 
 	# Set project
-	gcloud config set project "$PROJECT_ID" >/dev/null 2>&1
+	gcloud config set project "${PROJECT_ID}" >/dev/null 2>&1
 
 	if check_permissions; then
 		echo ""
@@ -314,7 +314,7 @@ main() {
 		echo ""
 		read -p "Enter your choice (1-3): " choice
 
-		case $choice in
+		case ${choice} in
 		1)
 			create_wif_as_owner
 			;;
@@ -337,8 +337,8 @@ main() {
 		echo ""
 		read -p "Are you running this as a Project Owner? (y/N) " -n 1 -r
 		echo
-		if [[ $REPLY =~ ^[Yy]$ ]]; then
-			USER_EMAIL="$CURRENT_USER"
+		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
+			USER_EMAIL="${CURRENT_USER}"
 			grant_permissions
 			echo ""
 			echo "Now you can run: ./scripts/setup-preview-deployments.sh"
