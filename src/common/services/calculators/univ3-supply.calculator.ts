@@ -212,7 +212,11 @@ export class UniV3SupplyCalculator {
     return poolAddress;
   }
 
-  private calculatePositionAmount(position: readonly unknown[], slot0: readonly unknown[], targetToken: string): BigNumber {
+  private calculatePositionAmount(
+    position: readonly unknown[],
+    slot0: readonly unknown[],
+    targetToken: string,
+  ): BigNumber {
     const liquidity = new BigNumber((position[7] as bigint).toString());
     const sqrtPriceX96 = new BigNumber((slot0[0] as bigint).toString());
     const Q96 = new BigNumber(2).pow(96);

@@ -21,25 +21,25 @@ steps:
       - '-c'
       - |
         echo "Deploying pre-built image: ${_IMAGE_TAG}"
-        
+
         # The source files are already in /workspace from Cloud Build
         # Source the centralized environment configuration
         cd /workspace && source ./scripts/env-config.sh
-        
+
         # Build the environment variables string for production
         # Override environment-specific values
         export NODE_ENV="production"
         export ENVIRONMENT="production"
         export SENTRY_ENVIRONMENT="production"
-        
+
         # Build the environment variables string
         ENV_VARS=$$(build_env_vars_string "main" "main" "${_COMMIT_SHA}")
-        
+
         # Debug: Print the environment variables
         echo "=== Environment variables being set ==="
         echo "$$ENV_VARS" | tr ',' '\n'
         echo "=== End of environment variables ==="
-        
+
         gcloud run deploy ${_SERVICE_NAME} \
           --platform=managed \
           --image="${_IMAGE_TAG}" \

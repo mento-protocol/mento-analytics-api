@@ -78,8 +78,8 @@ src/
 │   ├── stablecoins/         # Stablecoin-related endpoints
 │   ├── reserve/             # Reserve-related endpoints
 │   └── health/              # Health check endpoints
-├── common/                      
-│   └── services/            # Shared services   
+├── common/
+│   └── services/            # Shared services
 ├── types/                   # Shared types/interfaces
 └── utils/                   # Utility functions
 ```

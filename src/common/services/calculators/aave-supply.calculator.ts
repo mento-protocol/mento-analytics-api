@@ -16,7 +16,7 @@ import { AAVE_TOKEN_MAPPINGS } from '@/common/config/aave.config';
 export class AAVESupplyCalculator {
   private readonly logger = new Logger(AAVESupplyCalculator.name);
 
-  constructor(private readonly chainClientService: ChainClientService) { }
+  constructor(private readonly chainClientService: ChainClientService) {}
 
   /**
    * Gets the balance of the corresponding aToken for the specified token address
