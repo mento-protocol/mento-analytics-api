@@ -1,0 +1,52 @@
+name: Docker Smoke Test
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - package*.json
+      - pnpm-lock.yaml
+      - src/**
+      - tsconfig.json
+      - nest-cli.json
+      - scripts/docker-smoke-test.sh
+      - .github/workflows/docker-smoke-test.yaml
+
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - package*.json
+      - pnpm-lock.yaml
+      - src/**
+      - tsconfig.json
+      - nest-cli.json
+      - scripts/docker-smoke-test.sh
+      - .github/workflows/docker-smoke-test.yaml
+
+  workflow_dispatch: # Allow manual trigger
+
+permissions: {} # Restrict default permissions; override at job level
+
+jobs:
+  docker-smoke-test:
+    name: Docker Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker smoke test
+        run: |
+          chmod +x scripts/docker-smoke-test.sh
+          REMOVE_IMAGE=true scripts/docker-smoke-test.sh

@@ -3,7 +3,7 @@ import { parseAbi, PublicClient } from 'viem';
 import BigNumber from 'bignumber.js';
 import { ChainClientService } from '@/common/services/chain-client.service';
 import { Chain } from '@types';
-import { ERC20_ABI, UNIV3_POSITION_MANAGER_ABI, UNIV3_FACTORY_ABI, UNIV3_POOL_ABI } from '@/common/constants';
+import { UNIV3_POSITION_MANAGER_ABI, UNIV3_FACTORY_ABI, UNIV3_POOL_ABI } from '@/common/constants';
 import { withRetry, RETRY_CONFIGS } from '@/utils';
 
 const BATCH_SIZE = 5;
@@ -212,7 +212,11 @@ export class UniV3SupplyCalculator {
     return poolAddress;
   }
 
-  private calculatePositionAmount(position: readonly unknown[], slot0: readonly unknown[], targetToken: string): BigNumber {
+  private calculatePositionAmount(
+    position: readonly unknown[],
+    slot0: readonly unknown[],
+    targetToken: string,
+  ): BigNumber {
     const liquidity = new BigNumber((position[7] as bigint).toString());
     const sqrtPriceX96 = new BigNumber((slot0[0] as bigint).toString());
     const Q96 = new BigNumber(2).pow(96);

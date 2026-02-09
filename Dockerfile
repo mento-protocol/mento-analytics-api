@@ -10,11 +10,9 @@ WORKDIR /app
 # Copy package files first for better layer caching
 COPY package*.json pnpm-lock.yaml ./
 
-# Install pnpm and nest CLI globally
-RUN npm install -g pnpm@latest @nestjs/cli
-
-# Install dependencies with frozen lockfile for reproducible builds
-RUN pnpm install --frozen-lockfile
+# Install pnpm, nest CLI, and dependencies
+RUN npm install -g pnpm@10.29.1 @nestjs/cli@10.4.8 && \
+    pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -34,20 +32,29 @@ ENV RELEASE_VERSION=${RELEASE_VERSION}
 
 WORKDIR /app
 
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001 -G nodejs
+
 # Copy package files first for better layer caching
 COPY package*.json pnpm-lock.yaml ./
 
-# Install pnpm and nest CLI globally
-RUN npm install -g pnpm@latest @nestjs/cli
-
-# Install production dependencies only with frozen lockfile
-RUN pnpm install --prod --frozen-lockfile
+# Install pnpm, nest CLI, and production dependencies
+RUN npm install -g pnpm@10.29.1 @nestjs/cli@10.4.8 && \
+    pnpm install --prod --frozen-lockfile
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
+# Switch to non-root user
+USER nestjs
+
 # Expose API port
 EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/health || exit 1
 
 # Start the application
 CMD ["pnpm", "start:prod"]

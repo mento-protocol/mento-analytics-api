@@ -24,7 +24,7 @@ The API can be used by consumers to fetch information about Mento Stables, the R
   - [Preview Deployments](#preview-deployments)
 - [Monitoring \& Logs](#monitoring--logs)
   - [Application Logs](#application-logs)
-  - [Monitoring Dashboard](#monitoring-dashboard)
+  - [Monitoring Dashboards](#monitoring-dashboards)
   - [Sentry Releases](#sentry-releases)
 - [Contributing](#contributing)
 - [License](#license)
@@ -78,8 +78,8 @@ src/
 │   ├── stablecoins/         # Stablecoin-related endpoints
 │   ├── reserve/             # Reserve-related endpoints
 │   └── health/              # Health check endpoints
-├── common/                      
-│   └── services/            # Shared services   
+├── common/
+│   └── services/            # Shared services
 ├── types/                   # Shared types/interfaces
 └── utils/                   # Utility functions
 ```
@@ -92,7 +92,7 @@ The Mento Analytics API is hosted on Google Cloud Platform (GCP) using Cloud Run
 
 ## API Documentation
 
-Detailed documentaion for the API endpoints is available at `/docs` when running the application.
+Detailed documentation for the API endpoints is available at `/docs` when running the application.
 
 ## Data Sources & Updates
 
@@ -121,10 +121,10 @@ The API implements a cache warming strategy to ensure data availability:
 
 ### Adding New Stablecoins
 
-Stablecoins are fetched directly from the blockchain using the Mento SDK. Additional information is requred for the price and image.
+Stablecoins are fetched directly from the blockchain using the Mento SDK. Additional information is required for the price and image.
 
 1. Add a fiat ticker for the stablecoin in the [SDK repo](https://github.com/mento-protocol/mento-sdk/blob/7656050794eef5609193cbafd53ea23f04df4d09/src/constants/stableTokenMetadata.ts#L13)
-2. Publish the new sdk package version and update the verion in the API repo
+2. Publish the new sdk package version and update the version in the API repo
 3. Add an svg image for the stablecoin to the [tokens directory](https://github.com/mento-protocol/mento-analytics-api/tree/main/public/tokens), ensuring the filename matches the symbol.
 4. Deploy changes and verify in `/stablecoins` endpoint
 
@@ -169,7 +169,7 @@ See [Preview Deployments Documentation](docs/preview-deployments.md) for setup a
 - Get logs from the command line: `npm run logs` (which is just a shortcut for `./scripts/get-logs.sh`)
 - [Cloud Console Service Logs](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/logs?invt=AbmVMA&project=mento-prod)
 
-### Monitoring
+### Monitoring Dashboards
 
 - [Google Cloud Run Service Monitoring](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?invt=AbmVMA&project=mento-prod)
 - [Sentry error tracking](https://mento-labs.sentry.io/insights/projects/analytics-api/?project=4508518701268992)

@@ -49,7 +49,6 @@ export class BitcoinBalanceFetcher extends BaseBalanceFetcher {
     _tokenAddress: string | null,
     accountAddress: string,
     category: AddressCategory,
-    _isVault: boolean = false,
   ): Promise<BalanceResult> {
     try {
       switch (category) {
