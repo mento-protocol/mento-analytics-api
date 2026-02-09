@@ -9,6 +9,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { LoggerModule } from 'nestjs-pino';
+import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 import { CacheModule as ApiCacheModule } from './api/cache/cache.module';
 import { HealthModule } from './api/health/health.module';
 import { CACHE_CONFIG } from './common/config/cache.config';
@@ -49,6 +50,7 @@ import { getLocalPinoConfig, getProductionPinoConfig } from './config/logger.con
   ],
   providers: [
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
+    { provide: APP_FILTER, useClass: ThrottlerExceptionFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     CacheWarmerService,
   ],
