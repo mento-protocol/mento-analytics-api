@@ -22,7 +22,7 @@ export class StablecoinsService {
     const stablecoinsResponse = await withRetry(
       async () => {
         const mento = this.mentoService.getMentoInstance();
-        const tokens = await mento.getStableTokens();
+        const tokens = await mento.tokens.getStableTokens();
 
         // Calculate adjustments first (reserve holdings, AAVE positions, lost tokens)
         const adjustments = await this.adjustmentsService.calculateTotalAdjustments(

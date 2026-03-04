@@ -46,7 +46,9 @@ describe('HealthController', () => {
 
     mentoService = {
       getMentoInstance: vi.fn().mockReturnValue({
-        getStableTokens: vi.fn().mockResolvedValue([]),
+        tokens: {
+          getStableTokens: vi.fn().mockResolvedValue([]),
+        },
       }),
     };
 
@@ -160,7 +162,9 @@ describe('HealthController', () => {
 
     it('should return mentoSdk error when getStableTokens rejects', async () => {
       mentoService.getMentoInstance.mockReturnValue({
-        getStableTokens: vi.fn().mockRejectedValue(new Error('Network error')),
+        tokens: {
+          getStableTokens: vi.fn().mockRejectedValue(new Error('Network error')),
+        },
       });
 
       const result = await controller.checkHealth();
