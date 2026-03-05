@@ -36,7 +36,7 @@
     "sentry:release:deploy": "./scripts/sentry-release.sh $(git rev-parse HEAD) --deploy production https://mento-analytics-api-mento-prod.us-central1.run.app"
   },
   "dependencies": {
-    "@mento-protocol/mento-sdk": "2.0.0-beta.16",
+    "@mento-protocol/mento-sdk": "3.0.0",
     "@nestjs/cache-manager": "^2.3.0",
     "@nestjs/common": "^10.4.16",
     "@nestjs/config": "^3.3.0",
@@ -89,15 +89,18 @@
   },
   "pnpm": {
     "overrides": {
-      "brace-expansion": ">=2.0.2",
+      "brace-expansion": ">=2.0.2 <3.0.0",
       "diff": ">=5.0.0",
       "form-data": ">=4.0.4",
       "glob": ">=10.5.0",
       "js-yaml": ">=4.1.1",
       "lodash": ">=4.17.23",
-      "multer": ">=2.0.0",
+      "ajv": ">=6.14.0 <7.0.0 || >=8.17.1",
+      "multer": ">=2.1.0",
       "path-to-regexp": ">=0.1.12",
-      "qs": ">=6.14.1",
+      "qs": ">=6.14.2",
+      "rollup": ">=4.58.0",
+      "serialize-javascript": ">=7.0.2",
       "tmp": ">=0.2.0",
       "webpack": ">=5.99.0"
     },

@@ -97,7 +97,7 @@ export class HealthController {
   private async checkMentoSdkConnection() {
     try {
       const mento = this.mentoService.getMentoInstance();
-      await mento.getStableTokens();
+      await mento.tokens.getStableTokens();
       return { status: 'ok' as const };
     } catch {
       return {
