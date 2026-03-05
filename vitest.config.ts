@@ -23,10 +23,7 @@ export default defineConfig({
       '@config': resolve(__dirname, './src/config'),
       // Force CJS build of mento-sdk — its ESM build has extensionless imports
       // that fail Node's ESM resolver
-      '@mento-protocol/mento-sdk': resolve(
-        __dirname,
-        './node_modules/@mento-protocol/mento-sdk/dist/index.js',
-      ),
+      '@mento-protocol/mento-sdk': resolve(__dirname, './node_modules/@mento-protocol/mento-sdk/dist/index.js'),
     },
   },
 });
