@@ -77,7 +77,7 @@ export class StablecoinAdjustmentsService {
   /**
    * Calculate USD value of stablecoins held directly by reserve addresses
    */
-  private async calculateReserveHoldings(
+  async calculateReserveHoldings(
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
@@ -116,7 +116,7 @@ export class StablecoinAdjustmentsService {
   /**
    * Calculate USD value of stablecoins deposited in AAVE by reserve addresses
    */
-  private async calculateAavePositions(
+  async calculateAavePositions(
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {
@@ -161,7 +161,7 @@ export class StablecoinAdjustmentsService {
   /**
    * Calculate USD value of lost tokens (tokens held by their own contract address)
    */
-  private async calculateLostTokens(
+  async calculateLostTokens(
     stablecoins: StablecoinToken[],
     byToken: Record<string, TokenAdjustment>,
   ): Promise<number> {

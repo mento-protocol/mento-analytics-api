@@ -12,6 +12,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 import { CacheModule as ApiCacheModule } from './api/cache/cache.module';
 import { HealthModule } from './api/health/health.module';
+import { V2Module } from './api/v2/v2.module';
 import { CACHE_CONFIG } from './common/config/cache.config';
 import { getLocalPinoConfig, getProductionPinoConfig } from './config/logger.config';
 
@@ -46,6 +47,7 @@ import { getLocalPinoConfig, getProductionPinoConfig } from './config/logger.con
     ReserveModule,
     HealthModule,
     ApiCacheModule,
+    V2Module,
     LoggerModule.forRoot(process.env.NODE_ENV === 'production' ? getProductionPinoConfig() : getLocalPinoConfig()),
   ],
   providers: [

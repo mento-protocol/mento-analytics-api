@@ -7,6 +7,7 @@ export enum Chain {
   CELO = 'celo',
   ETHEREUM = 'ethereum',
   BITCOIN = 'bitcoin',
+  MONAD = 'monad',
 }
 
 /**
@@ -26,6 +27,10 @@ export enum AddressCategory {
   CURVE_POOL = 'Curve Pool',
   UNIV3_POOL = 'Uniswap V3 Pool',
   AAVE = 'Aave',
+  CDP_CONTRACT = 'CDP Contract',
+  BRIDGE_CONTRACT = 'Bridge Contract',
+  CUSTODIAN = 'Custodian',
+  FPMM_POOL = 'FPMM Pool',
 }
 
 /**
@@ -118,3 +123,17 @@ export const ASSET_SYMBOLS = {
 } as const;
 
 export type AssetSymbol = (typeof ASSET_SYMBOLS)[keyof typeof ASSET_SYMBOLS];
+
+/**
+ * The type of backing mechanism for a stablecoin.
+ * - reserve: Backed by the diversified crypto reserve, redeemable via buy-and-sell mechanism
+ * - cdp: Backed by collateralized debt positions (e.g. USDm collateral backing GBPm)
+ */
+export type BackingType = 'reserve' | 'cdp';
+
+/**
+ * The status of a CDP trove.
+ * - active: Live CDP with deposited collateral and minted debt
+ * - pending: Announced but not yet deployed
+ */
+export type TroveStatus = 'active' | 'pending';

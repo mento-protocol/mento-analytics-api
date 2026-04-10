@@ -143,4 +143,24 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 8,
     },
   },
+  [Chain.MONAD]: {
+    USDm: {
+      symbol: 'USDm',
+      name: 'Mento Dollar',
+      decimals: 18,
+      address: '0xBC69212B8E4d445b2307C9D32dD68E2A4Df00115',
+    },
+    GBPm: {
+      symbol: 'GBPm',
+      name: 'Mento British Pound',
+      decimals: 18,
+      address: '0x39bb4E0a204412bB98e821d25e7d955e69d40Fd1',
+    },
+    USDC: {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+      address: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603',
+    },
+  },
 };
