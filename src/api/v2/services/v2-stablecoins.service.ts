@@ -69,19 +69,17 @@ export class V2StablecoinsService {
             const celoLost = lostByToken[token.symbol]?.amount ?? 0;
 
             // Query supply on non-Celo chains + build per-network breakdown
-            const networkSupplies = await this.getNetworkSupplies(
+            // Handles lockbox vs burn-and-mint: lockbox deduction subtracted from Celo supply
+            const { networkSupplies, lockboxDeduction } = await this.getNetworkSupplies(
               token.symbol, token.address, token.decimals, celoSupply,
               celoReserveHeld, celoLost, fiatTicker, backingConfig,
             );
 
-            // Gross supply = Celo + other chains
-            const otherChainSupply = networkSupplies
-              .filter((ns) => ns.chain !== Chain.CELO)
-              .reduce((sum, ns) => sum + Number(ns.supply.total), 0);
-            const grossSupply = celoSupply + otherChainSupply;
+            // Gross supply = sum of all network supplies (lockbox already deducted from Celo)
+            const grossSupply = networkSupplies.reduce((sum, ns) => sum + Number(ns.supply.total), 0);
 
             // Aggregate decomposition across all chains
-            const reserveHeld = celoReserveHeld; // Other chains don't have adjustments yet
+            const reserveHeld = celoReserveHeld;
             const lost = celoLost;
             const debt = Math.max(0, grossSupply - reserveHeld - lost);
 
@@ -143,46 +141,37 @@ export class V2StablecoinsService {
 
   /**
    * Build per-network supply breakdown for a stablecoin.
-   * Each network gets the full decomposition (total, debt, reserve_held, lost).
-   * Celo adjustments come from the existing adjustment service.
-   * Other chains currently have no adjustments (all supply = debt).
+   *
+   * Bridge types affect how supply is computed:
+   * - burn-and-mint: Celo burns tokens when bridging out. Celo totalSupply is already net.
+   *   Total = Celo totalSupply + other chain totalSupply.
+   * - lockbox: Celo locks tokens in a lockbox contract when bridging out. Celo totalSupply
+   *   still includes locked tokens. Celo circulating = totalSupply - lockbox balance.
+   *   Total = (Celo totalSupply - lockbox) + other chain totalSupply.
+   *
+   * Returns { networkSupplies, totalLockboxDeduction } so the caller can adjust the gross total.
    */
   private async getNetworkSupplies(
     symbol: string,
     celoAddress: string,
     celoDecimals: number,
-    celoSupply: number,
+    celoRawSupply: number,
     celoReserveHeld: number,
     celoLost: number,
     fiatTicker: string,
     backingConfig: ReturnType<typeof getBackingConfig>,
-  ): Promise<V2NetworkSupplyDto[]> {
+  ): Promise<{ networkSupplies: V2NetworkSupplyDto[]; lockboxDeduction: number }> {
     const supplies: V2NetworkSupplyDto[] = [];
+    let totalLockboxDeduction = 0;
 
-    // Celo: full decomposition
-    const celoDebt = Math.max(0, celoSupply - celoReserveHeld - celoLost);
-    const [celoTotalUsd, celoDebtUsd, celoHeldUsd, celoLostUsd] = await Promise.all([
-      this.exchangeRatesService.convert(celoSupply, fiatTicker, 'USD'),
-      this.exchangeRatesService.convert(celoDebt, fiatTicker, 'USD'),
-      this.exchangeRatesService.convert(celoReserveHeld, fiatTicker, 'USD'),
-      this.exchangeRatesService.convert(celoLost, fiatTicker, 'USD'),
-    ]);
-    supplies.push({
-      chain: Chain.CELO,
-      address: celoAddress,
-      supply: {
-        total: celoSupply.toString(), total_usd: Number(celoTotalUsd),
-        debt: celoDebt.toString(), debt_usd: Number(celoDebtUsd),
-        reserve_held: celoReserveHeld.toString(), reserve_held_usd: Number(celoHeldUsd),
-        lost: celoLost.toString(), lost_usd: Number(celoLostUsd),
-      },
-    });
+    // First pass: query other chains and compute lockbox deductions
+    const otherChainSupplies: { deployment: (typeof backingConfig.deployments)[number]; supply: number }[] = [];
 
-    // Non-Celo deployments: query totalSupply, currently all is debt (no adjustments on other chains yet)
     if (backingConfig.deployments) {
-      const otherChainResults = await Promise.all(
+      await Promise.all(
         backingConfig.deployments.map(async (deployment) => {
           try {
+            // Query totalSupply on this chain
             const chainSupply = await this.chainClientService.executeRateLimited(deployment.chain, async (client) => {
               const totalSupply = await client.readContract({
                 address: deployment.address as `0x${string}`,
@@ -192,36 +181,68 @@ export class V2StablecoinsService {
               return Number(formatUnits(totalSupply as bigint, deployment.decimals));
             });
 
-            const chainUsd = await this.exchangeRatesService.convert(chainSupply, fiatTicker, 'USD');
-            this.logger.log(`${symbol} on ${deployment.chain}: ${chainSupply.toFixed(2)} = $${Number(chainUsd).toFixed(2)}`);
+            otherChainSupplies.push({ deployment, supply: chainSupply });
 
-            return {
-              chain: deployment.chain,
-              address: deployment.address,
-              supply: {
-                total: chainSupply.toString(), total_usd: Number(chainUsd),
-                debt: chainSupply.toString(), debt_usd: Number(chainUsd),
-                reserve_held: '0', reserve_held_usd: 0,
-                lost: '0', lost_usd: 0,
-              },
-            } as V2NetworkSupplyDto;
+            // For lockbox bridges: read the lockbox balance on Celo to subtract
+            if (deployment.bridge === 'lockbox' && deployment.celoLockboxAddress) {
+              const lockboxBalance = await this.chainClientService.executeRateLimited(Chain.CELO, async (client) => {
+                const bal = await client.readContract({
+                  address: celoAddress as `0x${string}`,
+                  abi: parseAbi(ERC20_ABI),
+                  functionName: 'balanceOf',
+                  args: [deployment.celoLockboxAddress as `0x${string}`],
+                });
+                return Number(formatUnits(bal as bigint, celoDecimals));
+              });
+              totalLockboxDeduction += lockboxBalance;
+              this.logger.log(`${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`);
+            }
+
+            this.logger.log(`${symbol} on ${deployment.chain} [${deployment.bridge}]: ${chainSupply.toFixed(2)}`);
           } catch (error) {
-            this.logger.warn(`Failed to fetch ${symbol} supply on ${deployment.chain}: ${error}`);
-            return {
-              chain: deployment.chain,
-              address: deployment.address,
-              supply: {
-                total: '0', total_usd: 0, debt: '0', debt_usd: 0,
-                reserve_held: '0', reserve_held_usd: 0, lost: '0', lost_usd: 0,
-              },
-            } as V2NetworkSupplyDto;
+            this.logger.warn(`Failed to fetch ${symbol} on ${deployment.chain}: ${error}`);
+            otherChainSupplies.push({ deployment, supply: 0 });
           }
         }),
       );
-      supplies.push(...otherChainResults);
     }
 
-    return supplies;
+    // Celo supply: subtract lockbox balance for lockbox bridges
+    const celoCorrectedSupply = celoRawSupply - totalLockboxDeduction;
+    const celoDebt = Math.max(0, celoCorrectedSupply - celoReserveHeld - celoLost);
+    const [celoTotalUsd, celoDebtUsd, celoHeldUsd, celoLostUsd] = await Promise.all([
+      this.exchangeRatesService.convert(celoCorrectedSupply, fiatTicker, 'USD'),
+      this.exchangeRatesService.convert(celoDebt, fiatTicker, 'USD'),
+      this.exchangeRatesService.convert(celoReserveHeld, fiatTicker, 'USD'),
+      this.exchangeRatesService.convert(celoLost, fiatTicker, 'USD'),
+    ]);
+    supplies.push({
+      chain: Chain.CELO,
+      address: celoAddress,
+      supply: {
+        total: celoCorrectedSupply.toString(), total_usd: Number(celoTotalUsd),
+        debt: celoDebt.toString(), debt_usd: Number(celoDebtUsd),
+        reserve_held: celoReserveHeld.toString(), reserve_held_usd: Number(celoHeldUsd),
+        lost: celoLost.toString(), lost_usd: Number(celoLostUsd),
+      },
+    });
+
+    // Other chains: all supply is debt (no adjustments on spoke chains yet)
+    for (const { deployment, supply: chainSupply } of otherChainSupplies) {
+      const chainUsd = await this.exchangeRatesService.convert(chainSupply, fiatTicker, 'USD');
+      supplies.push({
+        chain: deployment.chain,
+        address: deployment.address,
+        supply: {
+          total: chainSupply.toString(), total_usd: Number(chainUsd),
+          debt: chainSupply.toString(), debt_usd: Number(chainUsd),
+          reserve_held: '0', reserve_held_usd: 0,
+          lost: '0', lost_usd: 0,
+        },
+      });
+    }
+
+    return { networkSupplies: supplies, lockboxDeduction: totalLockboxDeduction };
   }
 
   /**
