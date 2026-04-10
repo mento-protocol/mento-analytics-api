@@ -7,6 +7,7 @@ import { BitcoinBalanceFetcher } from './services/balance-fetchers/bitcoin-balan
 import { ReserveBalanceService } from './services/reserve-balance.service';
 import { ReserveValueService } from './services/reserve-value.service';
 import { CeloBalanceFetcher, EthereumBalanceFetcher } from './services/balance-fetchers';
+import { MonadBalanceFetcher } from './services/balance-fetchers/monad.balance-fetcher';
 import { BALANCE_FETCHERS } from './constants/injection-tokens';
 import { StablecoinsModule } from '../stablecoins/stablecoins.module';
 
@@ -20,14 +21,16 @@ import { StablecoinsModule } from '../stablecoins/stablecoins.module';
     BitcoinBalanceFetcher,
     CeloBalanceFetcher,
     EthereumBalanceFetcher,
+    MonadBalanceFetcher,
     {
       provide: BALANCE_FETCHERS,
       useFactory: (
         bitcoinFetcher: BitcoinBalanceFetcher,
         celoFetcher: CeloBalanceFetcher,
         ethereumFetcher: EthereumBalanceFetcher,
-      ) => [bitcoinFetcher, celoFetcher, ethereumFetcher],
-      inject: [BitcoinBalanceFetcher, CeloBalanceFetcher, EthereumBalanceFetcher],
+        monadFetcher: MonadBalanceFetcher,
+      ) => [bitcoinFetcher, celoFetcher, ethereumFetcher, monadFetcher],
+      inject: [BitcoinBalanceFetcher, CeloBalanceFetcher, EthereumBalanceFetcher, MonadBalanceFetcher],
     },
   ],
   exports: [ReserveService],

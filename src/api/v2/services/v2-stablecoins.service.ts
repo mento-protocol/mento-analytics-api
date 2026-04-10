@@ -2,11 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { StablecoinAdjustmentsService } from '@api/stablecoins/services/stablecoin-adjustments.service';
 import { MentoService } from '@common/services/mento.service';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
-import { V2StablecoinsResponseDto, V2StablecoinDto } from '../dto/v2-stablecoins.dto';
+import { ChainClientService } from '@common/services/chain-client.service';
+import { V2StablecoinsResponseDto, V2StablecoinDto, V2NetworkSupplyDto } from '../dto/v2-stablecoins.dto';
 import { getBackingConfig } from '../config/stablecoin-backing.config';
 import { FpmmPositionsService } from './fpmm-positions.service';
-import { formatUnits } from 'viem';
+import { formatUnits, parseAbi } from 'viem';
 import { getFiatTickerFromSymbol } from '@common/constants';
+import { ERC20_ABI } from '@/common/constants';
 import { withRetry } from '@/utils';
 import { ICONS_BASE_URL } from '@api/stablecoins/constants';
 import { Chain } from '@types';
@@ -19,6 +21,7 @@ export class V2StablecoinsService {
     private readonly adjustmentsService: StablecoinAdjustmentsService,
     private readonly mentoService: MentoService,
     private readonly exchangeRatesService: ExchangeRatesService,
+    private readonly chainClientService: ChainClientService,
     private readonly fpmmPositionsService: FpmmPositionsService,
   ) {}
 
@@ -55,16 +58,31 @@ export class V2StablecoinsService {
         const stablecoins: V2StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
             const fiatTicker = getFiatTickerFromSymbol(token.symbol);
-            const grossSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
+            const celoSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
             const backingConfig = getBackingConfig(token.symbol);
 
-            // Per-token decomposition:
-            // reserve_held = wallet holdings + AAVE positions + FPMM debt-side
+            // Per-token Celo adjustments
             const walletHeld = reserveByToken[token.symbol]?.amount ?? 0;
             const aaveHeld = aaveByToken[token.symbol]?.amount ?? 0;
             const fpmmHeld = fpmmPositions[token.symbol] ?? 0;
-            const reserveHeld = walletHeld + aaveHeld + fpmmHeld;
-            const lost = lostByToken[token.symbol]?.amount ?? 0;
+            const celoReserveHeld = walletHeld + aaveHeld + fpmmHeld;
+            const celoLost = lostByToken[token.symbol]?.amount ?? 0;
+
+            // Query supply on non-Celo chains + build per-network breakdown
+            const networkSupplies = await this.getNetworkSupplies(
+              token.symbol, token.address, token.decimals, celoSupply,
+              celoReserveHeld, celoLost, fiatTicker, backingConfig,
+            );
+
+            // Gross supply = Celo + other chains
+            const otherChainSupply = networkSupplies
+              .filter((ns) => ns.chain !== Chain.CELO)
+              .reduce((sum, ns) => sum + Number(ns.supply.total), 0);
+            const grossSupply = celoSupply + otherChainSupply;
+
+            // Aggregate decomposition across all chains
+            const reserveHeld = celoReserveHeld; // Other chains don't have adjustments yet
+            const lost = celoLost;
             const debt = Math.max(0, grossSupply - reserveHeld - lost);
 
             const totalUsd = await this.exchangeRatesService.convert(grossSupply, fiatTicker, 'USD');
@@ -91,6 +109,7 @@ export class V2StablecoinsService {
                 lost: lost.toString(),
                 lost_usd: Number(lostUsd),
               },
+              network_supplies: networkSupplies,
               market_cap_percentage: 0,
             } as V2StablecoinDto;
           }),
@@ -103,7 +122,6 @@ export class V2StablecoinsService {
           coin.market_cap_percentage = total_supply_usd > 0 ? (coin.supply.total_usd / total_supply_usd) * 100 : 0;
         }
 
-        // Log FPMM impact
         const totalFpmmHeld = Object.values(fpmmPositions).reduce((s, v) => s + v, 0);
         this.logger.log(
           `V2 stablecoins - Total: $${total_supply_usd.toFixed(2)}, Debt: $${total_debt_usd.toFixed(2)}, ` +
@@ -124,8 +142,90 @@ export class V2StablecoinsService {
   }
 
   /**
+   * Build per-network supply breakdown for a stablecoin.
+   * Each network gets the full decomposition (total, debt, reserve_held, lost).
+   * Celo adjustments come from the existing adjustment service.
+   * Other chains currently have no adjustments (all supply = debt).
+   */
+  private async getNetworkSupplies(
+    symbol: string,
+    celoAddress: string,
+    celoDecimals: number,
+    celoSupply: number,
+    celoReserveHeld: number,
+    celoLost: number,
+    fiatTicker: string,
+    backingConfig: ReturnType<typeof getBackingConfig>,
+  ): Promise<V2NetworkSupplyDto[]> {
+    const supplies: V2NetworkSupplyDto[] = [];
+
+    // Celo: full decomposition
+    const celoDebt = Math.max(0, celoSupply - celoReserveHeld - celoLost);
+    const [celoTotalUsd, celoDebtUsd, celoHeldUsd, celoLostUsd] = await Promise.all([
+      this.exchangeRatesService.convert(celoSupply, fiatTicker, 'USD'),
+      this.exchangeRatesService.convert(celoDebt, fiatTicker, 'USD'),
+      this.exchangeRatesService.convert(celoReserveHeld, fiatTicker, 'USD'),
+      this.exchangeRatesService.convert(celoLost, fiatTicker, 'USD'),
+    ]);
+    supplies.push({
+      chain: Chain.CELO,
+      address: celoAddress,
+      supply: {
+        total: celoSupply.toString(), total_usd: Number(celoTotalUsd),
+        debt: celoDebt.toString(), debt_usd: Number(celoDebtUsd),
+        reserve_held: celoReserveHeld.toString(), reserve_held_usd: Number(celoHeldUsd),
+        lost: celoLost.toString(), lost_usd: Number(celoLostUsd),
+      },
+    });
+
+    // Non-Celo deployments: query totalSupply, currently all is debt (no adjustments on other chains yet)
+    if (backingConfig.deployments) {
+      const otherChainResults = await Promise.all(
+        backingConfig.deployments.map(async (deployment) => {
+          try {
+            const chainSupply = await this.chainClientService.executeRateLimited(deployment.chain, async (client) => {
+              const totalSupply = await client.readContract({
+                address: deployment.address as `0x${string}`,
+                abi: parseAbi(ERC20_ABI),
+                functionName: 'totalSupply',
+              });
+              return Number(formatUnits(totalSupply as bigint, deployment.decimals));
+            });
+
+            const chainUsd = await this.exchangeRatesService.convert(chainSupply, fiatTicker, 'USD');
+            this.logger.log(`${symbol} on ${deployment.chain}: ${chainSupply.toFixed(2)} = $${Number(chainUsd).toFixed(2)}`);
+
+            return {
+              chain: deployment.chain,
+              address: deployment.address,
+              supply: {
+                total: chainSupply.toString(), total_usd: Number(chainUsd),
+                debt: chainSupply.toString(), debt_usd: Number(chainUsd),
+                reserve_held: '0', reserve_held_usd: 0,
+                lost: '0', lost_usd: 0,
+              },
+            } as V2NetworkSupplyDto;
+          } catch (error) {
+            this.logger.warn(`Failed to fetch ${symbol} supply on ${deployment.chain}: ${error}`);
+            return {
+              chain: deployment.chain,
+              address: deployment.address,
+              supply: {
+                total: '0', total_usd: 0, debt: '0', debt_usd: 0,
+                reserve_held: '0', reserve_held_usd: 0, lost: '0', lost_usd: 0,
+              },
+            } as V2NetworkSupplyDto;
+          }
+        }),
+      );
+      supplies.push(...otherChainResults);
+    }
+
+    return supplies;
+  }
+
+  /**
    * Get the debt-side (stablecoin) amounts locked in FPMM pools by the reserve.
-   * These are "reserve-held" — unbacked supply that should be subtracted from outstanding debt.
    */
   private async getFpmmReserveHeldBySymbol(): Promise<Record<string, number>> {
     const result: Record<string, number> = {};

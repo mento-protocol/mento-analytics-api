@@ -162,5 +162,17 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 6,
       address: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603',
     },
+    USDT: {
+      symbol: 'USDT',
+      name: 'USD Tether',
+      decimals: 6,
+      address: '0xe7cd86e13ac4309349f30b3435a9d337750fc82d',
+    },
+    AUSD: {
+      symbol: 'AUSD',
+      name: 'Agora USD',
+      decimals: 6,
+      address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
+    },
   },
 };

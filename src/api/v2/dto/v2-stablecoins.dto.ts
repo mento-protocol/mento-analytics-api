@@ -12,6 +12,12 @@ export class V2StablecoinSupplyDto {
   @ApiProperty() lost_usd: number;
 }
 
+export class V2NetworkSupplyDto {
+  @ApiProperty({ enum: Chain }) chain: Chain;
+  @ApiProperty() address: string;
+  @ApiProperty() supply: V2StablecoinSupplyDto;
+}
+
 export class V2StablecoinDto {
   @ApiProperty() symbol: string;
   @ApiProperty() name: string;
@@ -20,6 +26,7 @@ export class V2StablecoinDto {
   @ApiProperty({ required: false }) icon_url?: string;
   @ApiProperty({ enum: Chain, isArray: true }) networks: Chain[];
   @ApiProperty() supply: V2StablecoinSupplyDto;
+  @ApiProperty({ type: [V2NetworkSupplyDto] }) network_supplies: V2NetworkSupplyDto[];
   @ApiProperty() market_cap_percentage: number;
 }
 
