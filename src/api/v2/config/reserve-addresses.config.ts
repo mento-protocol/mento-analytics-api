@@ -49,6 +49,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
 
   // --- Ethereum ---
   {
+    address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
+    chain: Chain.ETHEREUM,
+    label: 'Mento Pools Liquidity Reserve',
+  },
+  {
     address: '0xd0697f70E79476195B742d5aFAb14BE50f98CC1E',
     chain: Chain.ETHEREUM,
     label: 'ETH Custody Multisig',
@@ -69,6 +74,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     address: '0x4255Cf38e51516766180b33122029A88Cb853806',
     chain: Chain.MONAD,
     label: 'ReserveV2',
+  },
+  {
+    address: '0x87647780180B8f55980C7D3fFeFe08a9B29e9aE1',
+    chain: Chain.MONAD,
+    label: 'Reserve Safe',
   },
 ];
 
