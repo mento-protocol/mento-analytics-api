@@ -3,6 +3,11 @@ import { V2OverviewResponseDto } from '../dto/v2-overview.dto';
 import { V2StablecoinsService } from './v2-stablecoins.service';
 import { V2ReserveService } from './v2-reserve.service';
 import { V2PositionsService } from './v2-positions.service';
+import { ChainClientService } from '@common/services/chain-client.service';
+import { ExchangeRatesService } from '@common/services/exchange-rates.service';
+import { CDP_TROVE_CONFIGS, CDP_CONTRACTS, TROVE_MANAGER_ABI } from '../config/cdp.config';
+import { Chain } from '@types';
+import { formatUnits } from 'viem';
 
 @Injectable()
 export class V2OverviewService {
@@ -12,24 +17,25 @@ export class V2OverviewService {
     private readonly v2StablecoinsService: V2StablecoinsService,
     private readonly v2ReserveService: V2ReserveService,
     private readonly v2PositionsService: V2PositionsService,
+    private readonly chainClientService: ChainClientService,
+    private readonly exchangeRatesService: ExchangeRatesService,
   ) {}
 
   async getOverview(): Promise<V2OverviewResponseDto> {
     const start = Date.now();
 
-    // Fetch positions ONCE — this is the expensive part (all chain reads)
+    // Fetch positions once
     const t1 = Date.now();
     const positionsResult = await this.v2PositionsService.getPositions();
     this.logger.log(`Overview: positions took ${Date.now() - t1}ms`);
 
-    // Stablecoins and reserve can run in parallel — they don't call positions internally
-    // when we pass the data they need from the positions result
+    // Stablecoins, reserve, and system-wide CDP totals in parallel
     const t2 = Date.now();
-    const [stablecoinsData, reserveData] = await Promise.all([
+    const [stablecoinsData, cdpSystemTotals] = await Promise.all([
       this.v2StablecoinsService.getStablecoins(),
-      this.v2ReserveService.getReserve(),
+      this.getCdpSystemTotals(),
     ]);
-    this.logger.log(`Overview: stablecoins+reserve took ${Date.now() - t2}ms`);
+    this.logger.log(`Overview: stablecoins+cdp took ${Date.now() - t2}ms`);
 
     // Calculate supply decomposition
     const reserveBackedCoins = stablecoinsData.stablecoins.filter((c) => c.backing_type === 'reserve');
@@ -43,40 +49,6 @@ export class V2OverviewService {
     // Use positions-derived collateral
     const reserveCollateralUsd = positionsResult.collateral.total_usd;
     const reserveRatio = reserveDebtUsd > 0 ? reserveCollateralUsd / reserveDebtUsd : 0;
-
-    // CDP backings — aggregate per stablecoin (overview shows totals, not individual troves)
-    const cdpByStable = new Map<string, { collateral_usd: number; collateral_amount: number; debt_usd: number; debt_amount: number; collateral_token: string; chain: any; status: string }>();
-    for (const trove of reserveData.cdp_troves.troves) {
-      const key = trove.stablecoin;
-      const existing = cdpByStable.get(key);
-      if (existing) {
-        existing.collateral_usd += trove.collateral_usd;
-        existing.collateral_amount += Number(trove.collateral_amount);
-        existing.debt_usd += trove.debt_usd;
-        existing.debt_amount += Number(trove.debt_amount);
-      } else {
-        cdpByStable.set(key, {
-          collateral_usd: trove.collateral_usd,
-          collateral_amount: Number(trove.collateral_amount),
-          debt_usd: trove.debt_usd,
-          debt_amount: Number(trove.debt_amount),
-          collateral_token: trove.collateral_token,
-          chain: trove.chain,
-          status: trove.status,
-        });
-      }
-    }
-    const cdpBackings = Array.from(cdpByStable.entries()).map(([stablecoin, data]) => ({
-      stablecoin,
-      collateral_token: data.collateral_token,
-      collateral_usd: data.collateral_usd,
-      collateral_amount: data.collateral_amount.toString(),
-      debt_usd: data.debt_usd,
-      debt_amount: data.debt_amount.toString(),
-      ratio: data.debt_usd > 0 ? data.collateral_usd / data.debt_usd : 0,
-      status: data.status,
-      chain: data.chain,
-    }));
 
     this.logger.log(`Overview: total ${Date.now() - start}ms`);
 
@@ -96,8 +68,81 @@ export class V2OverviewService {
         ratio: reserveRatio,
         stablecoin_count: reserveBackedCoins.length,
       },
-      cdp_backings: cdpBackings,
+      cdp_backings: cdpSystemTotals,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Read system-wide CDP totals from TroveManager.getEntireBranchDebt/Coll.
+   * This includes ALL troves (reserve + external) — shows how the stablecoin
+   * is backed overall, not just the reserve's portion.
+   */
+  private async getCdpSystemTotals() {
+    const results = [];
+
+    for (const cfg of CDP_TROVE_CONFIGS) {
+      if (cfg.status !== 'active' || !cfg.contractAddress) {
+        results.push({
+          stablecoin: cfg.stablecoin,
+          collateral_token: cfg.collateralToken,
+          collateral_usd: 0,
+          collateral_amount: '0',
+          debt_usd: 0,
+          debt_amount: '0',
+          ratio: 0,
+          status: cfg.status,
+          chain: cfg.chain,
+        });
+        continue;
+      }
+
+      try {
+        const { totalDebt, totalColl } = await this.chainClientService.executeRateLimited(cfg.chain, async (client) => {
+          const [debtRaw, collRaw] = await Promise.all([
+            client.readContract({ address: cfg.contractAddress as `0x${string}`, abi: TROVE_MANAGER_ABI, functionName: 'getEntireBranchDebt' }),
+            client.readContract({ address: cfg.contractAddress as `0x${string}`, abi: TROVE_MANAGER_ABI, functionName: 'getEntireBranchColl' }),
+          ]);
+          return {
+            totalDebt: Number(formatUnits(debtRaw as bigint, 18)),
+            totalColl: Number(formatUnits(collRaw as bigint, 18)),
+          };
+        });
+
+        // USDm collateral = 1:1 USD, GBPm debt needs GBP→USD
+        const collateralUsd = totalColl; // USDm ≈ USD
+        const debtUsd = await this.exchangeRatesService.convert(totalDebt, 'GBP', 'USD');
+        const ratio = debtUsd > 0 ? collateralUsd / debtUsd : 0;
+
+        this.logger.log(`CDP system totals: ${totalColl.toFixed(0)} USDm coll, ${totalDebt.toFixed(0)} GBPm debt, ratio ${ratio.toFixed(2)}`);
+
+        results.push({
+          stablecoin: cfg.stablecoin,
+          collateral_token: cfg.collateralToken,
+          collateral_usd: collateralUsd,
+          collateral_amount: totalColl.toString(),
+          debt_usd: debtUsd,
+          debt_amount: totalDebt.toString(),
+          ratio,
+          status: cfg.status,
+          chain: cfg.chain,
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to read CDP system totals for ${cfg.stablecoin}: ${error}`);
+        results.push({
+          stablecoin: cfg.stablecoin,
+          collateral_token: cfg.collateralToken,
+          collateral_usd: 0,
+          collateral_amount: '0',
+          debt_usd: 0,
+          debt_amount: '0',
+          ratio: 0,
+          status: cfg.status,
+          chain: cfg.chain,
+        });
+      }
+    }
+
+    return results;
   }
 }
