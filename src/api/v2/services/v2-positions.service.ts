@@ -7,6 +7,7 @@ import { WalletBalanceReader, WalletBalancePosition } from './positions/wallet-b
 import { AaveReader, AavePosition } from './positions/aave.reader';
 import { CdpTroveReader, CdpTrovePosition } from './positions/cdp-trove.reader';
 import { StabilityPoolReader, StabilityPoolPosition } from './positions/stability-pool.reader';
+import { UniV3Reader, UniV3PositionDetail } from './positions/univ3.reader';
 import { FpmmPositionsService, FpmmPosition } from './fpmm-positions.service';
 import { ASSET_GROUPS } from '@api/reserve/config/assets.config';
 import { getFiatTickerFromSymbol } from '@common/constants';
@@ -17,6 +18,7 @@ import { Chain } from '@types';
 export interface AllPositions {
   wallet_balances: WalletBalancePosition[];
   aave_deposits: AavePosition[];
+  univ3_positions: UniV3PositionDetail[];
   fpmm_positions: FpmmPosition[];
   cdp_troves: CdpTrovePosition[];
   stability_pool_deposits: StabilityPoolPosition[];
@@ -61,6 +63,7 @@ export class V2PositionsService {
     private readonly aaveReader: AaveReader,
     private readonly cdpTroveReader: CdpTroveReader,
     private readonly stabilityPoolReader: StabilityPoolReader,
+    private readonly univ3Reader: UniV3Reader,
     private readonly fpmmPositionsService: FpmmPositionsService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly cmcPriceFetcher: CoinMarketCapPriceFetcherService,
@@ -85,6 +88,10 @@ export class V2PositionsService {
     const celoFpmm = await this.fpmmPositionsService.getPositions(Chain.CELO).catch((e) => {
       this.logger.warn(`Failed to read Celo FPMM positions: ${e}`);
       return [] as FpmmPosition[];
+    });
+    const univ3Positions = await this.univ3Reader.readPositions().catch((e) => {
+      this.logger.warn(`Failed to read UniV3 positions: ${e}`);
+      return [] as UniV3PositionDetail[];
     });
     const cdpTroves = await this.cdpTroveReader.readPositions().catch((e) => {
       this.logger.warn(`Failed to read CDP troves: ${e}`);
@@ -117,6 +124,7 @@ export class V2PositionsService {
     const allPositions: AllPositions = {
       wallet_balances: walletBalances,
       aave_deposits: aaveDeposits,
+      univ3_positions: univ3Positions,
       fpmm_positions: fpmmPositions,
       cdp_troves: cdpTroves,
       stability_pool_deposits: stabilityPools,
@@ -133,8 +141,8 @@ export class V2PositionsService {
       `Positions summary - Collateral: $${collateral.total_usd.toFixed(2)}, ` +
       `Reserve-held: $${reserveHeld.total_usd.toFixed(2)}, ` +
       `Wallets: ${walletBalances.length}, AAVE: ${aaveDeposits.length}, ` +
-      `FPMM: ${fpmmPositions.length}, CDPs: ${cdpTroves.length}, ` +
-      `StabilityPools: ${stabilityPools.length}`,
+      `UniV3: ${univ3Positions.length}, FPMM: ${fpmmPositions.length}, ` +
+      `CDPs: ${cdpTroves.length}, StabilityPools: ${stabilityPools.length}`,
     );
 
     return { collateral, reserve_held_supply: reserveHeld, positions: allPositions };
@@ -239,39 +247,52 @@ export class V2PositionsService {
    *            + stability_pool(collateral_gained)
    */
   private deriveCollateral(positions: AllPositions): CollateralSummary {
-    const bySymbol = new Map<string, { amount: number; usdValue: number }>();
+    const bySymbol = new Map<string, { amount: number; usdValue: number; chains: Set<Chain> }>();
 
-    const addToSymbol = (symbol: string, amount: number, usdValue: number) => {
-      const existing = bySymbol.get(symbol) ?? { amount: 0, usdValue: 0 };
+    const addToSymbol = (symbol: string, amount: number, usdValue: number, chain: Chain) => {
+      const existing = bySymbol.get(symbol) ?? { amount: 0, usdValue: 0, chains: new Set<Chain>() };
       existing.amount += amount;
       existing.usdValue += usdValue;
+      existing.chains.add(chain);
       bySymbol.set(symbol, existing);
     };
 
     // Wallet balances that are NOT mento stables
     for (const p of positions.wallet_balances) {
       if (!p.is_mento_stable) {
-        addToSymbol(p.token, Number(p.balance), p.usd_value);
+        addToSymbol(p.token, Number(p.balance), p.usd_value, p.chain);
       }
     }
 
     // AAVE deposits that are NOT mento stables
     for (const p of positions.aave_deposits) {
       if (!p.is_mento_stable) {
-        addToSymbol(p.token, Number(p.balance), p.usd_value);
+        addToSymbol(p.token, Number(p.balance), p.usd_value, p.chain);
+      }
+    }
+
+    // UniV3 positions — both sides unless one is a mento stable
+    for (const p of positions.univ3_positions) {
+      const amount0 = Number(p.token0.amount);
+      const amount1 = Number(p.token1.amount);
+      if (amount0 > 0) {
+        addToSymbol(p.token0.symbol, amount0, 0, p.chain); // USD enrichment done later
+      }
+      if (amount1 > 0) {
+        addToSymbol(p.token1.symbol, amount1, 0, p.chain);
       }
     }
 
     // FPMM collateral side
     for (const p of positions.fpmm_positions) {
-      addToSymbol(p.collateral_token.symbol, p.collateral_token.amount, 0);
+      addToSymbol(p.collateral_token.symbol, p.collateral_token.amount, 0, p.chain);
     }
 
     // Stability pool collateral gained
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.collateral_gained);
       if (amount > 0) {
-        addToSymbol(p.collateral_gained_token, amount, p.collateral_gained_usd);
+        addToSymbol(p.collateral_gained_token, amount, p.collateral_gained_usd, p.chain);
       }
     }
 
@@ -281,7 +302,8 @@ export class V2PositionsService {
     const totalUsd = grouped.reduce((sum, a) => sum + a.usdValue, 0);
     const assets: CollateralAssetSummary[] = grouped.map((a) => ({
       symbol: a.symbol,
-      chain: null,
+      // If all contributions are from one chain, show it. Otherwise null (multi-chain asset).
+      chain: a.chains.size === 1 ? [...a.chains][0] : null,
       balance: a.amount.toString(),
       usd_value: a.usdValue,
       percentage: totalUsd > 0 ? (a.usdValue / totalUsd) * 100 : 0,
@@ -353,12 +375,11 @@ export class V2PositionsService {
    * e.g., ETH + WETH -> ETH, USDC + axlUSDC -> USDC
    */
   private groupAssets(
-    bySymbol: Map<string, { amount: number; usdValue: number }>,
-  ): { symbol: string; amount: number; usdValue: number }[] {
-    const grouped = new Map<string, { amount: number; usdValue: number }>();
+    bySymbol: Map<string, { amount: number; usdValue: number; chains: Set<Chain> }>,
+  ): { symbol: string; amount: number; usdValue: number; chains: Set<Chain> }[] {
+    const grouped = new Map<string, { amount: number; usdValue: number; chains: Set<Chain> }>();
 
     for (const [symbol, data] of bySymbol.entries()) {
-      // Find which group this symbol belongs to
       let canonical = symbol;
       for (const [groupName, members] of Object.entries(ASSET_GROUPS)) {
         if (members?.includes(symbol as any)) {
@@ -367,9 +388,10 @@ export class V2PositionsService {
         }
       }
 
-      const existing = grouped.get(canonical) ?? { amount: 0, usdValue: 0 };
+      const existing = grouped.get(canonical) ?? { amount: 0, usdValue: 0, chains: new Set<Chain>() };
       existing.amount += data.amount;
       existing.usdValue += data.usdValue;
+      for (const c of data.chains) existing.chains.add(c);
       grouped.set(canonical, existing);
     }
 

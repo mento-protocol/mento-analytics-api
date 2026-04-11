@@ -136,9 +136,29 @@ export class V2StabilityPoolPositionDto {
 
 // --- Positions ---
 
+export class V2UniV3TokenDto {
+  @ApiProperty() symbol: string;
+  @ApiProperty() address: string;
+  @ApiProperty() amount: string;
+}
+
+export class V2UniV3PositionDto {
+  @ApiProperty() position_id: number;
+  @ApiProperty() owner: string;
+  @ApiProperty() owner_label: string;
+  @ApiProperty({ enum: Chain }) chain: Chain;
+  @ApiProperty() pool_address: string;
+  @ApiProperty() fee_tier: number;
+  @ApiProperty() token0: V2UniV3TokenDto;
+  @ApiProperty() token1: V2UniV3TokenDto;
+  @ApiProperty() liquidity: string;
+  @ApiProperty() in_range: boolean;
+}
+
 export class V2PositionsDto {
   @ApiProperty({ type: [V2WalletBalancePositionDto] }) wallet_balances: V2WalletBalancePositionDto[];
   @ApiProperty({ type: [V2AavePositionDto] }) aave_deposits: V2AavePositionDto[];
+  @ApiProperty({ type: [V2UniV3PositionDto] }) univ3_positions: V2UniV3PositionDto[];
   @ApiProperty({ type: [V2LpPositionDto] }) fpmm_positions: any[];
   @ApiProperty({ type: [V2CdpTroveDto] }) cdp_troves: V2CdpTroveDto[];
   @ApiProperty({ type: [V2StabilityPoolPositionDto] }) stability_pool_deposits: V2StabilityPoolPositionDto[];

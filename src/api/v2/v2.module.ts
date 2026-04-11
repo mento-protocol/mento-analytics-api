@@ -26,6 +26,7 @@ import { WalletBalanceReader } from './services/positions/wallet-balance.reader'
 import { AaveReader } from './services/positions/aave.reader';
 import { CdpTroveReader } from './services/positions/cdp-trove.reader';
 import { StabilityPoolReader } from './services/positions/stability-pool.reader';
+import { UniV3Reader } from './services/positions/univ3.reader';
 
 @Module({
   imports: [StablecoinsModule, ReserveModule],
@@ -51,6 +52,7 @@ import { StabilityPoolReader } from './services/positions/stability-pool.reader'
     AaveReader,
     CdpTroveReader,
     StabilityPoolReader,
+    UniV3Reader,
   ],
 })
 export class V2Module {}
