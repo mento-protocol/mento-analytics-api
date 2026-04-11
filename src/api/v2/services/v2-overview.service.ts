@@ -44,17 +44,38 @@ export class V2OverviewService {
     const reserveCollateralUsd = positionsResult.collateral.total_usd;
     const reserveRatio = reserveDebtUsd > 0 ? reserveCollateralUsd / reserveDebtUsd : 0;
 
-    // CDP backings from reserve data
-    const cdpBackings = reserveData.cdp_troves.troves.map((trove) => ({
-      stablecoin: trove.stablecoin,
-      collateral_token: trove.collateral_token,
-      collateral_usd: trove.collateral_usd,
-      collateral_amount: trove.collateral_amount,
-      debt_usd: trove.debt_usd,
-      debt_amount: trove.debt_amount,
-      ratio: trove.ratio,
-      status: trove.status,
-      chain: trove.chain,
+    // CDP backings — aggregate per stablecoin (overview shows totals, not individual troves)
+    const cdpByStable = new Map<string, { collateral_usd: number; collateral_amount: number; debt_usd: number; debt_amount: number; collateral_token: string; chain: any; status: string }>();
+    for (const trove of reserveData.cdp_troves.troves) {
+      const key = trove.stablecoin;
+      const existing = cdpByStable.get(key);
+      if (existing) {
+        existing.collateral_usd += trove.collateral_usd;
+        existing.collateral_amount += Number(trove.collateral_amount);
+        existing.debt_usd += trove.debt_usd;
+        existing.debt_amount += Number(trove.debt_amount);
+      } else {
+        cdpByStable.set(key, {
+          collateral_usd: trove.collateral_usd,
+          collateral_amount: Number(trove.collateral_amount),
+          debt_usd: trove.debt_usd,
+          debt_amount: Number(trove.debt_amount),
+          collateral_token: trove.collateral_token,
+          chain: trove.chain,
+          status: trove.status,
+        });
+      }
+    }
+    const cdpBackings = Array.from(cdpByStable.entries()).map(([stablecoin, data]) => ({
+      stablecoin,
+      collateral_token: data.collateral_token,
+      collateral_usd: data.collateral_usd,
+      collateral_amount: data.collateral_amount.toString(),
+      debt_usd: data.debt_usd,
+      debt_amount: data.debt_amount.toString(),
+      ratio: data.debt_usd > 0 ? data.collateral_usd / data.debt_usd : 0,
+      status: data.status,
+      chain: data.chain,
     }));
 
     this.logger.log(`Overview: total ${Date.now() - start}ms`);
