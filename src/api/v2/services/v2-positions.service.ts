@@ -26,7 +26,7 @@ export interface AllPositions {
 
 export interface CollateralAssetSummary {
   symbol: string;
-  chain: Chain | null;
+  chain: Chain;
   balance: string;
   usd_value: number;
   percentage: number;
@@ -290,27 +290,33 @@ export class V2PositionsService {
    *            + stability_pool(collateral_gained)
    */
   private deriveCollateral(positions: AllPositions): CollateralSummary {
-    const bySymbol = new Map<string, { amount: number; usdValue: number; chains: Set<Chain> }>();
+    // Key by symbol:chain to keep per-chain entries separate
+    const byKey = new Map<string, { symbol: string; chain: Chain; amount: number; usdValue: number }>();
 
-    const addToSymbol = (symbol: string, amount: number, usdValue: number, chain: Chain) => {
-      const existing = bySymbol.get(symbol) ?? { amount: 0, usdValue: 0, chains: new Set<Chain>() };
+    const add = (symbol: string, amount: number, usdValue: number, chain: Chain) => {
+      // Find canonical group name (ETH+WETH, USDC+axlUSDC, etc.)
+      let canonical = symbol;
+      for (const [groupName, members] of Object.entries(ASSET_GROUPS)) {
+        if (members?.includes(symbol as any)) { canonical = groupName; break; }
+      }
+      const key = `${canonical}:${chain}`;
+      const existing = byKey.get(key) ?? { symbol: canonical, chain, amount: 0, usdValue: 0 };
       existing.amount += amount;
       existing.usdValue += usdValue;
-      existing.chains.add(chain);
-      bySymbol.set(symbol, existing);
+      byKey.set(key, existing);
     };
 
     // Wallet balances that are NOT mento stables
     for (const p of positions.wallet_balances) {
       if (!p.is_mento_stable) {
-        addToSymbol(p.token, Number(p.balance), p.usd_value, p.chain);
+        add(p.token, Number(p.balance), p.usd_value, p.chain);
       }
     }
 
     // AAVE deposits that are NOT mento stables
     for (const p of positions.aave_deposits) {
       if (!p.is_mento_stable) {
-        addToSymbol(p.token, Number(p.balance), p.usd_value, p.chain);
+        add(p.token, Number(p.balance), p.usd_value, p.chain);
       }
     }
 
@@ -319,34 +325,33 @@ export class V2PositionsService {
       const amount0 = Number(p.token0.amount);
       const amount1 = Number(p.token1.amount);
       if (amount0 > 0) {
-        addToSymbol(p.token0.symbol, amount0, 0, p.chain); // USD enrichment done later
+        add(p.token0.symbol, amount0, 0, p.chain); // USD enrichment done later
       }
       if (amount1 > 0) {
-        addToSymbol(p.token1.symbol, amount1, 0, p.chain);
+        add(p.token1.symbol, amount1, 0, p.chain);
       }
     }
 
     // FPMM collateral side
     for (const p of positions.fpmm_positions) {
-      addToSymbol(p.collateral_token.symbol, p.collateral_token.amount, 0, p.chain);
+      add(p.collateral_token.symbol, p.collateral_token.amount, 0, p.chain);
     }
 
     // Stability pool collateral gained
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.collateral_gained);
       if (amount > 0) {
-        addToSymbol(p.collateral_gained_token, amount, p.collateral_gained_usd, p.chain);
+        add(p.collateral_gained_token, amount, p.collateral_gained_usd, p.chain);
       }
     }
 
-    // Group like assets (e.g. ETH + WETH, USDC + axlUSDC)
-    const grouped = this.groupAssets(bySymbol);
+    // Already grouped per chain — just sort and compute percentages
+    const entries = Array.from(byKey.values()).sort((a, b) => b.usdValue - a.usdValue);
+    const totalUsd = entries.reduce((sum, a) => sum + a.usdValue, 0);
 
-    const totalUsd = grouped.reduce((sum, a) => sum + a.usdValue, 0);
-    const assets: CollateralAssetSummary[] = grouped.map((a) => ({
+    const assets: CollateralAssetSummary[] = entries.map((a) => ({
       symbol: a.symbol,
-      // If all contributions are from one chain, show it. Otherwise null (multi-chain asset).
-      chain: a.chains.size === 1 ? [...a.chains][0] : null,
+      chain: a.chain,
       balance: a.amount.toString(),
       usd_value: a.usdValue,
       percentage: totalUsd > 0 ? (a.usdValue / totalUsd) * 100 : 0,
@@ -364,7 +369,7 @@ export class V2PositionsService {
   private deriveReserveHeld(positions: AllPositions): ReserveHeldSummary {
     const bySymbol = new Map<string, { amount: number; usdValue: number }>();
 
-    const addToSymbol = (symbol: string, amount: number, usdValue: number) => {
+    const addHeld = (symbol: string, amount: number, usdValue: number) => {
       const existing = bySymbol.get(symbol) ?? { amount: 0, usdValue: 0 };
       existing.amount += amount;
       existing.usdValue += usdValue;
@@ -374,33 +379,33 @@ export class V2PositionsService {
     // Wallet balances that ARE mento stables
     for (const p of positions.wallet_balances) {
       if (p.is_mento_stable) {
-        addToSymbol(p.token, Number(p.balance), p.usd_value);
+        addHeld(p.token, Number(p.balance), p.usd_value);
       }
     }
 
     // AAVE deposits that ARE mento stables
     for (const p of positions.aave_deposits) {
       if (p.is_mento_stable) {
-        addToSymbol(p.token, Number(p.balance), p.usd_value);
+        addHeld(p.token, Number(p.balance), p.usd_value);
       }
     }
 
     // FPMM debt side (stablecoin side = reserve-held)
     for (const p of positions.fpmm_positions) {
-      addToSymbol(p.debt_token.symbol, p.debt_token.amount, 0);
+      addHeld(p.debt_token.symbol, p.debt_token.amount, 0);
     }
 
     // Stability pool deposits (stablecoin deposits = reserve-held)
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.deposit_amount);
       if (amount > 0) {
-        addToSymbol(p.deposit_token, amount, p.deposit_usd);
+        addHeld(p.deposit_token, amount, p.deposit_usd);
       }
     }
 
     // CDP trove collateral (USDm locked in CDPs is reserve-held, not collateral)
     for (const p of positions.cdp_troves) {
-      addToSymbol(p.collateral_token, Number(p.collateral_amount), p.collateral_usd);
+      addHeld(p.collateral_token, Number(p.collateral_amount), p.collateral_usd);
     }
 
     const totalUsd = Array.from(bySymbol.values()).reduce((sum, a) => sum + a.usdValue, 0);
@@ -417,31 +422,6 @@ export class V2PositionsService {
    * Group assets by their canonical symbol using ASSET_GROUPS config.
    * e.g., ETH + WETH -> ETH, USDC + axlUSDC -> USDC
    */
-  private groupAssets(
-    bySymbol: Map<string, { amount: number; usdValue: number; chains: Set<Chain> }>,
-  ): { symbol: string; amount: number; usdValue: number; chains: Set<Chain> }[] {
-    const grouped = new Map<string, { amount: number; usdValue: number; chains: Set<Chain> }>();
-
-    for (const [symbol, data] of bySymbol.entries()) {
-      let canonical = symbol;
-      for (const [groupName, members] of Object.entries(ASSET_GROUPS)) {
-        if (members?.includes(symbol as any)) {
-          canonical = groupName;
-          break;
-        }
-      }
-
-      const existing = grouped.get(canonical) ?? { amount: 0, usdValue: 0, chains: new Set<Chain>() };
-      existing.amount += data.amount;
-      existing.usdValue += data.usdValue;
-      for (const c of data.chains) existing.chains.add(c);
-      grouped.set(canonical, existing);
-    }
-
-    return Array.from(grouped.entries())
-      .map(([symbol, data]) => ({ symbol, ...data }))
-      .sort((a, b) => b.usdValue - a.usdValue);
-  }
 
   /**
    * Get just the FPMM reserve-held supply amounts, grouped by stablecoin symbol.

@@ -5,7 +5,7 @@ import { Chain } from '@types';
 
 export class V2CollateralAssetDto {
   @ApiProperty() symbol: string;
-  @ApiPropertyOptional({ enum: Chain }) chain: Chain | null;
+  @ApiProperty({ enum: Chain }) chain: Chain;
   @ApiProperty() balance: string;
   @ApiProperty() usd_value: number;
   @ApiProperty() percentage: number;
