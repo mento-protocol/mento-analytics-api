@@ -68,24 +68,35 @@ export class V2PositionsService {
   ) {}
 
   /**
-   * Orchestrate all position readers in parallel, then derive collateral and reserve-held summaries.
+   * Orchestrate all position readers, serialized by chain to avoid RPC burst.
+   * Within each chain: wallet + protocol-specific reads run sequentially.
+   * Across chains: Celo first (most data), then ETH and Monad in parallel.
    */
   async getPositions(): Promise<PositionsResult> {
-    // Read all positions in parallel
-    const [
-      celoWallet,
-      ethWallet,
-      monadWallet,
-      celoAave,
-      celoFpmm,
-      monadFpmm,
-      cdpTroves,
-      stabilityPools,
-    ] = await Promise.all([
-      this.walletBalanceReader.readPositions(Chain.CELO).catch((e) => {
-        this.logger.warn(`Failed to read Celo wallet balances: ${e}`);
-        return [] as WalletBalancePosition[];
-      }),
+    // Phase 1: Celo (most positions — wallet, aave, fpmm, cdp, stability pool)
+    const celoWallet = await this.walletBalanceReader.readPositions(Chain.CELO).catch((e) => {
+      this.logger.warn(`Failed to read Celo wallet balances: ${e}`);
+      return [] as WalletBalancePosition[];
+    });
+    const celoAave = await this.aaveReader.readPositions(Chain.CELO).catch((e) => {
+      this.logger.warn(`Failed to read AAVE positions: ${e}`);
+      return [] as AavePosition[];
+    });
+    const celoFpmm = await this.fpmmPositionsService.getPositions(Chain.CELO).catch((e) => {
+      this.logger.warn(`Failed to read Celo FPMM positions: ${e}`);
+      return [] as FpmmPosition[];
+    });
+    const cdpTroves = await this.cdpTroveReader.readPositions().catch((e) => {
+      this.logger.warn(`Failed to read CDP troves: ${e}`);
+      return [] as CdpTrovePosition[];
+    });
+    const stabilityPools = await this.stabilityPoolReader.readPositions().catch((e) => {
+      this.logger.warn(`Failed to read stability pools: ${e}`);
+      return [] as StabilityPoolPosition[];
+    });
+
+    // Phase 2: ETH + Monad in parallel (independent chains, no conflict with Celo)
+    const [ethWallet, monadWallet, monadFpmm] = await Promise.all([
       this.walletBalanceReader.readPositions(Chain.ETHEREUM).catch((e) => {
         this.logger.warn(`Failed to read ETH wallet balances: ${e}`);
         return [] as WalletBalancePosition[];
@@ -94,25 +105,9 @@ export class V2PositionsService {
         this.logger.warn(`Failed to read Monad wallet balances: ${e}`);
         return [] as WalletBalancePosition[];
       }),
-      this.aaveReader.readPositions(Chain.CELO).catch((e) => {
-        this.logger.warn(`Failed to read AAVE positions: ${e}`);
-        return [] as AavePosition[];
-      }),
-      this.fpmmPositionsService.getPositions(Chain.CELO).catch((e) => {
-        this.logger.warn(`Failed to read Celo FPMM positions: ${e}`);
-        return [] as FpmmPosition[];
-      }),
       this.fpmmPositionsService.getPositions(Chain.MONAD).catch((e) => {
         this.logger.warn(`Failed to read Monad FPMM positions: ${e}`);
         return [] as FpmmPosition[];
-      }),
-      this.cdpTroveReader.readPositions().catch((e) => {
-        this.logger.warn(`Failed to read CDP troves: ${e}`);
-        return [] as CdpTrovePosition[];
-      }),
-      this.stabilityPoolReader.readPositions().catch((e) => {
-        this.logger.warn(`Failed to read stability pools: ${e}`);
-        return [] as StabilityPoolPosition[];
       }),
     ]);
 
