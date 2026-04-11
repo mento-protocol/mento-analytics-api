@@ -12,6 +12,8 @@ import { V2ReserveService } from './v2-reserve.service';
 import { V2StablecoinsService } from './v2-stablecoins.service';
 import { V2OverviewService } from './v2-overview.service';
 import { V2SupplyBreakdownService } from './v2-supply-breakdown.service';
+import { V2PositionsService } from './v2-positions.service';
+import { FpmmPositionsService } from './fpmm-positions.service';
 import { PrimitiveCacheService } from './primitive-cache.service';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +105,8 @@ export class V2CacheWarmerService implements OnModuleInit {
     private readonly v2StablecoinsService: V2StablecoinsService,
     private readonly v2OverviewService: V2OverviewService,
     private readonly v2SupplyBreakdownService: V2SupplyBreakdownService,
+    private readonly v2PositionsService: V2PositionsService,
+    private readonly fpmmPositionsService: FpmmPositionsService,
   ) {
     this.isCacheWarmingEnabled = this.configService.get('CACHE_WARMING_ENABLED') === 'true';
 
@@ -222,16 +226,8 @@ export class V2CacheWarmerService implements OnModuleInit {
   }
 
   /**
-   * Warm Tier 1 for a single chain and then rebuild all composed endpoints.
-   *
-   * TODO(Stage 1): When position readers land, call them here so their
-   * results are written to the primitive cache *before* we rebuild the
-   * composed endpoints.  Example:
-   *
-   *   await this.walletBalanceReader.readAll(chain);
-   *   await this.aaveReader.readAll(chain);
-   *   await this.stabilityPoolReader.readAll(chain);
-   *   await this.cdpTroveReader.readAll(chain);
+   * Warm Tier 1 for a single chain: pre-warm positions into primitive cache,
+   * then rebuild all composed endpoints.
    */
   private async warmChainTier1(chain: Chain): Promise<void> {
     if (this.chainUpdateInProgress.get(chain)) return;
@@ -240,7 +236,11 @@ export class V2CacheWarmerService implements OnModuleInit {
     try {
       this.logger.log(`Tier 1: starting v2 warm for ${chain}…`);
 
-      // Rebuild all four composed v2 endpoints and persist.
+      // Step 1: Pre-warm positions (populates primitive cache via readers)
+      // This ensures subsequent composed endpoint builds hit cache, not RPC.
+      await this.v2PositionsService.getPositions();
+
+      // Step 2: Rebuild all composed v2 endpoints and persist.
       // Order matters: stablecoins & reserve feed into overview & breakdown.
       const [stablecoins, reserve] = await Promise.all([
         this.v2StablecoinsService.getStablecoins(),
@@ -271,15 +271,9 @@ export class V2CacheWarmerService implements OnModuleInit {
   // -------------------------------------------------------------------------
 
   /**
-   * Refresh structural data that changes infrequently.
-   *
-   * Currently refreshes:
-   * - Stablecoin address list (into primitive cache)
-   *
-   * TODO(Stage 1): When position readers land, add:
-   *   - FPMM pool discovery → primitiveCacheService.setFpmmPools(chain, pools)
-   *   - Trove count + ownership check
-   *   - UniV3 position enumeration
+   * Refresh structural data that changes infrequently:
+   * - Stablecoin address list (SDK → primitive cache)
+   * - FPMM pool discovery per chain (factory → primitive cache)
    */
   private async warmTier2(): Promise<void> {
     if (this.tier2InProgress) return;
@@ -289,6 +283,15 @@ export class V2CacheWarmerService implements OnModuleInit {
       this.logger.log('Tier 2: starting structural refresh…');
 
       await this.loadStablecoinAddresses();
+
+      // Pre-warm FPMM pool lists — getPositions() caches the discovered pools
+      for (const chain of [Chain.CELO, Chain.MONAD]) {
+        try {
+          await this.fpmmPositionsService.getPositions(chain);
+        } catch (e) {
+          this.logger.warn(`Tier 2: FPMM discovery failed for ${chain}: ${e}`);
+        }
+      }
 
       this.logger.log('Tier 2: structural refresh completed');
     } catch (error) {

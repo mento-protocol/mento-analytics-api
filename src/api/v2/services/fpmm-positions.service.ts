@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ChainClientService } from '@common/services/chain-client.service';
 import { MentoService } from '@common/services/mento.service';
+import { PrimitiveCacheService } from './primitive-cache.service';
 import { Chain } from '@types';
 import { formatUnits, getAddress, PublicClient } from 'viem';
 
@@ -97,6 +98,7 @@ export class FpmmPositionsService {
   constructor(
     private readonly chainClientService: ChainClientService,
     private readonly mentoService: MentoService,
+    private readonly primitiveCacheService: PrimitiveCacheService,
   ) {}
 
   /**
@@ -115,11 +117,18 @@ export class FpmmPositionsService {
 
     try {
       return await this.chainClientService.executeRateLimited(chain, async (client) => {
-        // Step 1 + 2: Discover pools
-        const [allPools, strategyPools] = await Promise.all([
-          client.readContract({ address: getAddress(contracts.factory), abi: FACTORY_ABI, functionName: 'deployedFPMMAddresses' }),
-          client.readContract({ address: getAddress(contracts.liquidityStrategy), abi: STRATEGY_ABI, functionName: 'getPools' }).catch(() => [] as readonly `0x${string}`[]),
-        ]);
+        // Step 1 + 2: Discover pools (check structural cache first)
+        let allPools: readonly `0x${string}`[];
+        const cachedPools = await this.primitiveCacheService.getFpmmPools(chain);
+        if (cachedPools) {
+          allPools = cachedPools as `0x${string}`[];
+          this.logger.debug(`Using ${cachedPools.length} cached FPMM pools for ${chain}`);
+        } else {
+          allPools = await client.readContract({ address: getAddress(contracts.factory), abi: FACTORY_ABI, functionName: 'deployedFPMMAddresses' });
+          await this.primitiveCacheService.setFpmmPools(chain, [...allPools]);
+        }
+
+        const strategyPools = await client.readContract({ address: getAddress(contracts.liquidityStrategy), abi: STRATEGY_ABI, functionName: 'getPools' }).catch(() => [] as readonly `0x${string}`[]);
         const strategySet = new Set(strategyPools.map(p => p.toLowerCase()));
 
         // Step 3: Get debt classification for strategy pools
