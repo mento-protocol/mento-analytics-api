@@ -5,7 +5,7 @@ import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { ChainClientService } from '@common/services/chain-client.service';
 import { V2StablecoinsResponseDto, V2StablecoinDto, V2NetworkSupplyDto } from '../dto/v2-stablecoins.dto';
 import { getBackingConfig } from '../config/stablecoin-backing.config';
-import { FpmmPositionsService } from './fpmm-positions.service';
+import { V2PositionsService } from './v2-positions.service';
 import { formatUnits, parseAbi } from 'viem';
 import { getFiatTickerFromSymbol } from '@common/constants';
 import { ERC20_ABI } from '@/common/constants';
@@ -22,7 +22,7 @@ export class V2StablecoinsService {
     private readonly mentoService: MentoService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly chainClientService: ChainClientService,
-    private readonly fpmmPositionsService: FpmmPositionsService,
+    private readonly v2PositionsService: V2PositionsService,
   ) {}
 
   async getStablecoins(): Promise<V2StablecoinsResponseDto> {
@@ -52,7 +52,7 @@ export class V2StablecoinsService {
           this.adjustmentsService.calculateReserveHoldings(stablecoinTokens, reserveByToken),
           this.adjustmentsService.calculateAavePositions(stablecoinTokens, aaveByToken),
           this.adjustmentsService.calculateLostTokens(stablecoinTokens, lostByToken),
-          this.getFpmmReserveHeldBySymbol(),
+          this.v2PositionsService.getFpmmReserveHeldSupply(),
         ]);
 
         const stablecoins: V2StablecoinDto[] = await Promise.all(
@@ -245,25 +245,4 @@ export class V2StablecoinsService {
     return { networkSupplies: supplies, lockboxDeduction: totalLockboxDeduction };
   }
 
-  /**
-   * Get the debt-side (stablecoin) amounts locked in FPMM pools by the reserve.
-   */
-  private async getFpmmReserveHeldBySymbol(): Promise<Record<string, number>> {
-    const result: Record<string, number> = {};
-    const chains = [Chain.CELO, Chain.MONAD];
-
-    for (const chain of chains) {
-      try {
-        const positions = await this.fpmmPositionsService.getPositions(chain);
-        for (const pos of positions) {
-          const sym = pos.debt_token.symbol;
-          result[sym] = (result[sym] ?? 0) + pos.debt_token.amount;
-        }
-      } catch (error) {
-        this.logger.warn(`Failed to get FPMM positions on ${chain}: ${error}`);
-      }
-    }
-
-    return result;
-  }
 }

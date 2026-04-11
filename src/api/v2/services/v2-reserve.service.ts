@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ReserveService } from '@api/reserve/services/reserve.service';
-import { RESERVE_ADDRESS_CONFIGS } from '@api/reserve/config/addresses.config';
 import { StablecoinAdjustmentsService } from '@api/stablecoins/services/stablecoin-adjustments.service';
 import { MentoService } from '@common/services/mento.service';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
@@ -15,6 +14,8 @@ import {
 } from '../dto/v2-reserve.dto';
 import { CDP_TROVE_CONFIGS, CDP_CONTRACTS, TROVE_MANAGER_ABI } from '../config/cdp.config';
 import { FpmmPositionsService, FpmmPosition } from './fpmm-positions.service';
+import { V2PositionsService } from './v2-positions.service';
+import { CdpTrovePosition } from './positions/cdp-trove.reader';
 import { Chain } from '@types';
 import { formatUnits } from 'viem';
 
@@ -29,37 +30,55 @@ export class V2ReserveService {
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly chainClientService: ChainClientService,
     private readonly fpmmPositionsService: FpmmPositionsService,
+    private readonly v2PositionsService: V2PositionsService,
   ) {}
 
   async getReserve(): Promise<V2ReserveResponseDto> {
-    const [collateral, lpPositions, operationalHoldings, cdpTroves] = await Promise.all([
-      this.getCollateral(),
+    const [positionsResult, lpPositions, operationalHoldings] = await Promise.all([
+      this.v2PositionsService.getPositions(),
       this.getLpPositions(),
       this.getOperationalHoldings(),
-      this.getCdpTroves(),
     ]);
 
-    return { collateral, lp_positions: lpPositions, operational_holdings: operationalHoldings, cdp_troves: cdpTroves };
+    // Build CDP troves DTO from positions data
+    const cdpTroves = this.buildCdpTrovesDto(positionsResult.positions.cdp_troves);
+
+    return {
+      collateral: positionsResult.collateral,
+      reserve_held_supply: positionsResult.reserve_held_supply,
+      lp_positions: lpPositions,
+      operational_holdings: operationalHoldings,
+      cdp_troves: cdpTroves,
+      positions: positionsResult.positions as any,
+    };
   }
 
-  private async getCollateral(): Promise<V2CollateralDto> {
-    const { total_holdings_usd, assets } = await this.reserveService.getGroupedReserveHoldings();
+  /**
+   * Build CDP troves DTO from position reader data.
+   */
+  private buildCdpTrovesDto(trovePositions: CdpTrovePosition[]): V2CdpTrovesDto {
+    const troves: V2CdpTroveDto[] = trovePositions.map((t) => ({
+      trove_id: t.trove_id,
+      owner: t.owner,
+      owner_label: t.owner_label,
+      stablecoin: t.debt_token,
+      collateral_token: t.collateral_token,
+      collateral_amount: t.collateral_amount,
+      collateral_usd: t.collateral_usd,
+      debt_amount: t.debt_amount,
+      debt_usd: t.debt_usd,
+      ratio: t.ratio,
+      annual_interest_rate: t.annual_interest_rate,
+      liquidation_price: 0,
+      status: t.status,
+      chain: t.chain,
+      contract_address: t.contract_address,
+    }));
 
-    const collateralAssets = assets.map((asset) => {
-      const addressConfig = RESERVE_ADDRESS_CONFIGS.find((cfg) =>
-        cfg.assets.includes(asset.symbol as (typeof cfg.assets)[number]),
-      );
+    const total_collateral_usd = troves.reduce((sum, t) => sum + t.collateral_usd, 0);
+    const total_debt_usd = troves.reduce((sum, t) => sum + t.debt_usd, 0);
 
-      return {
-        symbol: asset.symbol,
-        chain: addressConfig?.chain ?? Chain.CELO,
-        balance: asset.totalBalance,
-        usd_value: asset.usdValue,
-        percentage: total_holdings_usd > 0 ? (asset.usdValue / total_holdings_usd) * 100 : 0,
-      };
-    });
-
-    return { total_usd: total_holdings_usd, assets: collateralAssets as V2CollateralDto['assets'] };
+    return { total_collateral_usd, total_debt_usd, troves };
   }
 
   /**
@@ -112,7 +131,7 @@ export class V2ReserveService {
       pool_name: pos.pool_name,
       pool_type: 'FPMM',
       chain: pos.chain,
-      reserve_liquidity_usd: 0, // Will be enriched with USD values below
+      reserve_liquidity_usd: 0,
       token_a: {
         symbol: pos.debt_token.symbol + ' (reserve-held)',
         amount: pos.debt_token.amount.toFixed(2),
@@ -136,20 +155,7 @@ export class V2ReserveService {
    * Returns: { [stablecoinSymbol]: amount_in_pool }
    */
   async getFpmmReserveHeldSupply(): Promise<Record<string, number>> {
-    const chains = [Chain.CELO, Chain.MONAD];
-    const result: Record<string, number> = {};
-
-    for (const chain of chains) {
-      try {
-        const positions = await this.fpmmPositionsService.getPositions(chain);
-        for (const pos of positions) {
-          const sym = pos.debt_token.symbol;
-          result[sym] = (result[sym] ?? 0) + pos.debt_token.amount;
-        }
-      } catch {}
-    }
-
-    return result;
+    return this.v2PositionsService.getFpmmReserveHeldSupply();
   }
 
   /**
@@ -158,20 +164,7 @@ export class V2ReserveService {
    * Returns: { [assetSymbol]: amount_in_pool }
    */
   async getFpmmCollateral(): Promise<Record<string, number>> {
-    const chains = [Chain.CELO, Chain.MONAD];
-    const result: Record<string, number> = {};
-
-    for (const chain of chains) {
-      try {
-        const positions = await this.fpmmPositionsService.getPositions(chain);
-        for (const pos of positions) {
-          const sym = pos.collateral_token.symbol;
-          result[sym] = (result[sym] ?? 0) + pos.collateral_token.amount;
-        }
-      } catch {}
-    }
-
-    return result;
+    return this.v2PositionsService.getFpmmCollateral();
   }
 
   private async getOperationalHoldings(): Promise<V2OperationalHoldingsDto> {
@@ -209,6 +202,10 @@ export class V2ReserveService {
     }
   }
 
+  /**
+   * @deprecated Use v2PositionsService.getPositions() instead for per-trove data.
+   * Kept for backward compatibility with v1-style aggregate reading.
+   */
   async getCdpTroves(): Promise<V2CdpTrovesDto> {
     const troves: V2CdpTroveDto[] = [];
 

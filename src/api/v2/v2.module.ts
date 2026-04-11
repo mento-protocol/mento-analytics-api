@@ -16,6 +16,16 @@ import { V2ReserveService } from './services/v2-reserve.service';
 import { V2AddressesService } from './services/v2-addresses.service';
 import { V2SupplyBreakdownService } from './services/v2-supply-breakdown.service';
 import { FpmmPositionsService } from './services/fpmm-positions.service';
+import { PrimitiveCacheService } from './services/primitive-cache.service';
+import { V2CacheWarmerService } from './services/v2-cache-warmer.service';
+import { V2PositionsService } from './services/v2-positions.service';
+import { MulticallBatchService } from './services/multicall-batch.service';
+
+// Position Readers
+import { WalletBalanceReader } from './services/positions/wallet-balance.reader';
+import { AaveReader } from './services/positions/aave.reader';
+import { CdpTroveReader } from './services/positions/cdp-trove.reader';
+import { StabilityPoolReader } from './services/positions/stability-pool.reader';
 
 @Module({
   imports: [StablecoinsModule, ReserveModule],
@@ -33,6 +43,14 @@ import { FpmmPositionsService } from './services/fpmm-positions.service';
     V2AddressesService,
     V2SupplyBreakdownService,
     FpmmPositionsService,
+    PrimitiveCacheService,
+    V2CacheWarmerService,
+    V2PositionsService,
+    MulticallBatchService,
+    WalletBalanceReader,
+    AaveReader,
+    CdpTroveReader,
+    StabilityPoolReader,
   ],
 })
 export class V2Module {}
