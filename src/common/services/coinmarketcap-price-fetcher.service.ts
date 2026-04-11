@@ -29,7 +29,7 @@ export class CoinMarketCapPriceFetcherService {
   private readonly baseUrl: string;
 
   private readonly priceCache: Map<string, { price: number; timestamp: number }> = new Map();
-  private readonly CACHE_DURATION = 15 * 60 * 1000;
+  private readonly CACHE_DURATION = 60 * 60 * 1000; // 1 hour
   private readonly pendingRequests: Map<string, Promise<number>> = new Map();
 
   // Rate limiter: 30 requests per minute - In line with CMC basic tier :(

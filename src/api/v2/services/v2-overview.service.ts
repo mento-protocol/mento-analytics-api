@@ -3,7 +3,6 @@ import { V2OverviewResponseDto } from '../dto/v2-overview.dto';
 import { V2StablecoinsService } from './v2-stablecoins.service';
 import { V2ReserveService } from './v2-reserve.service';
 import { V2PositionsService } from './v2-positions.service';
-import { ReserveService } from '@api/reserve/services/reserve.service';
 
 @Injectable()
 export class V2OverviewService {
@@ -13,16 +12,24 @@ export class V2OverviewService {
     private readonly v2StablecoinsService: V2StablecoinsService,
     private readonly v2ReserveService: V2ReserveService,
     private readonly v2PositionsService: V2PositionsService,
-    private readonly reserveService: ReserveService,
   ) {}
 
   async getOverview(): Promise<V2OverviewResponseDto> {
-    const [stablecoinsData, reserveData, groupedHoldings, positionsResult] = await Promise.all([
+    const start = Date.now();
+
+    // Fetch positions ONCE — this is the expensive part (all chain reads)
+    const t1 = Date.now();
+    const positionsResult = await this.v2PositionsService.getPositions();
+    this.logger.log(`Overview: positions took ${Date.now() - t1}ms`);
+
+    // Stablecoins and reserve can run in parallel — they don't call positions internally
+    // when we pass the data they need from the positions result
+    const t2 = Date.now();
+    const [stablecoinsData, reserveData] = await Promise.all([
       this.v2StablecoinsService.getStablecoins(),
       this.v2ReserveService.getReserve(),
-      this.reserveService.getGroupedReserveHoldings(),
-      this.v2PositionsService.getPositions(),
     ]);
+    this.logger.log(`Overview: stablecoins+reserve took ${Date.now() - t2}ms`);
 
     // Calculate supply decomposition
     const reserveBackedCoins = stablecoinsData.stablecoins.filter((c) => c.backing_type === 'reserve');
@@ -33,10 +40,8 @@ export class V2OverviewService {
     const reserveHeldUsd = stablecoinsData.stablecoins.reduce((sum, c) => sum + c.supply.reserve_held_usd, 0);
     const lostUsd = stablecoinsData.stablecoins.reduce((sum, c) => sum + c.supply.lost_usd, 0);
 
-    // Use positions-derived collateral USD when available, fall back to v1
-    const reserveCollateralUsd = positionsResult.collateral.total_usd > 0
-      ? positionsResult.collateral.total_usd
-      : groupedHoldings.total_holdings_usd;
+    // Use positions-derived collateral
+    const reserveCollateralUsd = positionsResult.collateral.total_usd;
     const reserveRatio = reserveDebtUsd > 0 ? reserveCollateralUsd / reserveDebtUsd : 0;
 
     // CDP backings from reserve data
@@ -51,6 +56,8 @@ export class V2OverviewService {
       status: trove.status,
       chain: trove.chain,
     }));
+
+    this.logger.log(`Overview: total ${Date.now() - start}ms`);
 
     return {
       supply: {

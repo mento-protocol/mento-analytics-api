@@ -58,6 +58,9 @@ export interface PositionsResult {
 export class V2PositionsService {
   private readonly logger = new Logger(V2PositionsService.name);
 
+  /** Deduplicates concurrent getPositions() calls — only one RPC trip at a time */
+  private inflight: Promise<PositionsResult> | null = null;
+
   constructor(
     private readonly walletBalanceReader: WalletBalanceReader,
     private readonly aaveReader: AaveReader,
@@ -72,37 +75,72 @@ export class V2PositionsService {
 
   /**
    * Orchestrate all position readers, serialized by chain to avoid RPC burst.
-   * Within each chain: wallet + protocol-specific reads run sequentially.
-   * Across chains: Celo first (most data), then ETH and Monad in parallel.
+   * Deduplicates concurrent calls — if getPositions() is already in-flight,
+   * callers share the same promise instead of triggering parallel RPC trips.
    */
   async getPositions(): Promise<PositionsResult> {
-    // Phase 1: Celo (most positions — wallet, aave, fpmm, cdp, stability pool)
+    if (this.inflight) {
+      this.logger.debug('getPositions() already in-flight, sharing result');
+      return this.inflight;
+    }
+
+    this.inflight = this._getPositionsImpl().finally(() => {
+      this.inflight = null;
+    });
+    return this.inflight;
+  }
+
+  private async _getPositionsImpl(): Promise<PositionsResult> {
+    const totalStart = Date.now();
+    const time = (label: string, start: number) => this.logger.log(`  [timing] ${label}: ${Date.now() - start}ms`);
+
+    // Phase 1: Celo sequential reads
+    let t = Date.now();
     const celoWallet = await this.walletBalanceReader.readPositions(Chain.CELO).catch((e) => {
       this.logger.warn(`Failed to read Celo wallet balances: ${e}`);
       return [] as WalletBalancePosition[];
     });
+    time('Celo wallets', t);
+
+    t = Date.now();
     const celoAave = await this.aaveReader.readPositions(Chain.CELO).catch((e) => {
       this.logger.warn(`Failed to read AAVE positions: ${e}`);
       return [] as AavePosition[];
     });
+    time('Celo AAVE', t);
+
+    t = Date.now();
     const celoFpmm = await this.fpmmPositionsService.getPositions(Chain.CELO).catch((e) => {
       this.logger.warn(`Failed to read Celo FPMM positions: ${e}`);
       return [] as FpmmPosition[];
     });
+    time('Celo FPMM', t);
+
+    t = Date.now();
     const univ3Positions = await this.univ3Reader.readPositions().catch((e) => {
       this.logger.warn(`Failed to read UniV3 positions: ${e}`);
       return [] as UniV3PositionDetail[];
     });
+    time('UniV3', t);
+
+    t = Date.now();
     const cdpTroves = await this.cdpTroveReader.readPositions().catch((e) => {
       this.logger.warn(`Failed to read CDP troves: ${e}`);
       return [] as CdpTrovePosition[];
     });
+    time('CDP troves', t);
+
+    t = Date.now();
     const stabilityPools = await this.stabilityPoolReader.readPositions().catch((e) => {
       this.logger.warn(`Failed to read stability pools: ${e}`);
       return [] as StabilityPoolPosition[];
     });
+    time('Stability pools', t);
 
-    // Phase 2: ETH + Monad in parallel (independent chains, no conflict with Celo)
+    time('Phase 1 (Celo) total', totalStart);
+
+    // Phase 2: ETH + Monad in parallel
+    t = Date.now();
     const [ethWallet, monadWallet, monadFpmm] = await Promise.all([
       this.walletBalanceReader.readPositions(Chain.ETHEREUM).catch((e) => {
         this.logger.warn(`Failed to read ETH wallet balances: ${e}`);
@@ -117,6 +155,7 @@ export class V2PositionsService {
         return [] as FpmmPosition[];
       }),
     ]);
+    time('Phase 2 (ETH+Monad)', t);
 
     const walletBalances = [...celoWallet, ...ethWallet, ...monadWallet];
     const aaveDeposits = celoAave;
@@ -131,18 +170,18 @@ export class V2PositionsService {
     };
 
     // Enrich USD values for wallet balances, aave, and stability pools
+    t = Date.now();
     await this.enrichUsdValues(allPositions);
+    time('USD enrichment', t);
 
     // Derive summaries
     const collateral = this.deriveCollateral(allPositions);
     const reserveHeld = this.deriveReserveHeld(allPositions);
 
     this.logger.log(
-      `Positions summary - Collateral: $${collateral.total_usd.toFixed(2)}, ` +
-      `Reserve-held: $${reserveHeld.total_usd.toFixed(2)}, ` +
-      `Wallets: ${walletBalances.length}, AAVE: ${aaveDeposits.length}, ` +
-      `UniV3: ${univ3Positions.length}, FPMM: ${fpmmPositions.length}, ` +
-      `CDPs: ${cdpTroves.length}, StabilityPools: ${stabilityPools.length}`,
+      `Positions total: ${Date.now() - totalStart}ms — Collateral: $${collateral.total_usd.toFixed(0)}, ` +
+      `W:${walletBalances.length} A:${aaveDeposits.length} U3:${univ3Positions.length} ` +
+      `FPMM:${fpmmPositions.length} CDP:${cdpTroves.length} SP:${stabilityPools.length}`,
     );
 
     return { collateral, reserve_held_supply: reserveHeld, positions: allPositions };
@@ -150,80 +189,84 @@ export class V2PositionsService {
 
   /**
    * Enrich all positions with USD values.
+   * Pre-fetches unique prices once, then applies to all positions — avoids
+   * redundant CMC/DeFiLlama calls and rate limit bottlenecks.
    */
   private async enrichUsdValues(positions: AllPositions): Promise<void> {
-    // Wallet balances
-    await Promise.all(
-      positions.wallet_balances.map(async (p) => {
-        p.usd_value = await this.tokenAmountToUsd(p.token, Number(p.balance));
-      }),
-    );
+    // Collect all unique token symbols that need pricing
+    const symbols = new Set<string>();
+    for (const p of positions.wallet_balances) symbols.add(p.token);
+    for (const p of positions.aave_deposits) symbols.add(p.token);
+    for (const p of positions.stability_pool_deposits) {
+      symbols.add(p.deposit_token);
+      symbols.add(p.collateral_gained_token);
+    }
 
-    // AAVE deposits
-    await Promise.all(
-      positions.aave_deposits.map(async (p) => {
-        p.usd_value = await this.tokenAmountToUsd(p.token, Number(p.balance));
-      }),
-    );
+    // Pre-fetch price for each unique symbol (one CMC/DeFiLlama call per symbol)
+    const priceMap = new Map<string, number>();
+    for (const sym of symbols) {
+      const price = await this.getTokenPrice(sym);
+      priceMap.set(sym, price);
+    }
 
-    // Stability pool deposits and collateral gains
-    await Promise.all(
-      positions.stability_pool_deposits.map(async (p) => {
-        p.deposit_usd = await this.tokenAmountToUsd(p.deposit_token, Number(p.deposit_amount));
-        p.collateral_gained_usd = await this.tokenAmountToUsd(
-          p.collateral_gained_token,
-          Number(p.collateral_gained),
-        );
-      }),
-    );
+    // Apply prices to all positions
+    const price = (sym: string, amount: number) => amount * (priceMap.get(sym) ?? 0);
+
+    for (const p of positions.wallet_balances) {
+      p.usd_value = price(p.token, Number(p.balance));
+    }
+    for (const p of positions.aave_deposits) {
+      p.usd_value = price(p.token, Number(p.balance));
+    }
+    for (const p of positions.stability_pool_deposits) {
+      p.deposit_usd = price(p.deposit_token, Number(p.deposit_amount));
+      p.collateral_gained_usd = price(p.collateral_gained_token, Number(p.collateral_gained));
+    }
   }
 
   /**
-   * Convert a token amount to USD.
-   * For Mento stables (symbol ends with 'm'), uses fiat conversion.
-   * For other tokens, assumes price data comes from the exchange rate service.
+   * Get the USD price of 1 unit of a token. Fetched once and reused across positions.
    */
-  private async tokenAmountToUsd(symbol: string, amount: number): Promise<number> {
-    if (amount === 0) return 0;
+  private async getTokenPrice(symbol: string): Promise<number> {
+    // Skip unresolvable symbols (raw addresses, UNKNOWN, etc.)
+    if (symbol.startsWith('0x') || symbol === 'UNKNOWN' || symbol.length > 10) {
+      return 0;
+    }
 
     try {
-      // Mento stablecoins: use fiat ticker (USDm -> USD, GBPm -> GBP, etc.)
+      // Mento stablecoins: fiat conversion (1 USDm ≈ 1 USD, 1 GBPm ≈ 1.34 USD, etc.)
       if (symbol.endsWith('m') && symbol.length > 1) {
         const fiatTicker = getFiatTickerFromSymbol(symbol);
-        return await this.exchangeRatesService.convert(amount, fiatTicker, 'USD');
+        return await this.exchangeRatesService.convert(1, fiatTicker, 'USD');
       }
 
-      // USD-pegged stablecoins: 1:1 with USD
+      // USD-pegged stablecoins
       const usdPegged = ['USDC', 'axlUSDC', 'USDT', 'USDGLO', 'sDAI', 'sUSDS', 'USDS', 'AUSD'];
-      if (usdPegged.includes(symbol)) {
-        return amount;
-      }
+      if (usdPegged.includes(symbol)) return 1;
 
       // EUR-pegged tokens
       const eurPegged = ['EURC', 'axlEUROC', 'EURA', 'stEUR'];
       if (eurPegged.includes(symbol)) {
-        return await this.exchangeRatesService.convert(amount, 'EUR', 'USD');
+        return await this.exchangeRatesService.convert(1, 'EUR', 'USD');
       }
 
-      // Crypto assets: use CoinMarketCap or DeFiLlama for pricing
-      // Check if this asset uses DeFiLlama (e.g. sUSDS vault tokens)
+      // Crypto assets: CoinMarketCap or DeFiLlama
       const assetConfig = this.findAssetConfig(symbol);
       if (assetConfig?.useDefiLlamaPrice && assetConfig.address) {
         const chain = this.findAssetChain(symbol);
         const chainSlug = chain === Chain.ETHEREUM ? 'ethereum' : chain === Chain.CELO ? 'celo' : chain;
-        const price = await this.defiLlamaPriceFetcher.getPrice(`${chainSlug}:${assetConfig.address}`);
-        return price ? amount * price : 0;
+        return (await this.defiLlamaPriceFetcher.getPrice(`${chainSlug}:${assetConfig.address}`)) ?? 0;
       }
 
-      // Default: CoinMarketCap
       const rateSymbol = assetConfig?.rateSymbol ?? symbol;
-      const price = await this.cmcPriceFetcher.getPrice(rateSymbol);
-      return price ? amount * price : 0;
+      return (await this.cmcPriceFetcher.getPrice(rateSymbol)) ?? 0;
     } catch (error) {
-      this.logger.warn(`Failed to convert ${symbol} to USD: ${error}`);
+      this.logger.warn(`Failed to get price for ${symbol}: ${error}`);
       return 0;
     }
   }
+
+  // tokenAmountToUsd removed — replaced by getTokenPrice() + batch enrichment
 
   private findAssetConfig(symbol: string) {
     for (const chainAssets of Object.values(ASSETS_CONFIGS)) {

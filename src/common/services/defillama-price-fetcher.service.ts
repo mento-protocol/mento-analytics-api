@@ -21,7 +21,7 @@ export class DefiLlamaPriceFetcherService {
   private readonly baseUrl = 'https://coins.llama.fi';
 
   private readonly priceCache: Map<string, { price: number; timestamp: number }> = new Map();
-  private readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+  private readonly CACHE_DURATION = 60 * 60 * 1000; // 1 hour
   private readonly pendingRequests: Map<string, Promise<number>> = new Map();
 
   /**
