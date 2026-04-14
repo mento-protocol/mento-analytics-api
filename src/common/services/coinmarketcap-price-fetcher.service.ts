@@ -1,4 +1,4 @@
-import { withRetry } from '@/utils';
+import { withRetry, NonRetryableError } from '@/utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Sentry from '@sentry/nestjs';
@@ -128,6 +128,14 @@ export class CoinMarketCapPriceFetcherService {
         error_message: data.status.error_message,
       };
 
+      // CMC 4xx-class errors (400 invalid symbol, 401/403 auth) are permanent — don't retry.
+      // 429 (rate limit) and 500+ should retry via the normal path.
+      const code = data.status.error_code;
+      const permanent = code >= 400 && code < 500 && code !== 429;
+      if (permanent) {
+        throw new NonRetryableError(errorMessage);
+      }
+
       this.logger.error({ ...errorContext }, errorMessage);
       Sentry.captureException(new Error(errorMessage), {
         level: 'error',
@@ -142,7 +150,8 @@ export class CoinMarketCapPriceFetcherService {
     const tokenData = Object.values(data.data || {}).find((token) => token.symbol.toUpperCase() === symbol);
 
     if (!tokenData) {
-      throw new Error(`Price not found for symbol: ${symbol}`);
+      // CMC returned 200 but the symbol simply isn't listed. No amount of retrying changes that.
+      throw new NonRetryableError(`Price not found for symbol: ${symbol}`);
     }
 
     const price = tokenData.quote.USD.price;
