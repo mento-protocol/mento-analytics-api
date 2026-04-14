@@ -9,7 +9,6 @@ import { CdpTroveReader, CdpTrovePosition } from './positions/cdp-trove.reader';
 import { StabilityPoolReader, StabilityPoolPosition } from './positions/stability-pool.reader';
 import { UniV3Reader, UniV3PositionDetail } from './positions/univ3.reader';
 import { FpmmPositionsService, FpmmPosition } from './fpmm-positions.service';
-import { ASSET_GROUPS } from '@api/reserve/config/assets.config';
 import { getFiatTickerFromSymbol } from '@common/constants';
 import { Chain } from '@types';
 
@@ -24,12 +23,23 @@ export interface AllPositions {
   stability_pool_deposits: StabilityPoolPosition[];
 }
 
+export type CollateralSourceType = 'wallet' | 'aave' | 'univ3' | 'fpmm' | 'stability_pool';
+
+export interface CollateralSource {
+  type: CollateralSourceType;
+  label: string;
+  identifier: string;
+  balance: string;
+  usd_value: number;
+}
+
 export interface CollateralAssetSummary {
   symbol: string;
   chain: Chain;
   balance: string;
   usd_value: number;
   percentage: number;
+  sources: CollateralSource[];
 }
 
 export interface CollateralSummary {
@@ -171,12 +181,13 @@ export class V2PositionsService {
 
     // Enrich USD values for wallet balances, aave, and stability pools
     t = Date.now();
-    await this.enrichUsdValues(allPositions);
+    const priceMap = await this.buildPriceMap(allPositions);
+    this.applyPrices(allPositions, priceMap);
     time('USD enrichment', t);
 
     // Derive summaries
-    const collateral = this.deriveCollateral(allPositions);
-    const reserveHeld = this.deriveReserveHeld(allPositions);
+    const collateral = this.deriveCollateral(allPositions, priceMap);
+    const reserveHeld = this.deriveReserveHeld(allPositions, priceMap);
 
     this.logger.log(
       `Positions total: ${Date.now() - totalStart}ms — Collateral: $${collateral.total_usd.toFixed(0)}, ` +
@@ -188,28 +199,44 @@ export class V2PositionsService {
   }
 
   /**
-   * Enrich all positions with USD values.
-   * Pre-fetches unique prices once, then applies to all positions — avoids
-   * redundant CMC/DeFiLlama calls and rate limit bottlenecks.
+   * Collect all unique symbols from every position type and fetch their prices.
+   * One CMC/DeFiLlama call per symbol — shared by enrichment and both derivations.
    */
-  private async enrichUsdValues(positions: AllPositions): Promise<void> {
-    // Collect all unique token symbols that need pricing
+  private async buildPriceMap(positions: AllPositions): Promise<Map<string, number>> {
+    // Only price symbols that contribute a non-zero amount somewhere — a zero
+    // balance multiplied by any price is still zero, and fetching prices for
+    // dust or decommissioned tokens is wasted CMC/DeFiLlama calls.
     const symbols = new Set<string>();
-    for (const p of positions.wallet_balances) symbols.add(p.token);
-    for (const p of positions.aave_deposits) symbols.add(p.token);
+    const addIfNonZero = (symbol: string, amount: number | string) => {
+      if (Number(amount) > 0) symbols.add(symbol);
+    };
+    for (const p of positions.wallet_balances) addIfNonZero(p.token, p.balance);
+    for (const p of positions.aave_deposits) addIfNonZero(p.token, p.balance);
     for (const p of positions.stability_pool_deposits) {
-      symbols.add(p.deposit_token);
-      symbols.add(p.collateral_gained_token);
+      addIfNonZero(p.deposit_token, p.deposit_amount);
+      addIfNonZero(p.collateral_gained_token, p.collateral_gained);
+    }
+    for (const p of positions.univ3_positions) {
+      addIfNonZero(p.token0.symbol, p.token0.amount);
+      addIfNonZero(p.token1.symbol, p.token1.amount);
+    }
+    for (const p of positions.fpmm_positions) {
+      addIfNonZero(p.debt_token.symbol, p.debt_token.amount);
+      addIfNonZero(p.collateral_token.symbol, p.collateral_token.amount);
+    }
+    for (const p of positions.cdp_troves) {
+      addIfNonZero(p.collateral_token, p.collateral_amount);
     }
 
-    // Pre-fetch price for each unique symbol (one CMC/DeFiLlama call per symbol)
     const priceMap = new Map<string, number>();
     for (const sym of symbols) {
-      const price = await this.getTokenPrice(sym);
-      priceMap.set(sym, price);
+      priceMap.set(sym, await this.getTokenPrice(sym));
     }
+    return priceMap;
+  }
 
-    // Apply prices to all positions
+  /** Write USD values back onto position objects using the shared priceMap. */
+  private applyPrices(positions: AllPositions, priceMap: Map<string, number>): void {
     const price = (sym: string, amount: number) => amount * (priceMap.get(sym) ?? 0);
 
     for (const p of positions.wallet_balances) {
@@ -222,6 +249,11 @@ export class V2PositionsService {
       p.deposit_usd = price(p.deposit_token, Number(p.deposit_amount));
       p.collateral_gained_usd = price(p.collateral_gained_token, Number(p.collateral_gained));
     }
+  }
+
+  /** Mento stables follow `[FIAT_TICKER]m` convention: 3 uppercase letters + lowercase 'm'. */
+  private isMentoStable(symbol: string): boolean {
+    return /^[A-Z]{3}m$/.test(symbol);
   }
 
   /**
@@ -252,16 +284,20 @@ export class V2PositionsService {
         return await this.exchangeRatesService.convert(1, 'EUR', 'USD');
       }
 
-      // Crypto assets: CoinMarketCap or DeFiLlama
+      // Crypto assets: CoinMarketCap or DeFiLlama. Require an ASSETS_CONFIGS entry —
+      // symbols auto-discovered from on-chain (e.g. AXLWBTC in random UniV3 pools)
+      // are not reliably priceable and would trigger 4x CMC retries with exponential
+      // backoff, making the whole /reserve response block for ~2 minutes.
       const assetConfig = this.findAssetConfig(symbol);
-      if (assetConfig?.useDefiLlamaPrice && assetConfig.address) {
+      if (!assetConfig) return 0;
+
+      if (assetConfig.useDefiLlamaPrice && assetConfig.address) {
         const chain = this.findAssetChain(symbol);
         const chainSlug = chain === Chain.ETHEREUM ? 'ethereum' : chain === Chain.CELO ? 'celo' : chain;
         return (await this.defiLlamaPriceFetcher.getPrice(`${chainSlug}:${assetConfig.address}`)) ?? 0;
       }
 
-      const rateSymbol = assetConfig?.rateSymbol ?? symbol;
-      return (await this.cmcPriceFetcher.getPrice(rateSymbol)) ?? 0;
+      return (await this.cmcPriceFetcher.getPrice(assetConfig.rateSymbol ?? symbol)) ?? 0;
     } catch (error) {
       this.logger.warn(`Failed to get price for ${symbol}: ${error}`);
       return 0;
@@ -286,128 +322,198 @@ export class V2PositionsService {
   }
 
   /**
-   * Derive collateral summary from all positions.
+   * Derive collateral summary from all positions. Mento stables (USDm, GBPm, ...)
+   * are intentionally excluded — they flow into reserve_held instead.
    *
-   * collateral = wallet_balances(!stable) + aave(!stable) + fpmm(collateral side)
-   *            + stability_pool(collateral_gained)
+   * collateral = wallet_balances(!stable) + aave(!stable) + univ3(!stable)
+   *            + fpmm(collateral side, !stable) + stability_pool(collateral_gained, !stable)
    */
-  private deriveCollateral(positions: AllPositions): CollateralSummary {
-    // Key by symbol:chain to keep per-chain entries separate
-    const byKey = new Map<string, { symbol: string; chain: Chain; amount: number; usdValue: number }>();
+  private deriveCollateral(positions: AllPositions, priceMap: Map<string, number>): CollateralSummary {
+    // Track both the aggregated totals and the per-source contributions so the
+    // frontend can render a dropdown under each asset that sums to the group total.
+    interface Bucket {
+      symbol: string;
+      chain: Chain;
+      amount: number;
+      usdValue: number;
+      sources: CollateralSource[];
+    }
+    const byKey = new Map<string, Bucket>();
 
-    const add = (symbol: string, amount: number, usdValue: number, chain: Chain) => {
-      // Find canonical group name (ETH+WETH, USDC+axlUSDC, etc.)
-      let canonical = symbol;
-      for (const [groupName, members] of Object.entries(ASSET_GROUPS)) {
-        if (members?.includes(symbol as any)) { canonical = groupName; break; }
-      }
-      const key = `${canonical}:${chain}`;
-      const existing = byKey.get(key) ?? { symbol: canonical, chain, amount: 0, usdValue: 0 };
-      existing.amount += amount;
-      existing.usdValue += usdValue;
-      byKey.set(key, existing);
+    const add = (
+      symbol: string,
+      amount: number,
+      chain: Chain,
+      source: CollateralSource,
+      usdOverride?: number,
+    ) => {
+      if (this.isMentoStable(symbol)) return; // stables belong in reserve_held
+      // No canonicalization: axlUSDC, axlEUROC, WETH, WBTC all remain distinct so
+      // the frontend can show which bridged/wrapped representation a balance came from.
+      const key = `${symbol}:${chain}`;
+      const bucket = byKey.get(key) ?? { symbol, chain, amount: 0, usdValue: 0, sources: [] };
+      bucket.amount += amount;
+      bucket.usdValue += usdOverride ?? amount * (priceMap.get(symbol) ?? 0);
+      bucket.sources.push(source);
+      byKey.set(key, bucket);
     };
 
     // Wallet balances that are NOT mento stables
     for (const p of positions.wallet_balances) {
-      if (!p.is_mento_stable) {
-        add(p.token, Number(p.balance), p.usd_value, p.chain);
-      }
+      if (p.is_mento_stable) continue;
+      add(p.token, Number(p.balance), p.chain, {
+        type: 'wallet',
+        label: p.label,
+        identifier: p.address,
+        balance: p.balance,
+        usd_value: p.usd_value,
+      }, p.usd_value);
     }
 
     // AAVE deposits that are NOT mento stables
     for (const p of positions.aave_deposits) {
-      if (!p.is_mento_stable) {
-        add(p.token, Number(p.balance), p.usd_value, p.chain);
-      }
+      if (p.is_mento_stable) continue;
+      add(p.token, Number(p.balance), p.chain, {
+        type: 'aave',
+        label: `AAVE — ${p.label}`,
+        identifier: p.address,
+        balance: p.balance,
+        usd_value: p.usd_value,
+      }, p.usd_value);
     }
 
-    // UniV3 positions — both sides unless one is a mento stable
+    // UniV3 positions — each token side contributes independently; add() filters mento stables
     for (const p of positions.univ3_positions) {
+      const poolLabel = `UniV3 ${p.token0.symbol}/${p.token1.symbol} — ${p.owner_label}`;
+      const poolId = `${p.pool_address}#${p.position_id}`;
       const amount0 = Number(p.token0.amount);
       const amount1 = Number(p.token1.amount);
       if (amount0 > 0) {
-        add(p.token0.symbol, amount0, 0, p.chain); // USD enrichment done later
+        const usd0 = amount0 * (priceMap.get(p.token0.symbol) ?? 0);
+        add(p.token0.symbol, amount0, p.chain, {
+          type: 'univ3', label: poolLabel, identifier: poolId,
+          balance: p.token0.amount, usd_value: usd0,
+        });
       }
       if (amount1 > 0) {
-        add(p.token1.symbol, amount1, 0, p.chain);
+        const usd1 = amount1 * (priceMap.get(p.token1.symbol) ?? 0);
+        add(p.token1.symbol, amount1, p.chain, {
+          type: 'univ3', label: poolLabel, identifier: poolId,
+          balance: p.token1.amount, usd_value: usd1,
+        });
       }
     }
 
     // FPMM collateral side
     for (const p of positions.fpmm_positions) {
-      add(p.collateral_token.symbol, p.collateral_token.amount, 0, p.chain);
+      const usd = p.collateral_token.amount * (priceMap.get(p.collateral_token.symbol) ?? 0);
+      add(p.collateral_token.symbol, p.collateral_token.amount, p.chain, {
+        type: 'fpmm',
+        label: `FPMM ${p.pool_name} — ${p.lp_holder_label}`,
+        identifier: p.pool_address,
+        balance: p.collateral_token.amount.toString(),
+        usd_value: usd,
+      });
     }
 
-    // Stability pool collateral gained
+    // Stability pool collateral_gained (CELO from USDm pool; USDm from GBPm pool is filtered)
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.collateral_gained);
-      if (amount > 0) {
-        add(p.collateral_gained_token, amount, p.collateral_gained_usd, p.chain);
-      }
+      if (amount <= 0) continue;
+      add(p.collateral_gained_token, amount, p.chain, {
+        type: 'stability_pool',
+        label: `${p.pool_label} — ${p.depositor_label}`,
+        identifier: `${p.pool_address}:${p.depositor}`,
+        balance: p.collateral_gained,
+        usd_value: p.collateral_gained_usd,
+      }, p.collateral_gained_usd);
     }
 
-    // Already grouped per chain — just sort and compute percentages
-    const entries = Array.from(byKey.values()).sort((a, b) => b.usdValue - a.usdValue);
-    const totalUsd = entries.reduce((sum, a) => sum + a.usdValue, 0);
+    // Sort buckets by USD, sort each bucket's sources by USD, compute percentages
+    const buckets = Array.from(byKey.values()).sort((a, b) => b.usdValue - a.usdValue);
+    const totalUsd = buckets.reduce((sum, a) => sum + a.usdValue, 0);
 
-    const assets: CollateralAssetSummary[] = entries.map((a) => ({
-      symbol: a.symbol,
-      chain: a.chain,
-      balance: a.amount.toString(),
-      usd_value: a.usdValue,
-      percentage: totalUsd > 0 ? (a.usdValue / totalUsd) * 100 : 0,
+    const assets: CollateralAssetSummary[] = buckets.map((b) => ({
+      symbol: b.symbol,
+      chain: b.chain,
+      balance: b.amount.toString(),
+      usd_value: b.usdValue,
+      percentage: totalUsd > 0 ? (b.usdValue / totalUsd) * 100 : 0,
+      sources: [...b.sources].sort((x, y) => y.usd_value - x.usd_value),
     }));
 
     return { total_usd: totalUsd, assets };
   }
 
   /**
-   * Derive reserve-held supply summary from all positions.
+   * Derive reserve-held supply summary from all positions. Includes every mento
+   * stable held by the reserve, whether sitting in a wallet, deposited into
+   * AAVE/stability pools, locked as CDP collateral, or paired inside a UniV3/FPMM LP.
    *
    * reserve_held = wallet_balances(stable) + aave(stable) + fpmm(debt side)
-   *              + stability_pool(deposit) + cdp_troves(collateral, since it's USDm)
+   *              + univ3(stable sides) + stability_pool(deposit + stable coll_gained)
+   *              + cdp_troves(collateral, since it's USDm)
    */
-  private deriveReserveHeld(positions: AllPositions): ReserveHeldSummary {
+  private deriveReserveHeld(positions: AllPositions, priceMap: Map<string, number>): ReserveHeldSummary {
     const bySymbol = new Map<string, { amount: number; usdValue: number }>();
 
-    const addHeld = (symbol: string, amount: number, usdValue: number) => {
+    const addHeld = (symbol: string, amount: number, usdOverride?: number) => {
       const existing = bySymbol.get(symbol) ?? { amount: 0, usdValue: 0 };
       existing.amount += amount;
-      existing.usdValue += usdValue;
+      existing.usdValue += usdOverride ?? amount * (priceMap.get(symbol) ?? 0);
       bySymbol.set(symbol, existing);
     };
 
     // Wallet balances that ARE mento stables
     for (const p of positions.wallet_balances) {
-      if (p.is_mento_stable) {
-        addHeld(p.token, Number(p.balance), p.usd_value);
-      }
+      if (p.is_mento_stable) addHeld(p.token, Number(p.balance), p.usd_value);
     }
 
     // AAVE deposits that ARE mento stables
     for (const p of positions.aave_deposits) {
-      if (p.is_mento_stable) {
-        addHeld(p.token, Number(p.balance), p.usd_value);
+      if (p.is_mento_stable) addHeld(p.token, Number(p.balance), p.usd_value);
+    }
+
+    // FPMM debt side is always reserve-held. Collateral side is reserve-held
+    // only when it's also a mento stable (stable-stable pools like USDm/EURm);
+    // otherwise it's real collateral and has already been counted by deriveCollateral.
+    for (const p of positions.fpmm_positions) {
+      addHeld(p.debt_token.symbol, p.debt_token.amount);
+      if (this.isMentoStable(p.collateral_token.symbol)) {
+        addHeld(p.collateral_token.symbol, p.collateral_token.amount);
       }
     }
 
-    // FPMM debt side (stablecoin side = reserve-held)
-    for (const p of positions.fpmm_positions) {
-      addHeld(p.debt_token.symbol, p.debt_token.amount, 0);
+    // UniV3 stablecoin sides (USDm in USDm/USDC pools, etc.)
+    for (const p of positions.univ3_positions) {
+      const amount0 = Number(p.token0.amount);
+      const amount1 = Number(p.token1.amount);
+      if (amount0 > 0 && this.isMentoStable(p.token0.symbol)) addHeld(p.token0.symbol, amount0);
+      if (amount1 > 0 && this.isMentoStable(p.token1.symbol)) addHeld(p.token1.symbol, amount1);
     }
 
     // Stability pool deposits (stablecoin deposits = reserve-held)
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.deposit_amount);
-      if (amount > 0) {
-        addHeld(p.deposit_token, amount, p.deposit_usd);
+      if (amount > 0) addHeld(p.deposit_token, amount, p.deposit_usd);
+    }
+
+    // Stability pool collateral_gained when it's a mento stable (GBPm pool gains USDm)
+    for (const p of positions.stability_pool_deposits) {
+      const amount = Number(p.collateral_gained);
+      if (amount > 0 && this.isMentoStable(p.collateral_gained_token)) {
+        addHeld(p.collateral_gained_token, amount, p.collateral_gained_usd);
       }
     }
 
-    // CDP trove collateral (USDm locked in CDPs is reserve-held, not collateral)
+    // CDP trove collateral — only the OVERHEAD (excess collateral after redemption + safety
+    // buffer) is truly reserve-held. Computed once by CdpTroveReader so every consumer
+    // (this aggregation, the /reserve response DTO, the frontend) sees the same number.
+    // See CdpTroveOverhead in cdp-trove.reader.ts and CDP_WIGGLEROOM_PCT in cdp.config.ts.
     for (const p of positions.cdp_troves) {
-      addHeld(p.collateral_token, Number(p.collateral_amount), p.collateral_usd);
+      if (p.overhead.usd <= 0) continue;
+      // USDm is $1-pegged so overhead amount == overhead USD.
+      addHeld(p.collateral_token, p.overhead.usd, p.overhead.usd);
     }
 
     const totalUsd = Array.from(bySymbol.values()).reduce((sum, a) => sum + a.usdValue, 0);
@@ -419,11 +525,6 @@ export class V2PositionsService {
 
     return { total_usd: totalUsd, by_token: byToken };
   }
-
-  /**
-   * Group assets by their canonical symbol using ASSET_GROUPS config.
-   * e.g., ETH + WETH -> ETH, USDC + axlUSDC -> USDC
-   */
 
   /**
    * Get just the FPMM reserve-held supply amounts, grouped by stablecoin symbol.

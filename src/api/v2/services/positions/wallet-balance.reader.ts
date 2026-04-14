@@ -28,10 +28,13 @@ const ERC20_BALANCE_ABI = [
   },
 ] as const;
 
+type TokenSpec = { symbol: string; address: string; decimals: number };
+
 @Injectable()
 export class WalletBalanceReader {
   private readonly logger = new Logger(WalletBalanceReader.name);
-  private stablecoinAddresses: Set<string> | null = null;
+  /** Mento stable address (lowercase) → { symbol, decimals }. Canonical Celo deployment. */
+  private mentoStableMap: Map<string, { symbol: string; decimals: number }> | null = null;
 
   constructor(
     private readonly multicallBatchService: MulticallBatchService,
@@ -41,11 +44,32 @@ export class WalletBalanceReader {
 
   async readPositions(chain: Chain): Promise<WalletBalancePosition[]> {
     const addresses = getReserveAddressesByChain(chain);
-    const chainAssets = ASSETS_CONFIGS[chain];
-    if (!chainAssets || addresses.length === 0) return [];
+    if (addresses.length === 0) return [];
 
-    const stableSet = await this.getStablecoinAddressSet();
-    const tokens = Object.values(chainAssets).filter((a) => a.address);
+    const stableMap = await this.getMentoStableMap();
+
+    // Build the token list. Collateral assets come from ASSETS_CONFIGS. On Celo,
+    // also fetch every Mento stable (USDm, EURm, GBPm, ...) so balances in reserve
+    // wallets — including small ancillary accounts like the Rebalancer Bot — are
+    // captured. Monad already lists USDm/GBPm in ASSETS_CONFIGS under their native
+    // addresses, so no extra merge is needed there.
+    const chainAssets = ASSETS_CONFIGS[chain] ?? {};
+    const tokens: TokenSpec[] = [];
+    const seen = new Set<string>();
+    for (const a of Object.values(chainAssets)) {
+      if (!a.address) continue;
+      const lower = a.address.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      tokens.push({ symbol: a.symbol, address: a.address, decimals: a.decimals });
+    }
+    if (chain === Chain.CELO) {
+      for (const [addr, info] of stableMap) {
+        if (seen.has(addr)) continue;
+        seen.add(addr);
+        tokens.push({ symbol: info.symbol, address: addr, decimals: info.decimals });
+      }
+    }
     if (tokens.length === 0) return [];
 
     // Check primitive cache first — collect what's cached vs what needs RPC
@@ -93,7 +117,9 @@ export class WalletBalanceReader {
       if (rawStr === '0') continue;
 
       const balance = formatUnits(BigInt(rawStr), token.decimals);
-      const isMentoStable = stableSet.has(token.address!.toLowerCase());
+      // Mento stable by address (Celo canonical deployment) OR by symbol pattern
+      // (covers Monad USDm/GBPm which have distinct addresses from Celo).
+      const isMentoStable = stableMap.has(token.address.toLowerCase()) || /^[A-Z]{3}m$/.test(token.symbol);
 
       positions.push({
         address: addr.address,
@@ -114,25 +140,22 @@ export class WalletBalanceReader {
     return positions;
   }
 
-  private async getStablecoinAddressSet(): Promise<Set<string>> {
-    // Check primitive cache first
-    const cached = await this.primitiveCacheService.getStablecoinAddresses();
-    if (cached) return cached;
+  private async getMentoStableMap(): Promise<Map<string, { symbol: string; decimals: number }>> {
+    if (this.mentoStableMap) return this.mentoStableMap;
 
-    if (this.stablecoinAddresses) return this.stablecoinAddresses;
-
-    const set = new Set<string>();
+    const map = new Map<string, { symbol: string; decimals: number }>();
     try {
       const mento = this.mentoService.getMentoInstance();
       const tokens = await mento.tokens.getStableTokens();
       for (const t of tokens) {
-        set.add(t.address.toLowerCase());
+        map.set(t.address.toLowerCase(), { symbol: t.symbol, decimals: t.decimals });
       }
-      await this.primitiveCacheService.setStablecoinAddresses(set);
+      // Keep the legacy address-only cache in sync for other readers still using it.
+      await this.primitiveCacheService.setStablecoinAddresses(new Set(map.keys()));
     } catch (error) {
       this.logger.warn(`Failed to load stablecoin addresses from SDK: ${error}`);
     }
-    this.stablecoinAddresses = set;
-    return set;
+    this.mentoStableMap = map;
+    return map;
   }
 }

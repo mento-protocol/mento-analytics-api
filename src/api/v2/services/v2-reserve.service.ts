@@ -108,6 +108,7 @@ export class V2ReserveService {
       status: t.status,
       chain: t.chain,
       contract_address: t.contract_address,
+      overhead: t.overhead,
     }));
 
     const total_collateral_usd = troves.reduce((sum, t) => sum + t.collateral_usd, 0);

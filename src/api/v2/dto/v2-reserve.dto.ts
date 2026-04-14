@@ -3,12 +3,24 @@ import { Chain } from '@types';
 
 // --- Collateral ---
 
+export type V2CollateralSourceType = 'wallet' | 'aave' | 'univ3' | 'fpmm' | 'stability_pool';
+
+export class V2CollateralSourceDto {
+  @ApiProperty({ enum: ['wallet', 'aave', 'univ3', 'fpmm', 'stability_pool'] })
+  type: V2CollateralSourceType;
+  @ApiProperty() label: string;
+  @ApiProperty() identifier: string;
+  @ApiProperty() balance: string;
+  @ApiProperty() usd_value: number;
+}
+
 export class V2CollateralAssetDto {
   @ApiProperty() symbol: string;
   @ApiProperty({ enum: Chain }) chain: Chain;
   @ApiProperty() balance: string;
   @ApiProperty() usd_value: number;
   @ApiProperty() percentage: number;
+  @ApiProperty({ type: [V2CollateralSourceDto] }) sources: V2CollateralSourceDto[];
 }
 
 export class V2CollateralDto {
@@ -68,6 +80,16 @@ export class V2OperationalHoldingsDto {
 
 // --- CDP Troves ---
 
+/**
+ * Net USDm the reserve would retain after closing the trove and repaying debt with a
+ * safety buffer. `wiggleroom_pct` is the haircut applied to debt in that calculation.
+ */
+export class V2CdpTroveOverheadDto {
+  @ApiProperty({ description: 'Net USD value retained after the haircut' }) usd: number;
+  @ApiProperty({ description: 'Percentage buffer applied to debt before subtracting from collateral' })
+  wiggleroom_pct: number;
+}
+
 export class V2CdpTroveDto {
   @ApiPropertyOptional() trove_id?: string;
   @ApiPropertyOptional() owner?: string;
@@ -84,6 +106,7 @@ export class V2CdpTroveDto {
   @ApiProperty() status: string;
   @ApiProperty({ enum: Chain }) chain: Chain;
   @ApiProperty() contract_address: string;
+  @ApiProperty({ type: V2CdpTroveOverheadDto }) overhead: V2CdpTroveOverheadDto;
 }
 
 export class V2CdpTrovesDto {

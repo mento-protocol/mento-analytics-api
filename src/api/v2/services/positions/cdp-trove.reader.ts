@@ -2,9 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MulticallBatchService } from '../multicall-batch.service';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { RESERVE_ADDRESSES, getReserveAddressLabel } from '../../config/reserve-addresses.config';
-import { CDP_CONTRACTS, TROVE_MANAGER_ABI } from '../../config/cdp.config';
+import { CDP_CONTRACTS, TROVE_MANAGER_ABI, CDP_WIGGLEROOM_PCT } from '../../config/cdp.config';
 import { Chain } from '@types';
 import { formatUnits } from 'viem';
+
+/**
+ * Net USDm the reserve would retain after closing a trove and paying back debt
+ * (plus a safety buffer for redemption fees, interest accrual, oracle drift).
+ * Clamped at zero for undercollateralized troves.
+ */
+export interface CdpTroveOverhead {
+  /** Net USD value retained after the haircut. */
+  usd: number;
+  /** Percentage buffer applied to debt before subtracting from collateral. */
+  wiggleroom_pct: number;
+}
 
 export interface CdpTrovePosition {
   trove_id: string;
@@ -21,6 +33,8 @@ export interface CdpTrovePosition {
   ratio: number;
   annual_interest_rate: number;
   contract_address: string;
+  /** Net USDm the reserve would retain after closing the trove. */
+  overhead: CdpTroveOverhead;
 }
 
 /** TroveNFT ABI for checking trove ownership */
@@ -165,6 +179,7 @@ export class CdpTroveReader {
         const collateralUsd = await this.exchangeRatesService.convert(collAmount, 'USD', 'USD');
         const debtUsd = await this.exchangeRatesService.convert(debtAmount, 'GBP', 'USD');
         const ratio = debtUsd > 0 ? collateralUsd / debtUsd : 0;
+        const overheadUsd = Math.max(0, collateralUsd - debtUsd * (1 + CDP_WIGGLEROOM_PCT / 100));
 
         positions.push({
           trove_id: troveId.toString(),
@@ -181,6 +196,7 @@ export class CdpTroveReader {
           ratio,
           annual_interest_rate: interestRate,
           contract_address: TROVE_MANAGER_ADDRESS,
+          overhead: { usd: overheadUsd, wiggleroom_pct: CDP_WIGGLEROOM_PCT },
         });
       }
 

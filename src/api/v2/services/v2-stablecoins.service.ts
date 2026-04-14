@@ -37,23 +37,25 @@ export class V2StablecoinsService {
           decimals: t.decimals,
         }));
 
-        // Calculate all three adjustment categories separately
-        const reserveByToken: Record<string, { amount: number; usdValue: number }> = {};
-        const aaveByToken: Record<string, { amount: number; usdValue: number }> = {};
+        // Lost tokens are separate from reserve-held and still come from the v1 service.
         const lostByToken: Record<string, { amount: number; usdValue: number }> = {};
         for (const token of stablecoinTokens) {
-          reserveByToken[token.symbol] = { amount: 0, usdValue: 0 };
-          aaveByToken[token.symbol] = { amount: 0, usdValue: 0 };
           lostByToken[token.symbol] = { amount: 0, usdValue: 0 };
         }
 
-        // Fetch wallet adjustments AND FPMM positions in parallel
-        const [reserveTotal, aaveTotal, lostTotal, fpmmPositions] = await Promise.all([
-          this.adjustmentsService.calculateReserveHoldings(stablecoinTokens, reserveByToken),
-          this.adjustmentsService.calculateAavePositions(stablecoinTokens, aaveByToken),
+        // Reserve-held is now sourced from the positions service (single source of
+        // truth across wallets, AAVE, UniV3, FPMM, stability pools, and CDP troves),
+        // so /overview and /reserve always agree. Lost still calls the v1 helper.
+        const [lostTotal, positionsResult] = await Promise.all([
           this.adjustmentsService.calculateLostTokens(stablecoinTokens, lostByToken),
-          this.v2PositionsService.getFpmmReserveHeldSupply(),
+          this.v2PositionsService.getPositions(),
         ]);
+
+        // Build a per-symbol reserve_held lookup from the positions-derived summary.
+        const reserveHeldBySymbol = new Map<string, number>();
+        for (const t of positionsResult.reserve_held_supply.by_token) {
+          reserveHeldBySymbol.set(t.symbol, t.amount);
+        }
 
         const stablecoins: V2StablecoinDto[] = await Promise.all(
           tokens.map(async (token) => {
@@ -61,11 +63,7 @@ export class V2StablecoinsService {
             const celoSupply = Number(formatUnits(BigInt(token.totalSupply), token.decimals));
             const backingConfig = getBackingConfig(token.symbol);
 
-            // Per-token Celo adjustments
-            const walletHeld = reserveByToken[token.symbol]?.amount ?? 0;
-            const aaveHeld = aaveByToken[token.symbol]?.amount ?? 0;
-            const fpmmHeld = fpmmPositions[token.symbol] ?? 0;
-            const celoReserveHeld = walletHeld + aaveHeld + fpmmHeld;
+            const celoReserveHeld = reserveHeldBySymbol.get(token.symbol) ?? 0;
             const celoLost = lostByToken[token.symbol]?.amount ?? 0;
 
             // Query supply on non-Celo chains + build per-network breakdown
@@ -120,11 +118,10 @@ export class V2StablecoinsService {
           coin.market_cap_percentage = total_supply_usd > 0 ? (coin.supply.total_usd / total_supply_usd) * 100 : 0;
         }
 
-        const totalFpmmHeld = Object.values(fpmmPositions).reduce((s, v) => s + v, 0);
         this.logger.log(
           `V2 stablecoins - Total: $${total_supply_usd.toFixed(2)}, Debt: $${total_debt_usd.toFixed(2)}, ` +
-            `Wallet held: $${reserveTotal.toFixed(2)}, AAVE: $${aaveTotal.toFixed(2)}, ` +
-            `FPMM held: ${totalFpmmHeld.toFixed(2)} tokens, Lost: $${lostTotal.toFixed(2)}`,
+            `Reserve-held (from positions): $${positionsResult.reserve_held_supply.total_usd.toFixed(2)}, ` +
+            `Lost: $${lostTotal.toFixed(2)}`,
         );
 
         return { total_supply_usd, total_debt_usd, stablecoins };

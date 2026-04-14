@@ -27,6 +27,14 @@ export const CDP_CONTRACTS = {
 } as const;
 
 /**
+ * Safety buffer (as a percentage) applied to trove debt when computing reserve-held overhead.
+ * Models redemption fees, interest accrual during the redemption window, oracle drift, and
+ * any gas-compensation deductions. Treated as a haircut on collateral: an overhead of
+ * `max(0, collateral_usd - debt_usd * (1 + CDP_WIGGLEROOM_PCT/100))`.
+ */
+export const CDP_WIGGLEROOM_PCT = 10;
+
+/**
  * Multisig addresses that hold troves.
  * These are the trove owners whose positions we track.
  */
