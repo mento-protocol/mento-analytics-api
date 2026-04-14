@@ -31,7 +31,8 @@ const ERC20_BALANCE_ABI = [
 @Injectable()
 export class AaveReader {
   private readonly logger = new Logger(AaveReader.name);
-  private stablecoinAddresses: Set<string> | null = null;
+  /** address (lowercase) → symbol for every Mento stable. Used as fallback when underlying token isn't in ASSETS_CONFIGS. */
+  private stablecoinMap: Map<string, string> | null = null;
 
   constructor(
     private readonly multicallBatchService: MulticallBatchService,
@@ -49,20 +50,20 @@ export class AaveReader {
     const addresses = getReserveAddressesByChain(chain);
     if (addresses.length === 0) return [];
 
-    const stableSet = await this.getStablecoinAddressSet();
+    const stableMap = await this.getStablecoinMap();
     const chainAssets = ASSETS_CONFIGS[chain] ?? {};
 
-    // Build (underlyingAddress, aTokenAddress, symbol, decimals) tuples
+    // Build (underlyingAddress, aTokenAddress, symbol, decimals) tuples.
+    // Resolution order: ASSETS_CONFIGS → Mento stable map (cUSD, cEUR, ...) → UNKNOWN
     const aaveTokens = Object.entries(tokenMappings).map(([underlying, aToken]) => {
-      // Find the asset config for this underlying address to get symbol + decimals
-      const assetConfig = Object.values(chainAssets).find(
-        (a) => a.address?.toLowerCase() === underlying.toLowerCase(),
-      );
+      const lower = underlying.toLowerCase();
+      const assetConfig = Object.values(chainAssets).find((a) => a.address?.toLowerCase() === lower);
+      const mentoSymbol = stableMap.get(lower);
       return {
         underlyingAddress: underlying,
         aTokenAddress: aToken,
-        symbol: assetConfig?.symbol ?? 'UNKNOWN',
-        decimals: assetConfig?.decimals ?? 18,
+        symbol: assetConfig?.symbol ?? mentoSymbol ?? 'UNKNOWN',
+        decimals: assetConfig?.decimals ?? 18, // Mento stables are always 18 decimals
       };
     });
 
@@ -86,7 +87,7 @@ export class AaveReader {
         if (raw == null || raw === 0n) continue;
 
         const balance = formatUnits(raw, token.decimals);
-        const isMentoStable = stableSet.has(token.underlyingAddress.toLowerCase());
+        const isMentoStable = stableMap.has(token.underlyingAddress.toLowerCase());
 
         positions.push({
           address: addr.address,
@@ -105,20 +106,20 @@ export class AaveReader {
     return positions;
   }
 
-  private async getStablecoinAddressSet(): Promise<Set<string>> {
-    if (this.stablecoinAddresses) return this.stablecoinAddresses;
+  private async getStablecoinMap(): Promise<Map<string, string>> {
+    if (this.stablecoinMap) return this.stablecoinMap;
 
-    const set = new Set<string>();
+    const map = new Map<string, string>();
     try {
       const mento = this.mentoService.getMentoInstance();
       const tokens = await mento.tokens.getStableTokens();
       for (const t of tokens) {
-        set.add(t.address.toLowerCase());
+        map.set(t.address.toLowerCase(), t.symbol);
       }
     } catch (error) {
       this.logger.warn(`Failed to load stablecoin addresses from SDK: ${error}`);
     }
-    this.stablecoinAddresses = set;
-    return set;
+    this.stablecoinMap = map;
+    return map;
   }
 }
