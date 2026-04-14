@@ -37,6 +37,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     label: 'Ops Multisig',
   },
   {
+    address: '0x6dec25d7be9bf6c6fc302977629f2e801e98611c',
+    chain: Chain.CELO,
+    label: 'Operational Account',
+  },
+  {
     address: '0x619600F4ec13C38868841cB83100F611eCF94eE8',
     chain: Chain.CELO,
     label: 'Falcon Finance',
@@ -68,6 +73,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     chain: Chain.ETHEREUM,
     label: 'Rebalancer Bot',
   },
+  {
+    address: '0x6dec25d7be9bf6c6fc302977629f2e801e98611c',
+    chain: Chain.ETHEREUM,
+    label: 'Operational Account',
+  },
 
   // --- Monad ---
   {
@@ -79,6 +89,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     address: '0x87647780180B8f55980C7D3fFeFe08a9B29e9aE1',
     chain: Chain.MONAD,
     label: 'Reserve Safe',
+  },
+  {
+    address: '0x6dec25d7be9bf6c6fc302977629f2e801e98611c',
+    chain: Chain.MONAD,
+    label: 'Operational Account',
   },
 ];
 
