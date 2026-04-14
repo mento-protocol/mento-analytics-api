@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ChainClientService } from '@common/services/chain-client.service';
 import { MentoService } from '@common/services/mento.service';
 import { PrimitiveCacheService } from './primitive-cache.service';
+import { ASSETS_CONFIGS } from '@api/reserve/config/assets.config';
+import { getReserveAddressesByChain } from '../config/reserve-addresses.config';
 import { Chain } from '@types';
 import { formatUnits, getAddress, PublicClient } from 'viem';
 
@@ -31,32 +33,26 @@ export interface FpmmPosition {
 
 // --- Contract addresses ---
 
-/** FPMM-related contracts per chain. Sourced from @mento-protocol/contracts. */
+/**
+ * FPMM-related contracts per chain. Sourced from @mento-protocol/contracts.
+ * The factory addresses are identical across Celo and Monad because they're
+ * deployed deterministically via CREATE2 with the same salt. The contracts
+ * package lists two factory versions (FPMMFactory v1 and FPMMFactoryv300) —
+ * the pools we care about live under the v1 factory on both chains.
+ */
 const FPMM_CONTRACTS: Partial<Record<Chain, { factory: string; liquidityStrategy: string }>> = {
   [Chain.CELO]: {
     factory: '0xa849b475FE5a4B5C9C3280152c7a1945b907613b',
     liquidityStrategy: '0xa0fB8b16ce6AF3634fF9F3f4F40E49E1C1ae4f0B',
   },
   [Chain.MONAD]: {
-    factory: '0xCC5bB0ba252082213ce1303CBfbA8D56CD872A8a',
-    liquidityStrategy: '0x420FbDB50dadF0286144BFF91ed62A6893dee148',
+    factory: '0xa849b475FE5a4B5C9C3280152c7a1945b907613b',
+    liquidityStrategy: '0xa0fB8b16ce6AF3634fF9F3f4F40E49E1C1ae4f0B',
   },
 };
 
-/**
- * Reserve addresses to check for LP token holdings.
- * Manual config — these change rarely and are the same addresses tracked in v1.
- */
-const LP_HOLDER_ADDRESSES: { address: string; chain: Chain; label: string }[] = [
-  { address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9', chain: Chain.CELO, label: 'Mento Pools Liquidity Reserve' },
-  { address: '0x87647780180b8f55980c7d3ffefe08a9b29e9ae1', chain: Chain.CELO, label: 'Custody Multisig' },
-  { address: '0xD3D2e5c5Af667DA817b2D752d86c8f40c22137E1', chain: Chain.CELO, label: 'Ops Multisig' },
-  { address: '0x4255Cf38e51516766180b33122029A88Cb853806', chain: Chain.CELO, label: 'ReserveV2' },
-  { address: '0xaa8299fc6a685b5f9ce9bda8d0b3ea3d54731976', chain: Chain.CELO, label: 'Rebalancer Bot' },
-  // Monad
-  { address: '0x87647780180B8f55980C7D3fFeFe08a9B29e9aE1', chain: Chain.MONAD, label: 'Reserve Safe' },
-  { address: '0x4255Cf38e51516766180b33122029A88Cb853806', chain: Chain.MONAD, label: 'ReserveV2' },
-];
+// LP holders are derived from the canonical RESERVE_ADDRESSES list at call time —
+// any address added there automatically gets scanned for FPMM LP balances.
 
 // --- Minimal ABIs ---
 
@@ -108,7 +104,7 @@ export class FpmmPositionsService {
    *   1. AUTO: FPMMFactory.deployedFPMMAddresses() → all pools on the chain
    *   2. AUTO: ReserveLiquidityStrategy.getPools() → strategy-registered subset
    *   3. AUTO: ReserveLiquidityStrategy.poolConfigs(pool).isToken0Debt → debt classification
-   *   4. MANUAL: LP_HOLDER_ADDRESSES config → which addresses to check for LP tokens
+   *   4. CONFIG: RESERVE_ADDRESSES → which addresses to check for LP tokens
    *   5. AUTO: For non-strategy pools, classify debt by checking if token is a Mento stablecoin
    */
   async getPositions(chain: Chain): Promise<FpmmPosition[]> {
@@ -149,7 +145,7 @@ export class FpmmPositionsService {
         const stableMap = await this.getStablecoinAddresses();
 
         // Step 4 + 5: For each pool, check reserve holders and classify
-        const holdersForChain = LP_HOLDER_ADDRESSES.filter(h => h.chain === chain);
+        const holdersForChain = getReserveAddressesByChain(chain);
         const positions: FpmmPosition[] = [];
 
         for (const pool of allPools) {
@@ -179,7 +175,7 @@ export class FpmmPositionsService {
   private async readPoolPosition(
     client: PublicClient,
     poolAddress: `0x${string}`,
-    holders: typeof LP_HOLDER_ADDRESSES,
+    holders: { address: string; label: string }[],
     isStrategyRegistered: boolean,
     isToken0Debt: boolean | undefined,
     stableMap: Map<string, string>,
@@ -211,8 +207,8 @@ export class FpmmPositionsService {
       }
     }
 
-    const t0Symbol = stableMap.get(token0.toLowerCase()) || token0.slice(0, 10);
-    const t1Symbol = stableMap.get(token1.toLowerCase()) || token1.slice(0, 10);
+    const t0Symbol = this.resolveSymbol(token0, chain, stableMap);
+    const t1Symbol = this.resolveSymbol(token1, chain, stableMap);
     // FPMM reserves are stored in 18-decimal fixed-point regardless of underlying token decimals
     const r0 = Number(formatUnits(reserves[0], 18));
     const r1 = Number(formatUnits(reserves[1], 18));
@@ -252,6 +248,25 @@ export class FpmmPositionsService {
     }
 
     return positions;
+  }
+
+  /**
+   * Resolve a token address to its symbol. Checks the Mento stablecoin map first,
+   * then falls back to ASSETS_CONFIGS for non-stable tokens (USDC, AUSD, ...).
+   * Final fallback is the truncated address.
+   */
+  private resolveSymbol(address: string, chain: Chain, stableMap: Map<string, string>): string {
+    const lower = address.toLowerCase();
+    const stable = stableMap.get(lower);
+    if (stable) return stable;
+
+    const chainAssets = ASSETS_CONFIGS[chain];
+    if (chainAssets) {
+      for (const asset of Object.values(chainAssets)) {
+        if (asset.address?.toLowerCase() === lower) return asset.symbol;
+      }
+    }
+    return address.slice(0, 10);
   }
 
   /**
