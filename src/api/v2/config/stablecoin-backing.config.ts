@@ -37,9 +37,16 @@ export interface StablecoinBackingConfig {
  */
 export const STABLECOIN_BACKING_CONFIGS: StablecoinBackingConfig[] = [
   {
-    symbol: 'USDm', backing: 'reserve', networks: [Chain.CELO, Chain.MONAD],
+    symbol: 'USDm',
+    backing: 'reserve',
+    networks: [Chain.CELO, Chain.MONAD],
     deployments: [
-      { chain: Chain.MONAD, address: '0xBC69212B8E4d445b2307C9D32dD68E2A4Df00115', decimals: 18, bridge: 'burn-and-mint' },
+      {
+        chain: Chain.MONAD,
+        address: '0xBC69212B8E4d445b2307C9D32dD68E2A4Df00115',
+        decimals: 18,
+        bridge: 'burn-and-mint',
+      },
     ],
   },
   { symbol: 'EURm', backing: 'reserve', networks: [Chain.CELO] },
@@ -56,10 +63,15 @@ export const STABLECOIN_BACKING_CONFIGS: StablecoinBackingConfig[] = [
   { symbol: 'CADm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'AUDm', backing: 'reserve', networks: [Chain.CELO] },
   {
-    symbol: 'GBPm', backing: 'cdp', networks: [Chain.CELO, Chain.MONAD], collateralToken: 'USDm',
+    symbol: 'GBPm',
+    backing: 'cdp',
+    networks: [Chain.CELO, Chain.MONAD],
+    collateralToken: 'USDm',
     deployments: [
       {
-        chain: Chain.MONAD, address: '0x39bb4E0a204412bB98e821d25e7d955e69d40Fd1', decimals: 18,
+        chain: Chain.MONAD,
+        address: '0x39bb4E0a204412bB98e821d25e7d955e69d40Fd1',
+        decimals: 18,
         bridge: 'lockbox',
         celoLockboxAddress: '0x7895D03FfDeb14a57eF79c21C3eA14dADf2a7c3f',
       },

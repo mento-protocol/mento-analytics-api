@@ -67,8 +67,8 @@ export class MulticallBatchService {
   private async executeChunk<T>(chain: Chain, calls: MulticallReadCall[]): Promise<(T | null)[]> {
     try {
       // Go through executeRateLimited so we respect the per-chain concurrency limits
-      return await this.chainClientService.executeRateLimited(chain, async (client) => {
-        const results = await client.multicall({
+      return await this.chainClientService.executeRateLimited<(T | null)[]>(chain, async (client) => {
+        const results: { status: string; result?: unknown }[] = await (client.multicall as any)({
           contracts: calls.map((call) => ({
             address: getAddress(call.address),
             abi: call.abi,
@@ -76,7 +76,7 @@ export class MulticallBatchService {
             args: call.args,
           })),
           allowFailure: true,
-        } as any);
+        });
 
         const mapped = results.map((r, i) => {
           if (r.status === 'success') {
@@ -97,7 +97,9 @@ export class MulticallBatchService {
       });
     } catch (error) {
       // Multicall itself failed (no multicall3, RPC error, etc.) — fall back to individual calls
-      this.logger.warn(`Multicall chunk failed on ${chain}, falling back to individual calls: ${(error as Error).message?.slice(0, 100)}`);
+      this.logger.warn(
+        `Multicall chunk failed on ${chain}, falling back to individual calls: ${(error as Error).message?.slice(0, 100)}`,
+      );
       return this.fallbackIndividualCalls<T>(chain, calls);
     }
   }
@@ -111,13 +113,13 @@ export class MulticallBatchService {
     // Execute sequentially with rate limiter to avoid burst
     for (const call of calls) {
       try {
-        const result = await this.chainClientService.executeRateLimited(chain, (client) =>
-          client.readContract({
+        const result = await this.chainClientService.executeRateLimited<unknown>(chain, (client) =>
+          (client.readContract as any)({
             address: getAddress(call.address),
             abi: call.abi,
             functionName: call.functionName,
             args: call.args,
-          } as any),
+          }),
         );
         results.push(result as T);
       } catch {

@@ -161,10 +161,7 @@ export class StablecoinAdjustmentsService {
   /**
    * Calculate USD value of lost tokens (tokens held by their own contract address)
    */
-  async calculateLostTokens(
-    stablecoins: StablecoinToken[],
-    byToken: Record<string, TokenAdjustment>,
-  ): Promise<number> {
+  async calculateLostTokens(stablecoins: StablecoinToken[], byToken: Record<string, TokenAdjustment>): Promise<number> {
     // Fetch all self-held balances in parallel
     const fetchTasks = stablecoins.map(async (token) => {
       try {

@@ -68,9 +68,15 @@ export class V2StablecoinsService {
 
             // Query supply on non-Celo chains + build per-network breakdown
             // Handles lockbox vs burn-and-mint: lockbox deduction subtracted from Celo supply
-            const { networkSupplies, lockboxDeduction } = await this.getNetworkSupplies(
-              token.symbol, token.address, token.decimals, celoSupply,
-              celoReserveHeld, celoLost, fiatTicker, backingConfig,
+            const { networkSupplies } = await this.getNetworkSupplies(
+              token.symbol,
+              token.address,
+              token.decimals,
+              celoSupply,
+              celoReserveHeld,
+              celoLost,
+              fiatTicker,
+              backingConfig,
             );
 
             // Gross supply = sum of all network supplies (lockbox already deducted from Celo)
@@ -169,30 +175,38 @@ export class V2StablecoinsService {
         backingConfig.deployments.map(async (deployment) => {
           try {
             // Query totalSupply on this chain
-            const chainSupply = await this.chainClientService.executeRateLimited(deployment.chain, async (client) => {
-              const totalSupply = await client.readContract({
-                address: deployment.address as `0x${string}`,
-                abi: parseAbi(ERC20_ABI),
-                functionName: 'totalSupply',
-              });
-              return Number(formatUnits(totalSupply as bigint, deployment.decimals));
-            });
+            const chainSupply = await this.chainClientService.executeRateLimited<number>(
+              deployment.chain,
+              async (client) => {
+                const totalSupply = await (client.readContract as any)({
+                  address: deployment.address as `0x${string}`,
+                  abi: parseAbi(ERC20_ABI),
+                  functionName: 'totalSupply',
+                });
+                return Number(formatUnits(totalSupply as bigint, deployment.decimals));
+              },
+            );
 
             otherChainSupplies.push({ deployment, supply: chainSupply });
 
             // For lockbox bridges: read the lockbox balance on Celo to subtract
             if (deployment.bridge === 'lockbox' && deployment.celoLockboxAddress) {
-              const lockboxBalance = await this.chainClientService.executeRateLimited(Chain.CELO, async (client) => {
-                const bal = await client.readContract({
-                  address: celoAddress as `0x${string}`,
-                  abi: parseAbi(ERC20_ABI),
-                  functionName: 'balanceOf',
-                  args: [deployment.celoLockboxAddress as `0x${string}`],
-                });
-                return Number(formatUnits(bal as bigint, celoDecimals));
-              });
+              const lockboxBalance = await this.chainClientService.executeRateLimited<number>(
+                Chain.CELO,
+                async (client) => {
+                  const bal = await (client.readContract as any)({
+                    address: celoAddress as `0x${string}`,
+                    abi: parseAbi(ERC20_ABI),
+                    functionName: 'balanceOf',
+                    args: [deployment.celoLockboxAddress as `0x${string}`],
+                  });
+                  return Number(formatUnits(bal as bigint, celoDecimals));
+                },
+              );
               totalLockboxDeduction += lockboxBalance;
-              this.logger.log(`${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`);
+              this.logger.log(
+                `${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`,
+              );
             }
 
             this.logger.log(`${symbol} on ${deployment.chain} [${deployment.bridge}]: ${chainSupply.toFixed(2)}`);
@@ -217,10 +231,14 @@ export class V2StablecoinsService {
       chain: Chain.CELO,
       address: celoAddress,
       supply: {
-        total: celoCorrectedSupply.toString(), total_usd: Number(celoTotalUsd),
-        debt: celoDebt.toString(), debt_usd: Number(celoDebtUsd),
-        reserve_held: celoReserveHeld.toString(), reserve_held_usd: Number(celoHeldUsd),
-        lost: celoLost.toString(), lost_usd: Number(celoLostUsd),
+        total: celoCorrectedSupply.toString(),
+        total_usd: Number(celoTotalUsd),
+        debt: celoDebt.toString(),
+        debt_usd: Number(celoDebtUsd),
+        reserve_held: celoReserveHeld.toString(),
+        reserve_held_usd: Number(celoHeldUsd),
+        lost: celoLost.toString(),
+        lost_usd: Number(celoLostUsd),
       },
     });
 
@@ -231,15 +249,18 @@ export class V2StablecoinsService {
         chain: deployment.chain,
         address: deployment.address,
         supply: {
-          total: chainSupply.toString(), total_usd: Number(chainUsd),
-          debt: chainSupply.toString(), debt_usd: Number(chainUsd),
-          reserve_held: '0', reserve_held_usd: 0,
-          lost: '0', lost_usd: 0,
+          total: chainSupply.toString(),
+          total_usd: Number(chainUsd),
+          debt: chainSupply.toString(),
+          debt_usd: Number(chainUsd),
+          reserve_held: '0',
+          reserve_held_usd: 0,
+          lost: '0',
+          lost_usd: 0,
         },
       });
     }
 
     return { networkSupplies: supplies, lockboxDeduction: totalLockboxDeduction };
   }
-
 }

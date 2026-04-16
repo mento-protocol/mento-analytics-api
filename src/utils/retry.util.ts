@@ -8,7 +8,10 @@ import * as Sentry from '@sentry/nestjs';
  */
 export class NonRetryableError extends Error {
   readonly nonRetryable = true;
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
     super(message);
     this.name = 'NonRetryableError';
   }

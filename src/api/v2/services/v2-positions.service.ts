@@ -191,8 +191,8 @@ export class V2PositionsService {
 
     this.logger.log(
       `Positions total: ${Date.now() - totalStart}ms — Collateral: $${collateral.total_usd.toFixed(0)}, ` +
-      `W:${walletBalances.length} A:${aaveDeposits.length} U3:${univ3Positions.length} ` +
-      `FPMM:${fpmmPositions.length} CDP:${cdpTroves.length} SP:${stabilityPools.length}`,
+        `W:${walletBalances.length} A:${aaveDeposits.length} U3:${univ3Positions.length} ` +
+        `FPMM:${fpmmPositions.length} CDP:${cdpTroves.length} SP:${stabilityPools.length}`,
     );
 
     return { collateral, reserve_held_supply: reserveHeld, positions: allPositions };
@@ -340,13 +340,7 @@ export class V2PositionsService {
     }
     const byKey = new Map<string, Bucket>();
 
-    const add = (
-      symbol: string,
-      amount: number,
-      chain: Chain,
-      source: CollateralSource,
-      usdOverride?: number,
-    ) => {
+    const add = (symbol: string, amount: number, chain: Chain, source: CollateralSource, usdOverride?: number) => {
       if (this.isMentoStable(symbol)) return; // stables belong in reserve_held
       // No canonicalization: axlUSDC, axlEUROC, WETH, WBTC all remain distinct so
       // the frontend can show which bridged/wrapped representation a balance came from.
@@ -361,25 +355,37 @@ export class V2PositionsService {
     // Wallet balances that are NOT mento stables
     for (const p of positions.wallet_balances) {
       if (p.is_mento_stable) continue;
-      add(p.token, Number(p.balance), p.chain, {
-        type: 'wallet',
-        label: p.label,
-        identifier: p.address,
-        balance: p.balance,
-        usd_value: p.usd_value,
-      }, p.usd_value);
+      add(
+        p.token,
+        Number(p.balance),
+        p.chain,
+        {
+          type: 'wallet',
+          label: p.label,
+          identifier: p.address,
+          balance: p.balance,
+          usd_value: p.usd_value,
+        },
+        p.usd_value,
+      );
     }
 
     // AAVE deposits that are NOT mento stables
     for (const p of positions.aave_deposits) {
       if (p.is_mento_stable) continue;
-      add(p.token, Number(p.balance), p.chain, {
-        type: 'aave',
-        label: `AAVE — ${p.label}`,
-        identifier: p.address,
-        balance: p.balance,
-        usd_value: p.usd_value,
-      }, p.usd_value);
+      add(
+        p.token,
+        Number(p.balance),
+        p.chain,
+        {
+          type: 'aave',
+          label: `AAVE — ${p.label}`,
+          identifier: p.address,
+          balance: p.balance,
+          usd_value: p.usd_value,
+        },
+        p.usd_value,
+      );
     }
 
     // UniV3 positions — each token side contributes independently; add() filters mento stables
@@ -391,15 +397,21 @@ export class V2PositionsService {
       if (amount0 > 0) {
         const usd0 = amount0 * (priceMap.get(p.token0.symbol) ?? 0);
         add(p.token0.symbol, amount0, p.chain, {
-          type: 'univ3', label: poolLabel, identifier: poolId,
-          balance: p.token0.amount, usd_value: usd0,
+          type: 'univ3',
+          label: poolLabel,
+          identifier: poolId,
+          balance: p.token0.amount,
+          usd_value: usd0,
         });
       }
       if (amount1 > 0) {
         const usd1 = amount1 * (priceMap.get(p.token1.symbol) ?? 0);
         add(p.token1.symbol, amount1, p.chain, {
-          type: 'univ3', label: poolLabel, identifier: poolId,
-          balance: p.token1.amount, usd_value: usd1,
+          type: 'univ3',
+          label: poolLabel,
+          identifier: poolId,
+          balance: p.token1.amount,
+          usd_value: usd1,
         });
       }
     }
@@ -420,13 +432,19 @@ export class V2PositionsService {
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.collateral_gained);
       if (amount <= 0) continue;
-      add(p.collateral_gained_token, amount, p.chain, {
-        type: 'stability_pool',
-        label: `${p.pool_label} — ${p.depositor_label}`,
-        identifier: `${p.pool_address}:${p.depositor}`,
-        balance: p.collateral_gained,
-        usd_value: p.collateral_gained_usd,
-      }, p.collateral_gained_usd);
+      add(
+        p.collateral_gained_token,
+        amount,
+        p.chain,
+        {
+          type: 'stability_pool',
+          label: `${p.pool_label} — ${p.depositor_label}`,
+          identifier: `${p.pool_address}:${p.depositor}`,
+          balance: p.collateral_gained,
+          usd_value: p.collateral_gained_usd,
+        },
+        p.collateral_gained_usd,
+      );
     }
 
     // Sort buckets by USD, sort each bucket's sources by USD, compute percentages

@@ -57,13 +57,21 @@ const FPMM_CONTRACTS: Partial<Record<Chain, { factory: string; liquidityStrategy
 // --- Minimal ABIs ---
 
 const FACTORY_ABI = [
-  { type: 'function', name: 'deployedFPMMAddresses', inputs: [], outputs: [{ type: 'address[]' }], stateMutability: 'view' },
+  {
+    type: 'function',
+    name: 'deployedFPMMAddresses',
+    inputs: [],
+    outputs: [{ type: 'address[]' }],
+    stateMutability: 'view',
+  },
 ] as const;
 
 const STRATEGY_ABI = [
   { type: 'function', name: 'getPools', inputs: [], outputs: [{ type: 'address[]' }], stateMutability: 'view' },
   {
-    type: 'function', name: 'poolConfigs', inputs: [{ type: 'address' }],
+    type: 'function',
+    name: 'poolConfigs',
+    inputs: [{ type: 'address' }],
     outputs: [
       { name: 'isToken0Debt', type: 'bool' },
       { name: 'lastRebalance', type: 'uint32' },
@@ -73,16 +81,29 @@ const STRATEGY_ABI = [
       { name: 'protocolIncentiveExpansion', type: 'uint64' },
       { name: 'liquiditySourceIncentiveContraction', type: 'uint64' },
       { name: 'protocolIncentiveContraction', type: 'uint64' },
-    ], stateMutability: 'view',
+    ],
+    stateMutability: 'view',
   },
 ] as const;
 
 const POOL_ABI = [
   { type: 'function', name: 'token0', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
   { type: 'function', name: 'token1', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
-  { type: 'function', name: 'getReserves', inputs: [], outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view' },
+  {
+    type: 'function',
+    name: 'getReserves',
+    inputs: [],
+    outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+    stateMutability: 'view',
+  },
   { type: 'function', name: 'totalSupply', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-  { type: 'function', name: 'balanceOf', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    inputs: [{ type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const;
 
 @Injectable()
@@ -120,12 +141,22 @@ export class FpmmPositionsService {
           allPools = cachedPools as `0x${string}`[];
           this.logger.debug(`Using ${cachedPools.length} cached FPMM pools for ${chain}`);
         } else {
-          allPools = await client.readContract({ address: getAddress(contracts.factory), abi: FACTORY_ABI, functionName: 'deployedFPMMAddresses' });
+          allPools = await client.readContract({
+            address: getAddress(contracts.factory),
+            abi: FACTORY_ABI,
+            functionName: 'deployedFPMMAddresses',
+          });
           await this.primitiveCacheService.setFpmmPools(chain, [...allPools]);
         }
 
-        const strategyPools = await client.readContract({ address: getAddress(contracts.liquidityStrategy), abi: STRATEGY_ABI, functionName: 'getPools' }).catch(() => [] as readonly `0x${string}`[]);
-        const strategySet = new Set(strategyPools.map(p => p.toLowerCase()));
+        const strategyPools = await client
+          .readContract({
+            address: getAddress(contracts.liquidityStrategy),
+            abi: STRATEGY_ABI,
+            functionName: 'getPools',
+          })
+          .catch(() => [] as readonly `0x${string}`[]);
+        const strategySet = new Set(strategyPools.map((p) => p.toLowerCase()));
 
         // Step 3: Get debt classification for strategy pools
         const strategyConfigs = new Map<string, boolean>();
@@ -151,8 +182,13 @@ export class FpmmPositionsService {
         for (const pool of allPools) {
           try {
             const pos = await this.readPoolPosition(
-              client, pool, holdersForChain, strategySet.has(pool.toLowerCase()),
-              strategyConfigs.get(pool.toLowerCase()), stableMap, chain,
+              client,
+              pool,
+              holdersForChain,
+              strategySet.has(pool.toLowerCase()),
+              strategyConfigs.get(pool.toLowerCase()),
+              stableMap,
+              chain,
             );
             positions.push(...pos);
           } catch (error) {
@@ -217,7 +253,9 @@ export class FpmmPositionsService {
     const positions: FpmmPosition[] = [];
     for (const holder of holders) {
       const lpBalance = await client.readContract({
-        address: poolAddress, abi: POOL_ABI, functionName: 'balanceOf',
+        address: poolAddress,
+        abi: POOL_ABI,
+        functionName: 'balanceOf',
         args: [getAddress(holder.address)],
       });
 

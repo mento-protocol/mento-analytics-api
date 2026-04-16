@@ -54,11 +54,16 @@ const TROVE_NFT_ADDRESS = '0x46273A5792013973b64a42E760E6F81d0472C6b6';
 /** Map status enum from contract to string */
 function mapTroveStatus(statusCode: number): CdpTrovePosition['status'] {
   switch (statusCode) {
-    case 1: return 'active';
-    case 4: return 'zombie';
-    case 2: return 'closedByOwner';
-    case 3: return 'closedByLiquidation';
-    default: return 'closedByOwner';
+    case 1:
+      return 'active';
+    case 4:
+      return 'zombie';
+    case 2:
+      return 'closedByOwner';
+    case 3:
+      return 'closedByLiquidation';
+    default:
+      return 'closedByOwner';
   }
 }
 
@@ -118,9 +123,7 @@ export class CdpTroveReader {
       const owners = await this.multicallBatchService.batchRead<string>(chain, ownerCalls);
 
       // Step 4: Filter to reserve-owned troves
-      const reserveAddressSet = new Set(
-        RESERVE_ADDRESSES.map((a) => a.address.toLowerCase()),
-      );
+      const reserveAddressSet = new Set(RESERVE_ADDRESSES.map((a) => a.address.toLowerCase()));
 
       const reserveTroves: { troveId: bigint; owner: string }[] = [];
       for (let i = 0; i < validTroveIds.length; i++) {

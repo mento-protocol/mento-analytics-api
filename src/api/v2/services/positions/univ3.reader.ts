@@ -54,14 +54,20 @@ export class UniV3Reader {
     return positions;
   }
 
-  private async readHolderPositions(chain: Chain, holderAddress: string, holderLabel: string): Promise<UniV3PositionDetail[]> {
+  private async readHolderPositions(
+    chain: Chain,
+    holderAddress: string,
+    holderLabel: string,
+  ): Promise<UniV3PositionDetail[]> {
     // Step 1: How many NFT positions does this holder own?
-    const [balanceResult] = await this.multicallBatchService.batchRead<bigint>(chain, [{
-      address: UNIV3_POSITION_MANAGER_ADDRESS,
-      abi: parseAbi(UNIV3_POSITION_MANAGER_ABI),
-      functionName: 'balanceOf',
-      args: [holderAddress],
-    }]);
+    const [balanceResult] = await this.multicallBatchService.batchRead<bigint>(chain, [
+      {
+        address: UNIV3_POSITION_MANAGER_ADDRESS,
+        abi: parseAbi(UNIV3_POSITION_MANAGER_ABI),
+        functionName: 'balanceOf',
+        args: [holderAddress],
+      },
+    ]);
 
     const numPositions = Number(balanceResult ?? 0n);
     if (numPositions === 0) return [];
@@ -109,17 +115,27 @@ export class UniV3Reader {
     // Step 5: Get pool addresses + slot0 data
     const poolCalls = activePositions.map((p) => ({
       address: UNIV3_FACTORY_ADDRESS,
-      abi: [{ type: 'function' as const, name: 'getPool', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint24' }], outputs: [{ type: 'address' }], stateMutability: 'view' as const }],
+      abi: [
+        {
+          type: 'function' as const,
+          name: 'getPool',
+          inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint24' }],
+          outputs: [{ type: 'address' }],
+          stateMutability: 'view' as const,
+        },
+      ],
       functionName: 'getPool',
       args: [p.token0, p.token1, p.fee],
     }));
     const poolAddresses = await this.multicallBatchService.batchRead<string>(chain, poolCalls);
 
-    const slot0Calls = poolAddresses.filter((a): a is string => !!a).map((poolAddr) => ({
-      address: poolAddr,
-      abi: parseAbi(UNIV3_POOL_ABI),
-      functionName: 'slot0',
-    }));
+    const slot0Calls = poolAddresses
+      .filter((a): a is string => !!a)
+      .map((poolAddr) => ({
+        address: poolAddr,
+        abi: parseAbi(UNIV3_POOL_ABI),
+        functionName: 'slot0',
+      }));
     const slot0Results = await this.multicallBatchService.batchRead(chain, slot0Calls);
 
     // Step 6: Calculate per-position amounts
@@ -178,7 +194,11 @@ export class UniV3Reader {
   }
 
   private calculateAmounts(
-    liquidity: BigNumber, currentTick: number, tickLower: number, tickUpper: number, sqrtPrice: BigNumber,
+    liquidity: BigNumber,
+    currentTick: number,
+    tickLower: number,
+    tickUpper: number,
+    sqrtPrice: BigNumber,
   ): [BigNumber, BigNumber] {
     try {
       const sqrtRatioLower = new BigNumber(Math.sqrt(1.0001 ** tickLower));
@@ -225,11 +245,15 @@ export class UniV3Reader {
 
     // Fallback: read symbol from chain
     try {
-      const [symbol] = await this.multicallBatchService.batchRead<string>(chain, [{
-        address: tokenAddress,
-        abi: [{ type: 'function', name: 'symbol', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' }],
-        functionName: 'symbol',
-      }]);
+      const [symbol] = await this.multicallBatchService.batchRead<string>(chain, [
+        {
+          address: tokenAddress,
+          abi: [
+            { type: 'function', name: 'symbol', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' },
+          ],
+          functionName: 'symbol',
+        },
+      ]);
       const resolved = symbol ?? tokenAddress.slice(0, 10);
       this.symbolCache.set(lower, resolved);
       return resolved;
