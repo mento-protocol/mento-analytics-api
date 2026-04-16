@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MulticallBatchService } from '../multicall-batch.service';
-import { getReserveAddressesByChain, ReserveAddress } from '../../config/reserve-addresses.config';
+import { getReserveAddressesByChain } from '../../config/reserve-addresses.config';
 import { Chain } from '@types';
 import { formatUnits } from 'viem';
 

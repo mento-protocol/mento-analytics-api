@@ -133,7 +133,7 @@ export class FpmmPositionsService {
     if (!contracts) return [];
 
     try {
-      return await this.chainClientService.executeRateLimited(chain, async (client) => {
+      return await this.chainClientService.executeRateLimited<FpmmPosition[]>(chain, async (client: any) => {
         // Step 1 + 2: Discover pools (check structural cache first)
         let allPools: readonly `0x${string}`[];
         const cachedPools = await this.primitiveCacheService.getFpmmPools(chain);

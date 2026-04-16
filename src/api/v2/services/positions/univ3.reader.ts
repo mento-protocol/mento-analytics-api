@@ -5,7 +5,7 @@ import { getReserveAddressesByChain } from '../../config/reserve-addresses.confi
 import { UNIV3_POSITION_MANAGER_ADDRESS, UNIV3_FACTORY_ADDRESS } from '@api/reserve/constants/univ3-addresses';
 import { ASSETS_CONFIGS } from '@api/reserve/config/assets.config';
 import { Chain } from '@types';
-import { getAddress, formatUnits, parseAbi } from 'viem';
+import { formatUnits, parseAbi } from 'viem';
 import BigNumber from 'bignumber.js';
 import { UNIV3_POSITION_MANAGER_ABI, UNIV3_POOL_ABI } from '@/common/constants';
 

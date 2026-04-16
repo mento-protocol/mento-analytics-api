@@ -5,8 +5,7 @@ import { V2ReserveService } from './v2-reserve.service';
 import { V2PositionsService } from './v2-positions.service';
 import { ChainClientService } from '@common/services/chain-client.service';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
-import { CDP_TROVE_CONFIGS, CDP_CONTRACTS, TROVE_MANAGER_ABI } from '../config/cdp.config';
-import { Chain } from '@types';
+import { CDP_TROVE_CONFIGS, TROVE_MANAGER_ABI } from '../config/cdp.config';
 import { formatUnits } from 'viem';
 
 @Injectable()

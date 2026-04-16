@@ -78,7 +78,7 @@ export class MulticallBatchService {
           allowFailure: true,
         });
 
-        const mapped = results.map((r, i) => {
+        const mapped = results.map((r) => {
           if (r.status === 'success') {
             return r.result as T;
           }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MentoService } from '@common/services/mento.service';
 import { MulticallBatchService } from '../multicall-batch.service';
-import { getReserveAddressesByChain, ReserveAddress } from '../../config/reserve-addresses.config';
+import { getReserveAddressesByChain } from '../../config/reserve-addresses.config';
 import { AAVE_TOKEN_MAPPINGS } from '@common/config/aave.config';
 import { ASSETS_CONFIGS } from '@api/reserve/config/assets.config';
 import { Chain } from '@types';
