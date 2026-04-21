@@ -36,17 +36,21 @@ export class V2ReserveService {
 
   /**
    * Build LP positions from FPMM + UniV3 position data.
+   * reserve_liquidity_usd is the total USD value of both sides of the position.
    */
   private buildLpPositions(result: PositionsResult): V2LpPositionsDto {
     const positions: V2LpPositionDto[] = [];
+    const price = (sym: string, amount: number) => amount * (result.priceMap.get(sym) ?? 0);
 
     // FPMM positions
     for (const pos of result.positions.fpmm_positions) {
+      const debtUsd = price(pos.debt_token.symbol, pos.debt_token.amount);
+      const collUsd = price(pos.collateral_token.symbol, pos.collateral_token.amount);
       positions.push({
         pool_name: pos.pool_name,
         pool_type: 'FPMM',
         chain: pos.chain,
-        reserve_liquidity_usd: 0, // FPMM doesn't have a simple USD total — debt + collateral sides are separate
+        reserve_liquidity_usd: debtUsd + collUsd,
         token_a: { symbol: pos.debt_token.symbol, amount: pos.debt_token.amount.toFixed(2) },
         token_b: { symbol: pos.collateral_token.symbol, amount: pos.collateral_token.amount.toFixed(2) },
         pool_share_pct: pos.lp_share_pct,
@@ -55,11 +59,13 @@ export class V2ReserveService {
 
     // UniV3 positions
     for (const pos of result.positions.univ3_positions) {
+      const amount0 = Number(pos.token0.amount);
+      const amount1 = Number(pos.token1.amount);
       positions.push({
         pool_name: `${pos.token0.symbol} / ${pos.token1.symbol}`,
         pool_type: 'Uniswap V3',
         chain: pos.chain,
-        reserve_liquidity_usd: 0,
+        reserve_liquidity_usd: price(pos.token0.symbol, amount0) + price(pos.token1.symbol, amount1),
         token_a: { symbol: pos.token0.symbol, amount: pos.token0.amount },
         token_b: { symbol: pos.token1.symbol, amount: pos.token1.amount },
         pool_share_pct: 0,

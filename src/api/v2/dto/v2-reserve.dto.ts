@@ -30,15 +30,25 @@ export class V2CollateralDto {
 
 // --- Reserve-Held Supply ---
 
+export type V2ReserveHeldSourceType = 'wallet' | 'aave' | 'lp' | 'stability_pool' | 'cdp_overhead';
+
 export class V2ReserveHeldTokenDto {
   @ApiProperty() symbol: string;
   @ApiProperty() amount: number;
   @ApiProperty() usd_value: number;
 }
 
+export class V2ReserveHeldSourceDto {
+  @ApiProperty({ enum: ['wallet', 'aave', 'lp', 'stability_pool', 'cdp_overhead'] })
+  type: V2ReserveHeldSourceType;
+  @ApiProperty() label: string;
+  @ApiProperty() usd_value: number;
+}
+
 export class V2ReserveHeldSupplyDto {
   @ApiProperty() total_usd: number;
   @ApiProperty({ type: [V2ReserveHeldTokenDto] }) by_token: V2ReserveHeldTokenDto[];
+  @ApiProperty({ type: [V2ReserveHeldSourceDto] }) by_source: V2ReserveHeldSourceDto[];
 }
 
 // --- LP Positions ---
@@ -86,6 +96,8 @@ export class V2OperationalHoldingsDto {
  */
 export class V2CdpTroveOverheadDto {
   @ApiProperty({ description: 'Net USD value retained after the haircut' }) usd: number;
+  @ApiProperty({ description: 'Collateral committed to servicing debt (debt * (1 + wiggleroom)), clamped to collateral_usd' })
+  committed_capital_usd: number;
   @ApiProperty({ description: 'Percentage buffer applied to debt before subtracting from collateral' })
   wiggleroom_pct: number;
 }

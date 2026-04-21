@@ -14,6 +14,8 @@ import { formatUnits } from 'viem';
 export interface CdpTroveOverhead {
   /** Net USD value retained after the haircut. */
   usd: number;
+  /** Collateral committed to servicing debt (debt * (1 + wiggleroom)), clamped to collateral_usd. */
+  committed_capital_usd: number;
   /** Percentage buffer applied to debt before subtracting from collateral. */
   wiggleroom_pct: number;
 }
@@ -182,7 +184,8 @@ export class CdpTroveReader {
         const collateralUsd = await this.exchangeRatesService.convert(collAmount, 'USD', 'USD');
         const debtUsd = await this.exchangeRatesService.convert(debtAmount, 'GBP', 'USD');
         const ratio = debtUsd > 0 ? collateralUsd / debtUsd : 0;
-        const overheadUsd = Math.max(0, collateralUsd - debtUsd * (1 + CDP_WIGGLEROOM_PCT / 100));
+        const committedCapitalUsd = Math.min(collateralUsd, debtUsd * (1 + CDP_WIGGLEROOM_PCT / 100));
+        const overheadUsd = Math.max(0, collateralUsd - committedCapitalUsd);
 
         positions.push({
           trove_id: troveId.toString(),
@@ -199,7 +202,7 @@ export class CdpTroveReader {
           ratio,
           annual_interest_rate: interestRate,
           contract_address: TROVE_MANAGER_ADDRESS,
-          overhead: { usd: overheadUsd, wiggleroom_pct: CDP_WIGGLEROOM_PCT },
+          overhead: { usd: overheadUsd, committed_capital_usd: committedCapitalUsd, wiggleroom_pct: CDP_WIGGLEROOM_PCT },
         });
       }
 

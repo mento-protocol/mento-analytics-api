@@ -53,15 +53,26 @@ export interface ReserveHeldToken {
   usd_value: number;
 }
 
+export type ReserveHeldSourceType = 'wallet' | 'aave' | 'lp' | 'stability_pool' | 'cdp_overhead';
+
+export interface ReserveHeldSource {
+  type: ReserveHeldSourceType;
+  label: string;
+  usd_value: number;
+}
+
 export interface ReserveHeldSummary {
   total_usd: number;
   by_token: ReserveHeldToken[];
+  by_source: ReserveHeldSource[];
 }
 
 export interface PositionsResult {
   collateral: CollateralSummary;
   reserve_held_supply: ReserveHeldSummary;
   positions: AllPositions;
+  /** Token→USD price map, shared so downstream reshaping can compute USD values. */
+  priceMap: Map<string, number>;
 }
 
 @Injectable()
@@ -195,7 +206,7 @@ export class V2PositionsService {
         `FPMM:${fpmmPositions.length} CDP:${cdpTroves.length} SP:${stabilityPools.length}`,
     );
 
-    return { collateral, reserve_held_supply: reserveHeld, positions: allPositions };
+    return { collateral, reserve_held_supply: reserveHeld, positions: allPositions, priceMap };
   }
 
   /**
@@ -474,31 +485,34 @@ export class V2PositionsService {
    */
   private deriveReserveHeld(positions: AllPositions, priceMap: Map<string, number>): ReserveHeldSummary {
     const bySymbol = new Map<string, { amount: number; usdValue: number }>();
+    const sourceAccum = new Map<ReserveHeldSourceType, number>();
 
-    const addHeld = (symbol: string, amount: number, usdOverride?: number) => {
+    const addHeld = (symbol: string, amount: number, source: ReserveHeldSourceType, usdOverride?: number) => {
+      const usd = usdOverride ?? amount * (priceMap.get(symbol) ?? 0);
       const existing = bySymbol.get(symbol) ?? { amount: 0, usdValue: 0 };
       existing.amount += amount;
-      existing.usdValue += usdOverride ?? amount * (priceMap.get(symbol) ?? 0);
+      existing.usdValue += usd;
       bySymbol.set(symbol, existing);
+      sourceAccum.set(source, (sourceAccum.get(source) ?? 0) + usd);
     };
 
     // Wallet balances that ARE mento stables
     for (const p of positions.wallet_balances) {
-      if (p.is_mento_stable) addHeld(p.token, Number(p.balance), p.usd_value);
+      if (p.is_mento_stable) addHeld(p.token, Number(p.balance), 'wallet', p.usd_value);
     }
 
     // AAVE deposits that ARE mento stables
     for (const p of positions.aave_deposits) {
-      if (p.is_mento_stable) addHeld(p.token, Number(p.balance), p.usd_value);
+      if (p.is_mento_stable) addHeld(p.token, Number(p.balance), 'aave', p.usd_value);
     }
 
     // FPMM debt side is always reserve-held. Collateral side is reserve-held
     // only when it's also a mento stable (stable-stable pools like USDm/EURm);
     // otherwise it's real collateral and has already been counted by deriveCollateral.
     for (const p of positions.fpmm_positions) {
-      addHeld(p.debt_token.symbol, p.debt_token.amount);
+      addHeld(p.debt_token.symbol, p.debt_token.amount, 'lp');
       if (this.isMentoStable(p.collateral_token.symbol)) {
-        addHeld(p.collateral_token.symbol, p.collateral_token.amount);
+        addHeld(p.collateral_token.symbol, p.collateral_token.amount, 'lp');
       }
     }
 
@@ -506,21 +520,21 @@ export class V2PositionsService {
     for (const p of positions.univ3_positions) {
       const amount0 = Number(p.token0.amount);
       const amount1 = Number(p.token1.amount);
-      if (amount0 > 0 && this.isMentoStable(p.token0.symbol)) addHeld(p.token0.symbol, amount0);
-      if (amount1 > 0 && this.isMentoStable(p.token1.symbol)) addHeld(p.token1.symbol, amount1);
+      if (amount0 > 0 && this.isMentoStable(p.token0.symbol)) addHeld(p.token0.symbol, amount0, 'lp');
+      if (amount1 > 0 && this.isMentoStable(p.token1.symbol)) addHeld(p.token1.symbol, amount1, 'lp');
     }
 
     // Stability pool deposits (stablecoin deposits = reserve-held)
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.deposit_amount);
-      if (amount > 0) addHeld(p.deposit_token, amount, p.deposit_usd);
+      if (amount > 0) addHeld(p.deposit_token, amount, 'stability_pool', p.deposit_usd);
     }
 
     // Stability pool collateral_gained when it's a mento stable (GBPm pool gains USDm)
     for (const p of positions.stability_pool_deposits) {
       const amount = Number(p.collateral_gained);
       if (amount > 0 && this.isMentoStable(p.collateral_gained_token)) {
-        addHeld(p.collateral_gained_token, amount, p.collateral_gained_usd);
+        addHeld(p.collateral_gained_token, amount, 'stability_pool', p.collateral_gained_usd);
       }
     }
 
@@ -531,7 +545,7 @@ export class V2PositionsService {
     for (const p of positions.cdp_troves) {
       if (p.overhead.usd <= 0) continue;
       // USDm is $1-pegged so overhead amount == overhead USD.
-      addHeld(p.collateral_token, p.overhead.usd, p.overhead.usd);
+      addHeld(p.collateral_token, p.overhead.usd, 'cdp_overhead', p.overhead.usd);
     }
 
     const totalUsd = Array.from(bySymbol.values()).reduce((sum, a) => sum + a.usdValue, 0);
@@ -541,7 +555,19 @@ export class V2PositionsService {
       usd_value: data.usdValue,
     }));
 
-    return { total_usd: totalUsd, by_token: byToken };
+    const SOURCE_LABELS: Record<ReserveHeldSourceType, string> = {
+      wallet: 'Operational holdings',
+      aave: 'AAVE deposits',
+      lp: 'LP positions',
+      stability_pool: 'Stability pools',
+      cdp_overhead: 'CDP overhead',
+    };
+    const bySource: ReserveHeldSource[] = Array.from(sourceAccum.entries())
+      .filter(([, usd]) => usd > 0)
+      .sort(([, a], [, b]) => b - a)
+      .map(([type, usd]) => ({ type, label: SOURCE_LABELS[type], usd_value: usd }));
+
+    return { total_usd: totalUsd, by_token: byToken, by_source: bySource };
   }
 
   /**
