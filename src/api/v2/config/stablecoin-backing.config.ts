@@ -49,7 +49,19 @@ export const STABLECOIN_BACKING_CONFIGS: StablecoinBackingConfig[] = [
       },
     ],
   },
-  { symbol: 'EURm', backing: 'reserve', networks: [Chain.CELO] },
+  {
+    symbol: 'EURm',
+    backing: 'reserve',
+    networks: [Chain.CELO, Chain.MONAD],
+    deployments: [
+      {
+        chain: Chain.MONAD,
+        address: '0x4D502d735B4C574B487Ed641ae87cEaE884731C7',
+        decimals: 18,
+        bridge: 'burn-and-mint',
+      },
+    ],
+  },
   { symbol: 'BRLm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'XOFm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'KESm', backing: 'reserve', networks: [Chain.CELO] },

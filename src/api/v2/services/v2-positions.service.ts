@@ -285,7 +285,7 @@ export class V2PositionsService {
 
       // USD-pegged stablecoins
       // True 1:1 USD-pegged stablecoins (NOT yield-bearing vault tokens)
-      const usdPegged = ['USDC', 'axlUSDC', 'USDT', 'USDGLO', 'USDS', 'AUSD'];
+      const usdPegged = ['USDC', 'axlUSDC', 'USDT', 'USDT0', 'USDGLO', 'USDS', 'AUSD'];
       if (usdPegged.includes(symbol)) return 1;
       // sUSDS and sDAI are yield-bearing — fall through to DeFiLlama/CMC pricing
 

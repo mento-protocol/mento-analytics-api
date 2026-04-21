@@ -105,6 +105,7 @@ export const ASSET_SYMBOLS = {
   USDC: 'USDC',
   axlUSDC: 'axlUSDC',
   USDT: 'USDT',
+  USDT0: 'USDT0',
   BTC: 'BTC',
   WBTC: 'WBTC',
   stETH: 'stETH',

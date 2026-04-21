@@ -150,6 +150,12 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 18,
       address: '0xBC69212B8E4d445b2307C9D32dD68E2A4Df00115',
     },
+    EURm: {
+      symbol: 'EURm',
+      name: 'Mento Euro',
+      decimals: 18,
+      address: '0x4D502d735B4C574B487Ed641ae87cEaE884731C7',
+    },
     GBPm: {
       symbol: 'GBPm',
       name: 'Mento British Pound',
@@ -162,9 +168,9 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 6,
       address: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603',
     },
-    USDT: {
-      symbol: 'USDT',
-      name: 'USD Tether',
+    USDT0: {
+      symbol: 'USDT0',
+      name: 'USDT0 (Cross-chain USDT)',
       decimals: 6,
       address: '0xe7cd86e13ac4309349f30b3435a9d337750fc82d',
     },

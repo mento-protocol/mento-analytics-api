@@ -111,7 +111,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.MONAD,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento ReserveV2',
-    assets: ['USDC', 'AUSD', 'USDm', 'GBPm', 'USDT'],
+    assets: ['USDC', 'AUSD', 'USDm', 'EURm', 'GBPm', 'USDT0'],
     description: 'Mento ReserveV2 contract on Monad holding reserve assets',
   },
 ];
