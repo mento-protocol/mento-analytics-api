@@ -42,12 +42,8 @@ export class UniV3Reader {
     const positions: UniV3PositionDetail[] = [];
 
     for (const holder of holders) {
-      try {
-        const holderPositions = await this.readHolderPositions(chain, holder.address, holder.label);
-        positions.push(...holderPositions);
-      } catch (error) {
-        this.logger.warn(`Failed to read UniV3 positions for ${holder.label}: ${error}`);
-      }
+      const holderPositions = await this.readHolderPositions(chain, holder.address, holder.label);
+      positions.push(...holderPositions);
     }
 
     this.logger.log(`UniV3 positions: ${positions.length} across ${holders.length} holders`);
@@ -68,8 +64,11 @@ export class UniV3Reader {
         args: [holderAddress],
       },
     ]);
+    if (balanceResult == null) {
+      throw new Error(`Missing UniV3 NFT balance for ${holderLabel}`);
+    }
 
-    const numPositions = Number(balanceResult ?? 0n);
+    const numPositions = Number(balanceResult);
     if (numPositions === 0) return [];
 
     // Step 2: Get all token IDs
@@ -80,6 +79,9 @@ export class UniV3Reader {
       args: [holderAddress, BigInt(i)],
     }));
     const tokenIdResults = await this.multicallBatchService.batchRead<bigint>(chain, tokenIdCalls);
+    if (tokenIdResults.some((id) => id == null)) {
+      throw new Error(`Missing UniV3 token ID while scanning ${holderLabel}`);
+    }
     const tokenIds = tokenIdResults.filter((id): id is bigint => id != null).map(Number);
 
     if (tokenIds.length === 0) return [];
@@ -97,7 +99,9 @@ export class UniV3Reader {
     const activePositions: { id: number; data: any; token0: string; token1: string; fee: number }[] = [];
     for (let i = 0; i < tokenIds.length; i++) {
       const pos = positionResults[i] as any;
-      if (!pos) continue;
+      if (!pos) {
+        throw new Error(`Missing UniV3 position payload for token ${tokenIds[i]} (${holderLabel})`);
+      }
       const liquidity = BigInt(pos[7]?.toString?.() ?? pos.liquidity?.toString?.() ?? '0');
       if (liquidity === 0n) continue;
 
@@ -144,10 +148,14 @@ export class UniV3Reader {
     for (let i = 0; i < activePositions.length; i++) {
       const { id, data, token0, token1, fee } = activePositions[i];
       const poolAddr = poolAddresses[i];
-      if (!poolAddr) continue;
+      if (!poolAddr) {
+        throw new Error(`Missing UniV3 pool address for token ${id} (${holderLabel})`);
+      }
 
       const slot0 = slot0Results[slot0Idx++];
-      if (!slot0) continue;
+      if (!slot0) {
+        throw new Error(`Missing UniV3 slot0 for pool ${poolAddr} (${holderLabel})`);
+      }
 
       const liquidity = new BigNumber((data[7] as bigint).toString());
       const sqrtPriceX96 = new BigNumber(((slot0 as any)[0] as bigint).toString());
@@ -223,8 +231,9 @@ export class UniV3Reader {
         amount0.isFinite() ? amount0.abs() : new BigNumber(0),
         amount1.isFinite() ? amount1.abs() : new BigNumber(0),
       ];
-    } catch {
-      return [new BigNumber(0), new BigNumber(0)];
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to calculate UniV3 token amounts: ${message}`);
     }
   }
 
@@ -254,11 +263,15 @@ export class UniV3Reader {
           functionName: 'symbol',
         },
       ]);
-      const resolved = symbol ?? tokenAddress.slice(0, 10);
+      if (!symbol) {
+        throw new Error(`Missing token symbol for ${tokenAddress}`);
+      }
+      const resolved = symbol;
       this.symbolCache.set(lower, resolved);
       return resolved;
-    } catch {
-      return tokenAddress.slice(0, 10);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to resolve symbol for ${tokenAddress}: ${message}`);
     }
   }
 

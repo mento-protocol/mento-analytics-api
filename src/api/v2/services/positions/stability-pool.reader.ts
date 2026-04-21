@@ -71,64 +71,61 @@ export class StabilityPoolReader {
     const addresses = getReserveAddressesByChain(chain);
     if (addresses.length === 0) return [];
 
-    try {
-      // Build multicall: for each (pool, address), read deposit + collateral gain
-      const calls = STABILITY_POOLS.flatMap((pool) =>
-        addresses.flatMap((addr) => [
-          {
-            address: pool.address,
-            abi: [...STABILITY_POOL_ABI],
-            functionName: 'getCompoundedBoldDeposit',
-            args: [addr.address],
-          },
-          {
-            address: pool.address,
-            abi: [...STABILITY_POOL_ABI],
-            functionName: 'getDepositorCollGain',
-            args: [addr.address],
-          },
-        ]),
-      );
+    // Build multicall: for each (pool, address), read deposit + collateral gain
+    const calls = STABILITY_POOLS.flatMap((pool) =>
+      addresses.flatMap((addr) => [
+        {
+          address: pool.address,
+          abi: [...STABILITY_POOL_ABI],
+          functionName: 'getCompoundedBoldDeposit',
+          args: [addr.address],
+        },
+        {
+          address: pool.address,
+          abi: [...STABILITY_POOL_ABI],
+          functionName: 'getDepositorCollGain',
+          args: [addr.address],
+        },
+      ]),
+    );
 
-      const results = await this.multicallBatchService.batchRead<bigint>(chain, calls);
+    const results = await this.multicallBatchService.batchRead<bigint>(chain, calls);
 
-      const positions: StabilityPoolPosition[] = [];
-      let callIdx = 0;
+    const positions: StabilityPoolPosition[] = [];
+    let callIdx = 0;
 
-      for (const pool of STABILITY_POOLS) {
-        for (const addr of addresses) {
-          const depositRaw = results[callIdx++];
-          const collGainRaw = results[callIdx++];
-
-          // Skip if both are zero or null
-          const hasDeposit = depositRaw != null && depositRaw > 0n;
-          const hasCollGain = collGainRaw != null && collGainRaw > 0n;
-          if (!hasDeposit && !hasCollGain) continue;
-
-          const depositAmount = hasDeposit ? formatUnits(depositRaw, 18) : '0';
-          const collGainAmount = hasCollGain ? formatUnits(collGainRaw, 18) : '0';
-
-          positions.push({
-            pool_address: pool.address,
-            pool_label: pool.label,
-            chain,
-            depositor: addr.address,
-            depositor_label: addr.label,
-            deposit_token: pool.depositToken,
-            deposit_amount: depositAmount,
-            deposit_usd: 0, // enriched later by orchestrator
-            collateral_gained_token: pool.collateralToken,
-            collateral_gained: collGainAmount,
-            collateral_gained_usd: 0, // enriched later by orchestrator
-          });
+    for (const pool of STABILITY_POOLS) {
+      for (const addr of addresses) {
+        const depositRaw = results[callIdx++];
+        const collGainRaw = results[callIdx++];
+        if (depositRaw == null || collGainRaw == null) {
+          throw new Error(`Missing stability pool read for ${pool.label} / ${addr.label}`);
         }
-      }
 
-      this.logger.log(`Stability pool positions: ${positions.length} non-zero positions`);
-      return positions;
-    } catch (error) {
-      this.logger.warn(`Failed to read stability pool positions: ${error}`);
-      return [];
+        const hasDeposit = depositRaw > 0n;
+        const hasCollGain = collGainRaw > 0n;
+        if (!hasDeposit && !hasCollGain) continue;
+
+        const depositAmount = hasDeposit ? formatUnits(depositRaw, 18) : '0';
+        const collGainAmount = hasCollGain ? formatUnits(collGainRaw, 18) : '0';
+
+        positions.push({
+          pool_address: pool.address,
+          pool_label: pool.label,
+          chain,
+          depositor: addr.address,
+          depositor_label: addr.label,
+          deposit_token: pool.depositToken,
+          deposit_amount: depositAmount,
+          deposit_usd: 0, // enriched later by orchestrator
+          collateral_gained_token: pool.collateralToken,
+          collateral_gained: collGainAmount,
+          collateral_gained_usd: 0, // enriched later by orchestrator
+        });
+      }
     }
+
+    this.logger.log(`Stability pool positions: ${positions.length} non-zero positions`);
+    return positions;
   }
 }

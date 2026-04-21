@@ -164,16 +164,12 @@ export class StablecoinAdjustmentsService {
   async calculateLostTokens(stablecoins: StablecoinToken[], byToken: Record<string, TokenAdjustment>): Promise<number> {
     // Fetch all self-held balances in parallel
     const fetchTasks = stablecoins.map(async (token) => {
-      try {
-        // Check self-held balance (token contract holding its own tokens)
-        const balance = await this.fetchERC20Balance(token.address, token.address);
-        if (BigInt(balance) > 0n) {
-          const formattedAmount = Number(formatUnits(BigInt(balance), token.decimals));
-          const usdValue = await this.convertToUsd(balance, token.decimals, token.symbol);
-          return { token, formattedAmount, usdValue };
-        }
-      } catch (error) {
-        this.logger.warn(`Failed to fetch ${token.symbol} self-held balance: ${error}`);
+      // Check self-held balance (token contract holding its own tokens)
+      const balance = await this.fetchERC20Balance(token.address, token.address);
+      if (BigInt(balance) > 0n) {
+        const formattedAmount = Number(formatUnits(BigInt(balance), token.decimals));
+        const usdValue = await this.convertToUsd(balance, token.decimals, token.symbol);
+        return { token, formattedAmount, usdValue };
       }
       return null;
     });

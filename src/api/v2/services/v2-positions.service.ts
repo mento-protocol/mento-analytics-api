@@ -117,45 +117,36 @@ export class V2PositionsService {
 
     // Phase 1: Celo sequential reads
     let t = Date.now();
-    const celoWallet = await this.walletBalanceReader.readPositions(Chain.CELO).catch((e) => {
-      this.logger.warn(`Failed to read Celo wallet balances: ${e}`);
-      return [] as WalletBalancePosition[];
-    });
+    const celoWallet = await this.readRequired(
+      'Celo wallet balances',
+      () => this.walletBalanceReader.readPositions(Chain.CELO),
+    );
     time('Celo wallets', t);
 
     t = Date.now();
-    const celoAave = await this.aaveReader.readPositions(Chain.CELO).catch((e) => {
-      this.logger.warn(`Failed to read AAVE positions: ${e}`);
-      return [] as AavePosition[];
-    });
+    const celoAave = await this.readRequired('AAVE positions', () => this.aaveReader.readPositions(Chain.CELO));
     time('Celo AAVE', t);
 
     t = Date.now();
-    const celoFpmm = await this.fpmmPositionsService.getPositions(Chain.CELO).catch((e) => {
-      this.logger.warn(`Failed to read Celo FPMM positions: ${e}`);
-      return [] as FpmmPosition[];
-    });
+    const celoFpmm = await this.readRequired(
+      'Celo FPMM positions',
+      () => this.fpmmPositionsService.getPositions(Chain.CELO),
+    );
     time('Celo FPMM', t);
 
     t = Date.now();
-    const univ3Positions = await this.univ3Reader.readPositions().catch((e) => {
-      this.logger.warn(`Failed to read UniV3 positions: ${e}`);
-      return [] as UniV3PositionDetail[];
-    });
+    const univ3Positions = await this.readRequired('UniV3 positions', () => this.univ3Reader.readPositions());
     time('UniV3', t);
 
     t = Date.now();
-    const cdpTroves = await this.cdpTroveReader.readPositions().catch((e) => {
-      this.logger.warn(`Failed to read CDP troves: ${e}`);
-      return [] as CdpTrovePosition[];
-    });
+    const cdpTroves = await this.readRequired('CDP troves', () => this.cdpTroveReader.readPositions());
     time('CDP troves', t);
 
     t = Date.now();
-    const stabilityPools = await this.stabilityPoolReader.readPositions().catch((e) => {
-      this.logger.warn(`Failed to read stability pools: ${e}`);
-      return [] as StabilityPoolPosition[];
-    });
+    const stabilityPools = await this.readRequired(
+      'stability pools',
+      () => this.stabilityPoolReader.readPositions(),
+    );
     time('Stability pools', t);
 
     time('Phase 1 (Celo) total', totalStart);
@@ -163,18 +154,9 @@ export class V2PositionsService {
     // Phase 2: ETH + Monad in parallel
     t = Date.now();
     const [ethWallet, monadWallet, monadFpmm] = await Promise.all([
-      this.walletBalanceReader.readPositions(Chain.ETHEREUM).catch((e) => {
-        this.logger.warn(`Failed to read ETH wallet balances: ${e}`);
-        return [] as WalletBalancePosition[];
-      }),
-      this.walletBalanceReader.readPositions(Chain.MONAD).catch((e) => {
-        this.logger.warn(`Failed to read Monad wallet balances: ${e}`);
-        return [] as WalletBalancePosition[];
-      }),
-      this.fpmmPositionsService.getPositions(Chain.MONAD).catch((e) => {
-        this.logger.warn(`Failed to read Monad FPMM positions: ${e}`);
-        return [] as FpmmPosition[];
-      }),
+      this.readRequired('ETH wallet balances', () => this.walletBalanceReader.readPositions(Chain.ETHEREUM)),
+      this.readRequired('Monad wallet balances', () => this.walletBalanceReader.readPositions(Chain.MONAD)),
+      this.readRequired('Monad FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.MONAD)),
     ]);
     time('Phase 2 (ETH+Monad)', t);
 
@@ -207,6 +189,20 @@ export class V2PositionsService {
     );
 
     return { collateral, reserve_held_supply: reserveHeld, positions: allPositions, priceMap };
+  }
+
+  /**
+   * Position reads are accounting-critical. Returning partial data would silently
+   * understate reserve assets or reserve-held supply, so fail closed and let the
+   * cache layer keep serving the last good snapshot instead.
+   */
+  private async readRequired<T>(label: string, readFn: () => Promise<T>): Promise<T> {
+    try {
+      return await readFn();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to read ${label}: ${message}`);
+    }
   }
 
   /**
@@ -273,46 +269,49 @@ export class V2PositionsService {
   private async getTokenPrice(symbol: string): Promise<number> {
     // Skip unresolvable symbols (raw addresses, UNKNOWN, etc.)
     if (symbol.startsWith('0x') || symbol === 'UNKNOWN' || symbol.length > 10) {
-      return 0;
+      throw new Error(`Unresolvable token symbol: ${symbol}`);
     }
 
-    try {
-      // Mento stablecoins: fiat conversion (1 USDm ≈ 1 USD, 1 GBPm ≈ 1.34 USD, etc.)
-      if (symbol.endsWith('m') && symbol.length > 1) {
-        const fiatTicker = getFiatTickerFromSymbol(symbol);
-        return await this.exchangeRatesService.convert(1, fiatTicker, 'USD');
-      }
-
-      // USD-pegged stablecoins
-      // True 1:1 USD-pegged stablecoins (NOT yield-bearing vault tokens)
-      const usdPegged = ['USDC', 'axlUSDC', 'USDT', 'USDT0', 'USDGLO', 'USDS', 'AUSD'];
-      if (usdPegged.includes(symbol)) return 1;
-      // sUSDS and sDAI are yield-bearing — fall through to DeFiLlama/CMC pricing
-
-      // EUR-pegged tokens
-      const eurPegged = ['EURC', 'axlEUROC', 'EURA', 'stEUR'];
-      if (eurPegged.includes(symbol)) {
-        return await this.exchangeRatesService.convert(1, 'EUR', 'USD');
-      }
-
-      // Crypto assets: CoinMarketCap or DeFiLlama. Require an ASSETS_CONFIGS entry —
-      // symbols auto-discovered from on-chain (e.g. AXLWBTC in random UniV3 pools)
-      // are not reliably priceable and would trigger 4x CMC retries with exponential
-      // backoff, making the whole /reserve response block for ~2 minutes.
-      const assetConfig = this.findAssetConfig(symbol);
-      if (!assetConfig) return 0;
-
-      if (assetConfig.useDefiLlamaPrice && assetConfig.address) {
-        const chain = this.findAssetChain(symbol);
-        const chainSlug = chain === Chain.ETHEREUM ? 'ethereum' : chain === Chain.CELO ? 'celo' : chain;
-        return (await this.defiLlamaPriceFetcher.getPrice(`${chainSlug}:${assetConfig.address}`)) ?? 0;
-      }
-
-      return (await this.cmcPriceFetcher.getPrice(assetConfig.rateSymbol ?? symbol)) ?? 0;
-    } catch (error) {
-      this.logger.warn(`Failed to get price for ${symbol}: ${error}`);
-      return 0;
+    // Mento stablecoins: fiat conversion (1 USDm ≈ 1 USD, 1 GBPm ≈ 1.34 USD, etc.)
+    if (symbol.endsWith('m') && symbol.length > 1) {
+      const fiatTicker = getFiatTickerFromSymbol(symbol);
+      return await this.exchangeRatesService.convert(1, fiatTicker, 'USD');
     }
+
+    // USD-pegged stablecoins
+    // True 1:1 USD-pegged stablecoins (NOT yield-bearing vault tokens)
+    const usdPegged = ['USDC', 'axlUSDC', 'USDT', 'USDT0', 'USDGLO', 'USDS', 'AUSD'];
+    if (usdPegged.includes(symbol)) return 1;
+    // sUSDS and sDAI are yield-bearing — fall through to DeFiLlama/CMC pricing
+
+    // EUR-pegged tokens
+    const eurPegged = ['EURC', 'axlEUROC', 'EURA', 'stEUR'];
+    if (eurPegged.includes(symbol)) {
+      return await this.exchangeRatesService.convert(1, 'EUR', 'USD');
+    }
+
+    // Crypto assets: CoinMarketCap or DeFiLlama. If we can't price a reserve-held
+    // asset reliably, fail closed instead of silently valuing it at $0.
+    const assetConfig = this.findAssetConfig(symbol);
+    if (!assetConfig) {
+      throw new Error(`Missing asset config for token price: ${symbol}`);
+    }
+
+    if (assetConfig.useDefiLlamaPrice && assetConfig.address) {
+      const chain = this.findAssetChain(symbol);
+      const chainSlug = chain === Chain.ETHEREUM ? 'ethereum' : chain === Chain.CELO ? 'celo' : chain;
+      const price = await this.defiLlamaPriceFetcher.getPrice(`${chainSlug}:${assetConfig.address}`);
+      if (price == null) {
+        throw new Error(`Missing DeFiLlama price for ${symbol}`);
+      }
+      return price;
+    }
+
+    const price = await this.cmcPriceFetcher.getPrice(assetConfig.rateSymbol ?? symbol);
+    if (price == null) {
+      throw new Error(`Missing CMC price for ${symbol}`);
+    }
+    return price;
   }
 
   // tokenAmountToUsd removed — replaced by getTokenPrice() + batch enrichment
@@ -579,13 +578,11 @@ export class V2PositionsService {
     const result: Record<string, number> = {};
 
     for (const chain of chains) {
-      try {
-        const positions = await this.fpmmPositionsService.getPositions(chain);
-        for (const pos of positions) {
-          const sym = pos.debt_token.symbol;
-          result[sym] = (result[sym] ?? 0) + pos.debt_token.amount;
-        }
-      } catch {}
+      const positions = await this.fpmmPositionsService.getPositions(chain);
+      for (const pos of positions) {
+        const sym = pos.debt_token.symbol;
+        result[sym] = (result[sym] ?? 0) + pos.debt_token.amount;
+      }
     }
 
     return result;
@@ -600,13 +597,11 @@ export class V2PositionsService {
     const result: Record<string, number> = {};
 
     for (const chain of chains) {
-      try {
-        const positions = await this.fpmmPositionsService.getPositions(chain);
-        for (const pos of positions) {
-          const sym = pos.collateral_token.symbol;
-          result[sym] = (result[sym] ?? 0) + pos.collateral_token.amount;
-        }
-      } catch {}
+      const positions = await this.fpmmPositionsService.getPositions(chain);
+      for (const pos of positions) {
+        const sym = pos.collateral_token.symbol;
+        result[sym] = (result[sym] ?? 0) + pos.collateral_token.amount;
+      }
     }
 
     return result;

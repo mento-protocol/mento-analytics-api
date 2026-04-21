@@ -96,64 +96,49 @@ export class V2OverviewService {
         continue;
       }
 
-      try {
-        const { totalDebt, totalColl } = await this.chainClientService.executeRateLimited<{
-          totalDebt: number;
-          totalColl: number;
-        }>(cfg.chain, async (client) => {
-          const readContract = client.readContract as any;
-          const [debtRaw, collRaw] = await Promise.all([
-            readContract({
-              address: cfg.contractAddress as `0x${string}`,
-              abi: TROVE_MANAGER_ABI,
-              functionName: 'getEntireBranchDebt',
-            }),
-            readContract({
-              address: cfg.contractAddress as `0x${string}`,
-              abi: TROVE_MANAGER_ABI,
-              functionName: 'getEntireBranchColl',
-            }),
-          ]);
-          return {
-            totalDebt: Number(formatUnits(debtRaw as bigint, 18)),
-            totalColl: Number(formatUnits(collRaw as bigint, 18)),
-          };
-        });
+      const { totalDebt, totalColl } = await this.chainClientService.executeRateLimited<{
+        totalDebt: number;
+        totalColl: number;
+      }>(cfg.chain, async (client) => {
+        const readContract = client.readContract as any;
+        const [debtRaw, collRaw] = await Promise.all([
+          readContract({
+            address: cfg.contractAddress as `0x${string}`,
+            abi: TROVE_MANAGER_ABI,
+            functionName: 'getEntireBranchDebt',
+          }),
+          readContract({
+            address: cfg.contractAddress as `0x${string}`,
+            abi: TROVE_MANAGER_ABI,
+            functionName: 'getEntireBranchColl',
+          }),
+        ]);
+        return {
+          totalDebt: Number(formatUnits(debtRaw as bigint, 18)),
+          totalColl: Number(formatUnits(collRaw as bigint, 18)),
+        };
+      });
 
-        // USDm collateral = 1:1 USD, GBPm debt needs GBP→USD
-        const collateralUsd = totalColl; // USDm ≈ USD
-        const debtUsd = await this.exchangeRatesService.convert(totalDebt, 'GBP', 'USD');
-        const ratio = debtUsd > 0 ? collateralUsd / debtUsd : 0;
+      // USDm collateral = 1:1 USD, GBPm debt needs GBP→USD
+      const collateralUsd = totalColl; // USDm ≈ USD
+      const debtUsd = await this.exchangeRatesService.convert(totalDebt, 'GBP', 'USD');
+      const ratio = debtUsd > 0 ? collateralUsd / debtUsd : 0;
 
-        this.logger.log(
-          `CDP system totals: ${totalColl.toFixed(0)} USDm coll, ${totalDebt.toFixed(0)} GBPm debt, ratio ${ratio.toFixed(2)}`,
-        );
+      this.logger.log(
+        `CDP system totals: ${totalColl.toFixed(0)} USDm coll, ${totalDebt.toFixed(0)} GBPm debt, ratio ${ratio.toFixed(2)}`,
+      );
 
-        results.push({
-          stablecoin: cfg.stablecoin,
-          collateral_token: cfg.collateralToken,
-          collateral_usd: collateralUsd,
-          collateral_amount: totalColl.toString(),
-          debt_usd: debtUsd,
-          debt_amount: totalDebt.toString(),
-          ratio,
-          status: cfg.status,
-          chain: cfg.chain,
-        });
-      } catch (error) {
-        this.logger.warn(`Failed to read CDP system totals for ${cfg.stablecoin}: ${error}`);
-        results.push({
-          stablecoin: cfg.stablecoin,
-          collateral_token: cfg.collateralToken,
-          collateral_usd: 0,
-          collateral_amount: '0',
-          debt_usd: 0,
-          debt_amount: '0',
-          ratio: 0,
-          status: cfg.status,
-          chain: cfg.chain,
-        });
-      }
+      results.push({
+        stablecoin: cfg.stablecoin,
+        collateral_token: cfg.collateralToken,
+        collateral_usd: collateralUsd,
+        collateral_amount: totalColl.toString(),
+        debt_usd: debtUsd,
+        debt_amount: totalDebt.toString(),
+        ratio,
+        status: cfg.status,
+        chain: cfg.chain,
+      });
     }
 
     return results;
