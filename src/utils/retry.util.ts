@@ -1,6 +1,22 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 
+/**
+ * Throw this from an operation passed to `withRetry` to opt out of the retry loop.
+ * Useful for permanent failures (404, invalid symbol, bad request) where retrying
+ * with exponential backoff just wastes seconds to arrive at the same answer.
+ */
+export class NonRetryableError extends Error {
+  readonly nonRetryable = true;
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'NonRetryableError';
+  }
+}
+
 interface RetryOptions {
   maxRetries?: number;
   logger?: Logger;
@@ -102,6 +118,10 @@ export async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
+      // Permanent failures (404, invalid symbol, etc.) opt out of retry via NonRetryableError.
+      if (error instanceof NonRetryableError || (error as { nonRetryable?: boolean })?.nonRetryable) {
+        throw error;
+      }
       attempt++;
       const errorType = classifyError(error);
       errorTypes.add(errorType);

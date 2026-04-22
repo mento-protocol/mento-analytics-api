@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createPublicClient, webSocket, PublicClient, WebSocketTransportConfig } from 'viem';
+import { createPublicClient, webSocket, http, PublicClient, WebSocketTransportConfig } from 'viem';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@types';
 import { celo, mainnet } from 'viem/chains';
@@ -20,31 +20,59 @@ export class ChainClientService {
     this.initializeProviders();
   }
 
-  private initializeProviders() {
-    const wsConfig: WebSocketTransportConfig = {
-      timeout: 30000,
-      reconnect: { attempts: 10, delay: 2000 },
-    };
+  private createTransport(url: string) {
+    if (url.startsWith('wss://') || url.startsWith('ws://')) {
+      const wsConfig: WebSocketTransportConfig = {
+        timeout: 30000,
+        reconnect: { attempts: 10, delay: 2000 },
+      };
+      return webSocket(url, wsConfig);
+    }
+    return http(url);
+  }
 
-    // Create WebSocket clients
+  private initializeProviders() {
     const celoRpcUrl = this.getConfigValue('CELO_RPC_URL');
     const ethereumRpcUrl = this.getConfigValue('ETH_RPC_URL');
 
     const celoClient = createPublicClient({
       chain: celo,
-      transport: webSocket(celoRpcUrl, wsConfig),
+      transport: this.createTransport(celoRpcUrl),
     });
     this.clients.set(Chain.CELO, celoClient as PublicClient);
 
     const ethereumClient = createPublicClient({
       chain: mainnet,
-      transport: webSocket(ethereumRpcUrl, wsConfig),
+      transport: this.createTransport(ethereumRpcUrl),
     });
     this.clients.set(Chain.ETHEREUM, ethereumClient as PublicClient);
+
+    // Monad client (HTTP — QuikNode endpoint)
+    const monadRpcUrl = this.config.get('MONAD_RPC_URL');
+    if (monadRpcUrl) {
+      const monadChain = {
+        id: 143,
+        name: 'Monad',
+        nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+        rpcUrls: { default: { http: [monadRpcUrl] } },
+      } as const;
+
+      const monadClient = createPublicClient({
+        chain: monadChain,
+        transport: http(monadRpcUrl),
+      });
+      this.clients.set(Chain.MONAD, monadClient as PublicClient);
+      this.logger.log('Monad RPC client initialized');
+    } else {
+      this.logger.warn('MONAD_RPC_URL is not set — Monad chain support disabled');
+    }
 
     // Initialize rate limiters (5 concurrent requests per chain)
     this.rpcLimiters.set(Chain.CELO, pLimit(5));
     this.rpcLimiters.set(Chain.ETHEREUM, pLimit(5));
+    if (monadRpcUrl) {
+      this.rpcLimiters.set(Chain.MONAD, pLimit(5));
+    }
 
     this.logger.log('RPC clients initialized with enhanced WebSocket configuration');
   }

@@ -29,9 +29,31 @@ export const CACHE_KEYS = {
 };
 
 /**
+ * v2 raw key names
+ */
+const V2_RAW_KEYS = {
+  OVERVIEW: 'v2-overview',
+  STABLECOINS: 'v2-stablecoins',
+  RESERVE: 'v2-reserve',
+  ADDRESSES: 'v2-addresses',
+  SUPPLY_BREAKDOWN: 'v2-supply-breakdown',
+};
+
+/**
+ * v2 cache keys with prefix applied
+ */
+export const V2_CACHE_KEYS = {
+  OVERVIEW: createCacheKey(V2_RAW_KEYS.OVERVIEW),
+  STABLECOINS: createCacheKey(V2_RAW_KEYS.STABLECOINS),
+  RESERVE: createCacheKey(V2_RAW_KEYS.RESERVE),
+  ADDRESSES: createCacheKey(V2_RAW_KEYS.ADDRESSES),
+  SUPPLY_BREAKDOWN: createCacheKey(V2_RAW_KEYS.SUPPLY_BREAKDOWN),
+};
+
+/**
  * Array of all known cache keys for iteration
  */
-export const ALL_CACHE_KEYS = Object.values(CACHE_KEYS);
+export const ALL_CACHE_KEYS = [...Object.values(CACHE_KEYS), ...Object.values(V2_CACHE_KEYS)];
 
 /**
  * Mapping raw keys to prefixed keys for backward compatibility

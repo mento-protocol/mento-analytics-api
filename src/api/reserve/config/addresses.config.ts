@@ -34,6 +34,14 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     description: `A reserve owned multisig holding assets on Celo`,
   },
   {
+    address: '0x9380fA34Fd9e4Fd14c06305fd7B6199089eD4eb9',
+    chain: Chain.ETHEREUM,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Mento Pools Liquidity Reserve',
+    assets: ['USDT'],
+    description: 'Mento Pools Liquidity Reserve holding USDT on Ethereum',
+  },
+  {
     address: '0xd0697f70E79476195B742d5aFAb14BE50f98CC1E',
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
@@ -96,5 +104,14 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     label: 'Reserve Rebalancer Bot',
     assets: ['USDC', 'USDT', 'ETH', 'stETH'],
     description: 'Holds reserve assets for rebalancing purposes',
+  },
+  // Monad
+  {
+    address: '0x4255Cf38e51516766180b33122029A88Cb853806',
+    chain: Chain.MONAD,
+    category: AddressCategory.MENTO_RESERVE,
+    label: 'Mento ReserveV2',
+    assets: ['USDC', 'AUSD', 'USDm', 'EURm', 'GBPm', 'USDT0'],
+    description: 'Mento ReserveV2 contract on Monad holding reserve assets',
   },
 ];

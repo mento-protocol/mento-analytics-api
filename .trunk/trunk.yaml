@@ -21,6 +21,9 @@ lint:
     - linters: [codespell]
       paths:
         - '**/*.svg'
+    - linters: [osv-scanner]
+      paths:
+        - pnpm-lock.yaml
   enabled:
     - eslint@9.32.0
     - codespell@2.4.1
