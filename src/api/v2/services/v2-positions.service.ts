@@ -117,9 +117,8 @@ export class V2PositionsService {
 
     // Phase 1: Celo sequential reads
     let t = Date.now();
-    const celoWallet = await this.readRequired(
-      'Celo wallet balances',
-      () => this.walletBalanceReader.readPositions(Chain.CELO),
+    const celoWallet = await this.readRequired('Celo wallet balances', () =>
+      this.walletBalanceReader.readPositions(Chain.CELO),
     );
     time('Celo wallets', t);
 
@@ -128,9 +127,8 @@ export class V2PositionsService {
     time('Celo AAVE', t);
 
     t = Date.now();
-    const celoFpmm = await this.readRequired(
-      'Celo FPMM positions',
-      () => this.fpmmPositionsService.getPositions(Chain.CELO),
+    const celoFpmm = await this.readRequired('Celo FPMM positions', () =>
+      this.fpmmPositionsService.getPositions(Chain.CELO),
     );
     time('Celo FPMM', t);
 
@@ -143,10 +141,7 @@ export class V2PositionsService {
     time('CDP troves', t);
 
     t = Date.now();
-    const stabilityPools = await this.readRequired(
-      'stability pools',
-      () => this.stabilityPoolReader.readPositions(),
-    );
+    const stabilityPools = await this.readRequired('stability pools', () => this.stabilityPoolReader.readPositions());
     time('Stability pools', t);
 
     time('Phase 1 (Celo) total', totalStart);

@@ -96,7 +96,9 @@ export class V2OperationalHoldingsDto {
  */
 export class V2CdpTroveOverheadDto {
   @ApiProperty({ description: 'Net USD value retained after the haircut' }) usd: number;
-  @ApiProperty({ description: 'Collateral committed to servicing debt (debt * (1 + wiggleroom)), clamped to collateral_usd' })
+  @ApiProperty({
+    description: 'Collateral committed to servicing debt (debt * (1 + wiggleroom)), clamped to collateral_usd',
+  })
   committed_capital_usd: number;
   @ApiProperty({ description: 'Percentage buffer applied to debt before subtracting from collateral' })
   wiggleroom_pct: number;

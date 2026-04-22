@@ -203,9 +203,7 @@ export class V2StablecoinsService {
               },
             );
             totalLockboxDeduction += lockboxBalance;
-            this.logger.log(
-              `${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`,
-            );
+            this.logger.log(`${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`);
           }
 
           this.logger.log(`${symbol} on ${deployment.chain} [${deployment.bridge}]: ${chainSupply.toFixed(2)}`);
