@@ -84,7 +84,10 @@ export class AaveReader {
     for (const addr of addresses) {
       for (const token of aaveTokens) {
         const raw = results[callIdx++];
-        if (raw == null || raw === 0n) continue;
+        if (raw == null) {
+          throw new Error(`Missing AAVE balance for ${token.symbol} at ${addr.label} on ${chain}`);
+        }
+        if (raw === 0n) continue;
 
         const balance = formatUnits(raw, token.decimals);
         const isMentoStable = stableMap.has(token.underlyingAddress.toLowerCase());
@@ -117,7 +120,8 @@ export class AaveReader {
         map.set(t.address.toLowerCase(), t.symbol);
       }
     } catch (error) {
-      this.logger.warn(`Failed to load stablecoin addresses from SDK: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to load stablecoin addresses from SDK: ${message}`);
     }
     this.stablecoinMap = map;
     return map;

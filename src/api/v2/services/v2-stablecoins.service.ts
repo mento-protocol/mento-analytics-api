@@ -137,7 +137,7 @@ export class V2StablecoinsService {
     );
 
     if (!result) {
-      return { total_supply_usd: 0, total_debt_usd: 0, stablecoins: [] };
+      throw new Error('Failed to build v2 stablecoins response');
     }
     return result;
   }
@@ -173,47 +173,42 @@ export class V2StablecoinsService {
     if (backingConfig.deployments) {
       await Promise.all(
         backingConfig.deployments.map(async (deployment) => {
-          try {
-            // Query totalSupply on this chain
-            const chainSupply = await this.chainClientService.executeRateLimited<number>(
-              deployment.chain,
+          // Query totalSupply on this chain
+          const chainSupply = await this.chainClientService.executeRateLimited<number>(
+            deployment.chain,
+            async (client) => {
+              const totalSupply = await (client.readContract as any)({
+                address: deployment.address as `0x${string}`,
+                abi: parseAbi(ERC20_ABI),
+                functionName: 'totalSupply',
+              });
+              return Number(formatUnits(totalSupply as bigint, deployment.decimals));
+            },
+          );
+
+          otherChainSupplies.push({ deployment, supply: chainSupply });
+
+          // For lockbox bridges: read the lockbox balance on Celo to subtract
+          if (deployment.bridge === 'lockbox' && deployment.celoLockboxAddress) {
+            const lockboxBalance = await this.chainClientService.executeRateLimited<number>(
+              Chain.CELO,
               async (client) => {
-                const totalSupply = await (client.readContract as any)({
-                  address: deployment.address as `0x${string}`,
+                const bal = await (client.readContract as any)({
+                  address: celoAddress as `0x${string}`,
                   abi: parseAbi(ERC20_ABI),
-                  functionName: 'totalSupply',
+                  functionName: 'balanceOf',
+                  args: [deployment.celoLockboxAddress as `0x${string}`],
                 });
-                return Number(formatUnits(totalSupply as bigint, deployment.decimals));
+                return Number(formatUnits(bal as bigint, celoDecimals));
               },
             );
-
-            otherChainSupplies.push({ deployment, supply: chainSupply });
-
-            // For lockbox bridges: read the lockbox balance on Celo to subtract
-            if (deployment.bridge === 'lockbox' && deployment.celoLockboxAddress) {
-              const lockboxBalance = await this.chainClientService.executeRateLimited<number>(
-                Chain.CELO,
-                async (client) => {
-                  const bal = await (client.readContract as any)({
-                    address: celoAddress as `0x${string}`,
-                    abi: parseAbi(ERC20_ABI),
-                    functionName: 'balanceOf',
-                    args: [deployment.celoLockboxAddress as `0x${string}`],
-                  });
-                  return Number(formatUnits(bal as bigint, celoDecimals));
-                },
-              );
-              totalLockboxDeduction += lockboxBalance;
-              this.logger.log(
-                `${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`,
-              );
-            }
-
-            this.logger.log(`${symbol} on ${deployment.chain} [${deployment.bridge}]: ${chainSupply.toFixed(2)}`);
-          } catch (error) {
-            this.logger.warn(`Failed to fetch ${symbol} on ${deployment.chain}: ${error}`);
-            otherChainSupplies.push({ deployment, supply: 0 });
+            totalLockboxDeduction += lockboxBalance;
+            this.logger.log(
+              `${symbol} lockbox on Celo holds ${lockboxBalance.toFixed(2)} (deducted from Celo supply)`,
+            );
           }
+
+          this.logger.log(`${symbol} on ${deployment.chain} [${deployment.bridge}]: ${chainSupply.toFixed(2)}`);
         }),
       );
     }

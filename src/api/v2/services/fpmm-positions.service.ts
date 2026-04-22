@@ -132,77 +132,64 @@ export class FpmmPositionsService {
     const contracts = FPMM_CONTRACTS[chain];
     if (!contracts) return [];
 
-    try {
-      return await this.chainClientService.executeRateLimited<FpmmPosition[]>(chain, async (client: any) => {
-        // Step 1 + 2: Discover pools (check structural cache first)
-        let allPools: readonly `0x${string}`[];
-        const cachedPools = await this.primitiveCacheService.getFpmmPools(chain);
-        if (cachedPools) {
-          allPools = cachedPools as `0x${string}`[];
-          this.logger.debug(`Using ${cachedPools.length} cached FPMM pools for ${chain}`);
-        } else {
-          allPools = await client.readContract({
-            address: getAddress(contracts.factory),
-            abi: FACTORY_ABI,
-            functionName: 'deployedFPMMAddresses',
-          });
-          await this.primitiveCacheService.setFpmmPools(chain, [...allPools]);
-        }
+    return await this.chainClientService.executeRateLimited<FpmmPosition[]>(chain, async (client: any) => {
+      // Step 1 + 2: Discover pools (check structural cache first)
+      let allPools: readonly `0x${string}`[];
+      const cachedPools = await this.primitiveCacheService.getFpmmPools(chain);
+      if (cachedPools) {
+        allPools = cachedPools as `0x${string}`[];
+        this.logger.debug(`Using ${cachedPools.length} cached FPMM pools for ${chain}`);
+      } else {
+        allPools = await client.readContract({
+          address: getAddress(contracts.factory),
+          abi: FACTORY_ABI,
+          functionName: 'deployedFPMMAddresses',
+        });
+        await this.primitiveCacheService.setFpmmPools(chain, [...allPools]);
+      }
 
-        const strategyPools = await client
-          .readContract({
-            address: getAddress(contracts.liquidityStrategy),
-            abi: STRATEGY_ABI,
-            functionName: 'getPools',
-          })
-          .catch(() => [] as readonly `0x${string}`[]);
-        const strategySet = new Set(strategyPools.map((p) => p.toLowerCase()));
-
-        // Step 3: Get debt classification for strategy pools
-        const strategyConfigs = new Map<string, boolean>();
-        for (const pool of strategyPools) {
-          try {
-            const config = await client.readContract({
-              address: getAddress(contracts.liquidityStrategy),
-              abi: STRATEGY_ABI,
-              functionName: 'poolConfigs',
-              args: [pool],
-            });
-            strategyConfigs.set(pool.toLowerCase(), config[0]); // isToken0Debt
-          } catch {}
-        }
-
-        // Load stablecoin address map
-        const stableMap = await this.getStablecoinAddresses();
-
-        // Step 4 + 5: For each pool, check reserve holders and classify
-        const holdersForChain = getReserveAddressesByChain(chain);
-        const positions: FpmmPosition[] = [];
-
-        for (const pool of allPools) {
-          try {
-            const pos = await this.readPoolPosition(
-              client,
-              pool,
-              holdersForChain,
-              strategySet.has(pool.toLowerCase()),
-              strategyConfigs.get(pool.toLowerCase()),
-              stableMap,
-              chain,
-            );
-            positions.push(...pos);
-          } catch (error) {
-            this.logger.warn(`Failed to read FPMM pool ${pool}: ${error}`);
-          }
-        }
-
-        this.logger.log(`FPMM positions on ${chain}: ${positions.length} positions across ${allPools.length} pools`);
-        return positions;
+      const strategyPools = await client.readContract({
+        address: getAddress(contracts.liquidityStrategy),
+        abi: STRATEGY_ABI,
+        functionName: 'getPools',
       });
-    } catch (error) {
-      this.logger.warn(`Failed to discover FPMM pools on ${chain}: ${error}`);
-      return [];
-    }
+      const strategySet = new Set(strategyPools.map((p) => p.toLowerCase()));
+
+      // Step 3: Get debt classification for strategy pools
+      const strategyConfigs = new Map<string, boolean>();
+      for (const pool of strategyPools) {
+        const config = await client.readContract({
+          address: getAddress(contracts.liquidityStrategy),
+          abi: STRATEGY_ABI,
+          functionName: 'poolConfigs',
+          args: [pool],
+        });
+        strategyConfigs.set(pool.toLowerCase(), config[0]); // isToken0Debt
+      }
+
+      // Load stablecoin address map
+      const stableMap = await this.getStablecoinAddresses();
+
+      // Step 4 + 5: For each pool, check reserve holders and classify
+      const holdersForChain = getReserveAddressesByChain(chain);
+      const positions: FpmmPosition[] = [];
+
+      for (const pool of allPools) {
+        const pos = await this.readPoolPosition(
+          client,
+          pool,
+          holdersForChain,
+          strategySet.has(pool.toLowerCase()),
+          strategyConfigs.get(pool.toLowerCase()),
+          stableMap,
+          chain,
+        );
+        positions.push(...pos);
+      }
+
+      this.logger.log(`FPMM positions on ${chain}: ${positions.length} positions across ${allPools.length} pools`);
+      return positions;
+    });
   }
 
   /**
@@ -322,7 +309,8 @@ export class FpmmPositionsService {
         map.set(t.address.toLowerCase(), t.symbol);
       }
     } catch (error) {
-      this.logger.warn(`Failed to load stablecoin addresses from SDK: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to load stablecoin addresses from SDK: ${message}`);
     }
     this.stablecoinAddresses = map;
     return map;

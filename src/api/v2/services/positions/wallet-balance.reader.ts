@@ -108,7 +108,9 @@ export class WalletBalanceReader {
         rawStr = cached;
       } else {
         const raw = rpcResults[rpcIdx++];
-        if (raw == null) continue;
+        if (raw == null) {
+          throw new Error(`Missing wallet balance for ${token.symbol} at ${addr.label} on ${chain}`);
+        }
         rawStr = raw.toString();
         // Write to primitive cache
         await this.primitiveCacheService.setBalance(chain, token.address!, addr.address, rawStr);
@@ -153,7 +155,8 @@ export class WalletBalanceReader {
       // Keep the legacy address-only cache in sync for other readers still using it.
       await this.primitiveCacheService.setStablecoinAddresses(new Set(map.keys()));
     } catch (error) {
-      this.logger.warn(`Failed to load stablecoin addresses from SDK: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to load stablecoin addresses from SDK: ${message}`);
     }
     this.mentoStableMap = map;
     return map;
