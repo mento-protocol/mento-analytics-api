@@ -10,8 +10,8 @@ import { Chain } from '@types';
  * - STABLECOIN_LIST: Essentially static; only changes on protocol upgrades.
  */
 export const PRIMITIVE_TTL = {
-  BALANCE: 5 * 60 * 1000, // 5 minutes
-  POOL_RESERVES: 5 * 60 * 1000, // 5 minutes
+  BALANCE: 30 * 60 * 1000, // 30 minutes
+  POOL_RESERVES: 30 * 60 * 1000, // 30 minutes
   STRUCTURAL: 30 * 60 * 1000, // 30 minutes
   STABLECOIN_LIST: 60 * 60 * 1000, // 1 hour
   READER_SNAPSHOT: 24 * 60 * 60 * 1000, // 24 hours — long-lived fallback

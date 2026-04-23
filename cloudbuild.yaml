@@ -31,6 +31,7 @@ steps:
         export NODE_ENV="production"
         export ENVIRONMENT="production"
         export SENTRY_ENVIRONMENT="production"
+        export CACHE_WARMING_ENABLED="true"
 
         # Build the environment variables string
         ENV_VARS=$$(build_env_vars_string "main" "main" "${_COMMIT_SHA}")

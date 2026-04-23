@@ -57,6 +57,9 @@ steps:
         # Source the centralized environment configuration
         cd /workspace && source ./scripts/env-config.sh
 
+        # Enable cache warming for preview deployments
+        export CACHE_WARMING_ENABLED="true"
+
         # Build the environment variables string
         ENV_VARS=$$(build_env_vars_string "${_BRANCH_NAME}" "${_BRANCH_TAG}" "${_SHORT_SHA}")
 
