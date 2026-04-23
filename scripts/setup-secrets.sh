@@ -190,14 +190,17 @@ setup_rpc_urls() {
 	# Create RPC URL secrets
 	create_secret_if_not_exists "celo-rpc-url-${environment}" "Celo RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}" || true
 	create_secret_if_not_exists "eth-rpc-url-${environment}" "Ethereum RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}" || true
+	create_secret_if_not_exists "monad-rpc-url-${environment}" "Monad RPC URL for ${environment} deployments" "purpose=rpc-urls,environment=${environment}" || true
 
 	# Grant access
 	grant_access_to_default_sa "celo-rpc-url-${environment}"
 	grant_access_to_default_sa "eth-rpc-url-${environment}"
+	grant_access_to_default_sa "monad-rpc-url-${environment}"
 
 	# Check if secrets need values
 	NEEDS_CELO_VALUE=false
 	NEEDS_ETH_VALUE=false
+	NEEDS_MONAD_VALUE=false
 
 	if ! check_secret_has_value "celo-rpc-url-${environment}"; then
 		NEEDS_CELO_VALUE=true
@@ -207,15 +210,20 @@ setup_rpc_urls() {
 		NEEDS_ETH_VALUE=true
 	fi
 
+	if ! check_secret_has_value "monad-rpc-url-${environment}"; then
+		NEEDS_MONAD_VALUE=true
+	fi
+
 	# If secrets already have values, ask if user wants to update them
-	if [[ ${NEEDS_CELO_VALUE} == false ]] && [[ ${NEEDS_ETH_VALUE} == false ]]; then
+	if [[ ${NEEDS_CELO_VALUE} == false ]] && [[ ${NEEDS_ETH_VALUE} == false ]] && [[ ${NEEDS_MONAD_VALUE} == false ]]; then
 		echo ""
-		echo "Both RPC URL secrets already have values."
+		echo "All RPC URL secrets already have values."
 		read -rp "Do you want to update them with new RPC URLs? (y/N) " -n 1
 		echo
 		if [[ ${REPLY} =~ ^[Yy]$ ]]; then
 			NEEDS_CELO_VALUE=true
 			NEEDS_ETH_VALUE=true
+			NEEDS_MONAD_VALUE=true
 		fi
 	fi
 
@@ -226,6 +234,10 @@ setup_rpc_urls() {
 
 	if [[ ${NEEDS_ETH_VALUE} == true ]]; then
 		prompt_for_rpc_url "Ethereum" "eth-rpc-url-${environment}" "wss://mainnet.infura.io/ws/v3/YOUR_API_KEY"
+	fi
+
+	if [[ ${NEEDS_MONAD_VALUE} == true ]]; then
+		prompt_for_rpc_url "Monad" "monad-rpc-url-${environment}" "https://monad-mainnet.quiknode.pro/YOUR_API_KEY/"
 	fi
 }
 
@@ -242,6 +254,7 @@ show_manual_commands() {
 	echo -e "${YELLOW}# RPC URLs${NC}"
 	echo -e "${YELLOW}echo -n 'wss://your-celo-rpc-url' | gcloud secrets versions add celo-rpc-url-${environment} --data-file=- --project=${PROJECT_ID}${NC}"
 	echo -e "${YELLOW}echo -n 'wss://your-eth-rpc-url' | gcloud secrets versions add eth-rpc-url-${environment} --data-file=- --project=${PROJECT_ID}${NC}"
+	echo -e "${YELLOW}echo -n 'https://your-monad-rpc-url' | gcloud secrets versions add monad-rpc-url-${environment} --data-file=- --project=${PROJECT_ID}${NC}"
 }
 
 main() {
@@ -251,7 +264,7 @@ main() {
 	echo ""
 	echo "You'll need:"
 	echo "- API keys for CoinMarketCap and Exchange Rates API"
-	echo "- RPC URLs with API keys for Celo and Ethereum networks"
+	echo "- RPC URLs with API keys for Celo, Ethereum, and Monad networks"
 	echo ""
 	echo "Project: ${PROJECT_ID}"
 	echo ""

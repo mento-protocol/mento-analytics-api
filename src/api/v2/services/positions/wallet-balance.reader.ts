@@ -109,7 +109,8 @@ export class WalletBalanceReader {
       } else {
         const raw = rpcResults[rpcIdx++];
         if (raw == null) {
-          throw new Error(`Missing wallet balance for ${token.symbol} at ${addr.label} on ${chain}`);
+          this.logger.warn(`Multicall returned null for ${token.symbol} at ${addr.label} on ${chain}, skipping`);
+          continue;
         }
         rawStr = raw.toString();
         // Write to primitive cache
