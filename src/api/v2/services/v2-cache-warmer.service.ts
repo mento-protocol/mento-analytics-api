@@ -25,8 +25,8 @@ import { PrimitiveCacheService } from './primitive-cache.service';
  * chain's block time.  Only chains with an RPC block watcher are listed.
  */
 const TIER1_BLOCK_THRESHOLDS: Partial<Record<Chain, number>> = {
-  [Chain.CELO]: (5 * 60) / 1, // ~300 Celo blocks (1 s block time)
-  [Chain.ETHEREUM]: (5 * 60) / 12, // ~25 Ethereum blocks (12 s block time)
+  [Chain.CELO]: (30 * 60) / 1, // ~1800 Celo blocks (1 s block time)
+  [Chain.ETHEREUM]: (30 * 60) / 12, // ~150 Ethereum blocks (12 s block time)
 };
 
 /** Tier 2 interval in milliseconds (~30 min). */
@@ -50,7 +50,7 @@ export interface CacheEntry<T> {
  * Default staleness window: data older than this triggers a background
  * refresh even though it is still returned to the caller immediately.
  */
-const STALE_AFTER_MS = 4 * 60 * 1000; // 4 minutes
+const STALE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
 
 // ---------------------------------------------------------------------------
 // Service
