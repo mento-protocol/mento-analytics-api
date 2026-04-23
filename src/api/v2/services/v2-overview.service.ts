@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { V2OverviewResponseDto } from '../dto/v2-overview.dto';
+import { buildMeta, DataWarning } from '../dto/v2-meta.dto';
 import { V2StablecoinsService } from './v2-stablecoins.service';
 import { V2ReserveService } from './v2-reserve.service';
 import { V2PositionsService } from './v2-positions.service';
@@ -51,6 +52,9 @@ export class V2OverviewService {
 
     this.logger.log(`Overview: total ${Date.now() - start}ms`);
 
+    // Collect warnings from positions and stablecoins
+    const warnings: DataWarning[] = [...positionsResult.warnings, ...(stablecoinsData.meta?.warnings ?? [])];
+
     return {
       supply: {
         total_usd: stablecoinsData.total_supply_usd,
@@ -69,6 +73,7 @@ export class V2OverviewService {
       },
       cdp_backings: cdpSystemTotals,
       timestamp: new Date().toISOString(),
+      meta: buildMeta(warnings),
     };
   }
 

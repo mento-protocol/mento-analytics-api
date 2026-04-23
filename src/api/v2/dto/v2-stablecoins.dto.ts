@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BackingType, Chain } from '@types';
+import { V2MetaDto } from './v2-meta.dto';
 
 export class V2StablecoinSupplyDto {
   @ApiProperty() total: string;
@@ -34,4 +35,5 @@ export class V2StablecoinsResponseDto {
   @ApiProperty() total_supply_usd: number;
   @ApiProperty() total_debt_usd: number;
   @ApiProperty({ type: [V2StablecoinDto] }) stablecoins: V2StablecoinDto[];
+  @ApiPropertyOptional() meta?: V2MetaDto;
 }

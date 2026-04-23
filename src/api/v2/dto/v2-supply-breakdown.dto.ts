@@ -1,4 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { V2MetaDto } from './v2-meta.dto';
 
 export class V2SupplyBreakdownNodeDto {
   @ApiProperty() id: string;
@@ -11,4 +12,5 @@ export class V2SupplyBreakdownNodeDto {
 
 export class V2SupplyBreakdownResponseDto {
   @ApiProperty() breakdown: V2SupplyBreakdownNodeDto;
+  @ApiPropertyOptional() meta?: V2MetaDto;
 }

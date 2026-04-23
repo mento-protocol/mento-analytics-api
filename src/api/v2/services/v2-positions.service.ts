@@ -9,6 +9,8 @@ import { CdpTroveReader, CdpTrovePosition } from './positions/cdp-trove.reader';
 import { StabilityPoolReader, StabilityPoolPosition } from './positions/stability-pool.reader';
 import { UniV3Reader, UniV3PositionDetail } from './positions/univ3.reader';
 import { FpmmPositionsService, FpmmPosition } from './fpmm-positions.service';
+import { PrimitiveCacheService, STALE_WARNING_THRESHOLD_MS } from './primitive-cache.service';
+import { DataWarning } from '../dto/v2-meta.dto';
 import { getFiatTickerFromSymbol } from '@common/constants';
 import { Chain } from '@types';
 
@@ -73,6 +75,8 @@ export interface PositionsResult {
   positions: AllPositions;
   /** Token→USD price map, shared so downstream reshaping can compute USD values. */
   priceMap: Map<string, number>;
+  /** Warnings about stale or missing data sources. */
+  warnings: DataWarning[];
 }
 
 @Injectable()
@@ -92,6 +96,7 @@ export class V2PositionsService {
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly cmcPriceFetcher: CoinMarketCapPriceFetcherService,
     private readonly defiLlamaPriceFetcher: DefiLlamaPriceFetcherService,
+    private readonly primitiveCacheService: PrimitiveCacheService,
   ) {}
 
   /**
@@ -113,35 +118,49 @@ export class V2PositionsService {
 
   private async _getPositionsImpl(): Promise<PositionsResult> {
     const totalStart = Date.now();
+    const warnings: DataWarning[] = [];
     const time = (label: string, start: number) => this.logger.log(`  [timing] ${label}: ${Date.now() - start}ms`);
+    const read = <T>(key: string, label: string, readFn: () => Promise<T>, fallback: T) =>
+      this.readWithFallback<T>(key, label, readFn, fallback, warnings);
 
     // Phase 1: Celo sequential reads
     let t = Date.now();
-    const celoWallet = await this.readRequired('Celo wallet balances', () =>
-      this.walletBalanceReader.readPositions(Chain.CELO),
+    const celoWallet = await read(
+      'celo-wallet',
+      'Celo wallet balances',
+      () => this.walletBalanceReader.readPositions(Chain.CELO),
+      [],
     );
     time('Celo wallets', t);
 
     t = Date.now();
-    const celoAave = await this.readRequired('AAVE positions', () => this.aaveReader.readPositions(Chain.CELO));
+    const celoAave = await read('celo-aave', 'AAVE positions', () => this.aaveReader.readPositions(Chain.CELO), []);
     time('Celo AAVE', t);
 
     t = Date.now();
-    const celoFpmm = await this.readRequired('Celo FPMM positions', () =>
-      this.fpmmPositionsService.getPositions(Chain.CELO),
+    const celoFpmm = await read(
+      'celo-fpmm',
+      'Celo FPMM positions',
+      () => this.fpmmPositionsService.getPositions(Chain.CELO),
+      [],
     );
     time('Celo FPMM', t);
 
     t = Date.now();
-    const univ3Positions = await this.readRequired('UniV3 positions', () => this.univ3Reader.readPositions());
+    const univ3Positions = await read('univ3', 'UniV3 positions', () => this.univ3Reader.readPositions(), []);
     time('UniV3', t);
 
     t = Date.now();
-    const cdpTroves = await this.readRequired('CDP troves', () => this.cdpTroveReader.readPositions());
+    const cdpTroves = await read('cdp-troves', 'CDP troves', () => this.cdpTroveReader.readPositions(), []);
     time('CDP troves', t);
 
     t = Date.now();
-    const stabilityPools = await this.readRequired('stability pools', () => this.stabilityPoolReader.readPositions());
+    const stabilityPools = await read(
+      'stability-pools',
+      'stability pools',
+      () => this.stabilityPoolReader.readPositions(),
+      [],
+    );
     time('Stability pools', t);
 
     time('Phase 1 (Celo) total', totalStart);
@@ -149,9 +168,9 @@ export class V2PositionsService {
     // Phase 2: ETH + Monad in parallel
     t = Date.now();
     const [ethWallet, monadWallet, monadFpmm] = await Promise.all([
-      this.readRequired('ETH wallet balances', () => this.walletBalanceReader.readPositions(Chain.ETHEREUM)),
-      this.readRequired('Monad wallet balances', () => this.walletBalanceReader.readPositions(Chain.MONAD)),
-      this.readRequired('Monad FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.MONAD)),
+      read('eth-wallet', 'ETH wallet balances', () => this.walletBalanceReader.readPositions(Chain.ETHEREUM), []),
+      read('monad-wallet', 'Monad wallet balances', () => this.walletBalanceReader.readPositions(Chain.MONAD), []),
+      read('monad-fpmm', 'Monad FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.MONAD), []),
     ]);
     time('Phase 2 (ETH+Monad)', t);
 
@@ -180,23 +199,56 @@ export class V2PositionsService {
     this.logger.log(
       `Positions total: ${Date.now() - totalStart}ms — Collateral: $${collateral.total_usd.toFixed(0)}, ` +
         `W:${walletBalances.length} A:${aaveDeposits.length} U3:${univ3Positions.length} ` +
-        `FPMM:${fpmmPositions.length} CDP:${cdpTroves.length} SP:${stabilityPools.length}`,
+        `FPMM:${fpmmPositions.length} CDP:${cdpTroves.length} SP:${stabilityPools.length}` +
+        (warnings.length > 0 ? ` (${warnings.length} warnings)` : ''),
     );
 
-    return { collateral, reserve_held_supply: reserveHeld, positions: allPositions, priceMap };
+    return { collateral, reserve_held_supply: reserveHeld, positions: allPositions, priceMap, warnings };
   }
 
   /**
-   * Position reads are accounting-critical. Returning partial data would silently
-   * understate reserve assets or reserve-held supply, so fail closed and let the
-   * cache layer keep serving the last good snapshot instead.
+   * Try a fresh read. On success, cache the result as a reader snapshot.
+   * On failure, fall back to the cached snapshot. If no snapshot exists,
+   * return the provided empty fallback and add a warning.
    */
-  private async readRequired<T>(label: string, readFn: () => Promise<T>): Promise<T> {
+  private async readWithFallback<T>(
+    cacheKey: string,
+    label: string,
+    readFn: () => Promise<T>,
+    emptyFallback: T,
+    warnings: DataWarning[],
+  ): Promise<T> {
     try {
-      return await readFn();
+      const fresh = await readFn();
+      // Cache successful result for future fallback
+      await this.primitiveCacheService.setReaderSnapshot(cacheKey, fresh).catch(() => {});
+      return fresh;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to read ${label}: ${message}`);
+      this.logger.warn(`Failed to read ${label}: ${message} — checking cached snapshot`);
+
+      const snapshot = await this.primitiveCacheService.getReaderSnapshot<T>(cacheKey).catch(() => null);
+      if (snapshot) {
+        const ageMs = Date.now() - new Date(snapshot.timestamp).getTime();
+        const ageLabel = ageMs < 60_000 ? `${(ageMs / 1000).toFixed(0)}s` : `${(ageMs / 60_000).toFixed(0)}m`;
+        this.logger.warn(`Using cached snapshot for ${label} (age: ${ageLabel})`);
+        if (ageMs > STALE_WARNING_THRESHOLD_MS) {
+          warnings.push({
+            source: label,
+            message: `Using cached data (${ageLabel} old) — fresh read failed: ${message}`,
+            cached_since: snapshot.timestamp,
+          });
+        }
+        return snapshot.data;
+      }
+
+      // No cached fallback — return empty and warn
+      this.logger.error(`No cached snapshot for ${label}, returning empty`);
+      warnings.push({
+        source: label,
+        message: `No data available — fresh read failed and no cache: ${message}`,
+      });
+      return emptyFallback;
     }
   }
 

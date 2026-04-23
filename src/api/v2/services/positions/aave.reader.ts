@@ -85,7 +85,8 @@ export class AaveReader {
       for (const token of aaveTokens) {
         const raw = results[callIdx++];
         if (raw == null) {
-          throw new Error(`Missing AAVE balance for ${token.symbol} at ${addr.label} on ${chain}`);
+          this.logger.warn(`Multicall returned null for AAVE ${token.symbol} at ${addr.label} on ${chain}, skipping`);
+          continue;
         }
         if (raw === 0n) continue;
 

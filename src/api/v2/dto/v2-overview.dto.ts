@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Chain } from '@types';
+import { V2MetaDto } from './v2-meta.dto';
 
 export class V2SupplyOverviewDto {
   @ApiProperty() total_usd: number;
@@ -35,4 +36,5 @@ export class V2OverviewResponseDto {
   @ApiProperty() reserve_backing: V2ReserveBackingDto;
   @ApiProperty({ type: [V2CdpBackingDto] }) cdp_backings: V2CdpBackingDto[];
   @ApiProperty() timestamp: string;
+  @ApiPropertyOptional() meta?: V2MetaDto;
 }

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { V2SupplyBreakdownResponseDto, V2SupplyBreakdownNodeDto } from '../dto/v2-supply-breakdown.dto';
+import { buildMeta, DataWarning } from '../dto/v2-meta.dto';
 import { V2StablecoinsService } from './v2-stablecoins.service';
 import { V2ReserveService } from './v2-reserve.service';
 
@@ -153,6 +154,16 @@ export class V2SupplyBreakdownService {
       ],
     };
 
-    return { breakdown };
+    // Merge warnings from both upstream services
+    const warnings: DataWarning[] = [...(stablecoinsData.meta?.warnings ?? []), ...(reserveData.meta?.warnings ?? [])];
+    // Deduplicate by source (both services share the same positions data)
+    const seen = new Set<string>();
+    const uniqueWarnings = warnings.filter((w) => {
+      if (seen.has(w.source)) return false;
+      seen.add(w.source);
+      return true;
+    });
+
+    return { breakdown, meta: buildMeta(uniqueWarnings) };
   }
 }

@@ -4,6 +4,7 @@ import { MentoService } from '@common/services/mento.service';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
 import { ChainClientService } from '@common/services/chain-client.service';
 import { V2StablecoinsResponseDto, V2StablecoinDto, V2NetworkSupplyDto } from '../dto/v2-stablecoins.dto';
+import { buildMeta } from '../dto/v2-meta.dto';
 import { getBackingConfig } from '../config/stablecoin-backing.config';
 import { V2PositionsService } from './v2-positions.service';
 import { formatUnits, parseAbi } from 'viem';
@@ -130,7 +131,12 @@ export class V2StablecoinsService {
             `Lost: $${lostTotal.toFixed(2)}`,
         );
 
-        return { total_supply_usd, total_debt_usd, stablecoins };
+        return {
+          total_supply_usd,
+          total_debt_usd,
+          stablecoins,
+          meta: buildMeta(positionsResult.warnings),
+        };
       },
       'Failed to fetch v2 stablecoins',
       { logger: this.logger, baseDelay: 8000 },
