@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Chain } from '@types';
+import { V2MetaDto } from './v2-meta.dto';
 
 // --- Collateral ---
 
@@ -210,4 +211,5 @@ export class V2ReserveResponseDto {
   @ApiProperty() operational_holdings: V2OperationalHoldingsDto;
   @ApiProperty() cdp_troves: V2CdpTrovesDto;
   @ApiProperty() positions: V2PositionsDto;
+  @ApiPropertyOptional() meta?: V2MetaDto;
 }

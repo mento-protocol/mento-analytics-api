@@ -7,6 +7,7 @@ import {
   V2CdpTrovesDto,
   V2CdpTroveDto,
 } from '../dto/v2-reserve.dto';
+import { buildMeta } from '../dto/v2-meta.dto';
 import { V2PositionsService, PositionsResult } from './v2-positions.service';
 import { Chain } from '@types';
 
@@ -31,6 +32,7 @@ export class V2ReserveService {
       operational_holdings: this.buildOperationalHoldings(result),
       cdp_troves: this.buildCdpTroves(result),
       positions: result.positions as any,
+      meta: buildMeta(result.warnings),
     };
   }
 

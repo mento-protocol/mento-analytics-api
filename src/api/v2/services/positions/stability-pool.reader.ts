@@ -99,7 +99,8 @@ export class StabilityPoolReader {
         const depositRaw = results[callIdx++];
         const collGainRaw = results[callIdx++];
         if (depositRaw == null || collGainRaw == null) {
-          throw new Error(`Missing stability pool read for ${pool.label} / ${addr.label}`);
+          this.logger.warn(`Multicall returned null for stability pool ${pool.label} / ${addr.label}, skipping`);
+          continue;
         }
 
         const hasDeposit = depositRaw > 0n;

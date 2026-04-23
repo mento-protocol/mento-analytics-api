@@ -14,7 +14,18 @@ export const PRIMITIVE_TTL = {
   POOL_RESERVES: 5 * 60 * 1000, // 5 minutes
   STRUCTURAL: 30 * 60 * 1000, // 30 minutes
   STABLECOIN_LIST: 60 * 60 * 1000, // 1 hour
+  READER_SNAPSHOT: 24 * 60 * 60 * 1000, // 24 hours — long-lived fallback
 } as const;
+
+/** Threshold beyond which cached reader data triggers a staleness warning. */
+export const STALE_WARNING_THRESHOLD_MS = 5 * 60 * 60 * 1000; // 5 hours
+
+/** A cached reader snapshot with its timestamp for staleness tracking. */
+export interface ReaderSnapshot<T> {
+  data: T;
+  /** ISO-8601 timestamp of when this snapshot was captured. */
+  timestamp: string;
+}
 
 /**
  * Key prefix shared by all primitive cache entries.
@@ -122,5 +133,23 @@ export class PrimitiveCacheService {
     const key = primitiveKey('stablecoin-addresses');
     await this.cacheService.set(key, [...addresses], PRIMITIVE_TTL.STABLECOIN_LIST);
     this.logger.debug(`Cached ${addresses.size} stablecoin addresses`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reader snapshot cache (24 hr TTL — fallback for when fresh reads fail)
+  // Key: v2:primitive:reader-snapshot:{reader-name}
+  // ---------------------------------------------------------------------------
+
+  async getReaderSnapshot<T>(readerName: string): Promise<ReaderSnapshot<T> | null> {
+    const key = primitiveKey('reader-snapshot', readerName);
+    const cached = await this.cacheService.get<ReaderSnapshot<T>>(key);
+    return cached ?? null;
+  }
+
+  async setReaderSnapshot<T>(readerName: string, data: T): Promise<void> {
+    const key = primitiveKey('reader-snapshot', readerName);
+    const snapshot: ReaderSnapshot<unknown> = { data, timestamp: new Date().toISOString() };
+    await this.cacheService.set(key, snapshot, PRIMITIVE_TTL.READER_SNAPSHOT);
+    this.logger.debug(`Cached reader snapshot: ${readerName}`);
   }
 }
