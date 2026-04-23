@@ -42,6 +42,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
     label: 'Operational Account',
   },
   {
+    address: '0x13a9803d547332c81ebc6060f739821264dbcf1e',
+    chain: Chain.CELO,
+    label: 'Operational Account',
+  },
+  {
     address: '0x619600F4ec13C38868841cB83100F611eCF94eE8',
     chain: Chain.CELO,
     label: 'Falcon Finance',
@@ -92,6 +97,11 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
   },
   {
     address: '0x6dec25d7be9bf6c6fc302977629f2e801e98611c',
+    chain: Chain.MONAD,
+    label: 'Operational Account',
+  },
+  {
+    address: '0x13a9803d547332c81ebc6060f739821264dbcf1e',
     chain: Chain.MONAD,
     label: 'Operational Account',
   },
