@@ -23,6 +23,7 @@ import { getLocalPinoConfig, getProductionPinoConfig } from './config/logger.con
     CacheModule.register({
       isGlobal: true,
       ttl: CACHE_CONFIG.TTL.DEFAULT,
+      max: 5000,
     }),
     // Rate limiting: 3-tier (10 req/s, 50 req/10s, 100 req/min per IP)
     ThrottlerModule.forRoot([
