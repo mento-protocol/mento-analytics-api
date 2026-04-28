@@ -188,7 +188,7 @@ export class V2PositionsService {
 
     // Enrich USD values for wallet balances, aave, and stability pools
     t = Date.now();
-    const priceMap = await this.buildPriceMap(allPositions);
+    const priceMap = await this.buildPriceMap(allPositions, warnings);
     this.applyPrices(allPositions, priceMap);
     time('USD enrichment', t);
 
@@ -256,7 +256,7 @@ export class V2PositionsService {
    * Collect all unique symbols from every position type and fetch their prices.
    * One CMC/DeFiLlama call per symbol — shared by enrichment and both derivations.
    */
-  private async buildPriceMap(positions: AllPositions): Promise<Map<string, number>> {
+  private async buildPriceMap(positions: AllPositions, warnings: DataWarning[] = []): Promise<Map<string, number>> {
     // Only price symbols that contribute a non-zero amount somewhere — a zero
     // balance multiplied by any price is still zero, and fetching prices for
     // dust or decommissioned tokens is wasted CMC/DeFiLlama calls.
@@ -284,7 +284,14 @@ export class V2PositionsService {
 
     const priceMap = new Map<string, number>();
     for (const sym of symbols) {
-      priceMap.set(sym, await this.getTokenPrice(sym));
+      try {
+        priceMap.set(sym, await this.getTokenPrice(sym));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Pricing failed for ${sym}, defaulting to $0: ${msg}`);
+        priceMap.set(sym, 0);
+        warnings.push({ source: `price:${sym}`, message: `Price unavailable for ${sym} — valued at $0` });
+      }
     }
     return priceMap;
   }
@@ -314,9 +321,10 @@ export class V2PositionsService {
    * Get the USD price of 1 unit of a token. Fetched once and reused across positions.
    */
   private async getTokenPrice(symbol: string): Promise<number> {
-    // Skip unresolvable symbols (raw addresses, UNKNOWN, etc.)
+    // Skip unresolvable symbols (raw addresses, UNKNOWN, etc.) — return 0 instead of crashing
     if (symbol.startsWith('0x') || symbol === 'UNKNOWN' || symbol.length > 10) {
-      throw new Error(`Unresolvable token symbol: ${symbol}`);
+      this.logger.warn(`Unresolvable token symbol: ${symbol} — valued at $0`);
+      return 0;
     }
 
     // Mento stablecoins: fiat conversion (1 USDm ≈ 1 USD, 1 GBPm ≈ 1.34 USD, etc.)

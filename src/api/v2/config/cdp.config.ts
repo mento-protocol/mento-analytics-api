@@ -15,7 +15,7 @@ export interface CdpTroveConfig {
 
 /**
  * Celo mainnet CDP contract addresses (Liquity-fork / Bold Protocol).
- * Source: @mento-protocol/contracts
+ * Source: @mento-protocol/contracts and @mento-protocol/mento-sdk borrow registries.
  */
 export const CDP_CONTRACTS = {
   TROVE_MANAGER: '0xb38aEf2bF4e34B997330D626EBCd7629De3885C9',
@@ -25,6 +25,26 @@ export const CDP_CONTRACTS = {
   ADDRESSES_REGISTRY: '0xB3136DBadB14Ab587FFa91545538126938Fe0C6E',
   STABILITY_POOL_GBPM: '0x06346c0fAB682dBde9f245D2D84677592E8aaa15',
 } as const;
+
+/**
+ * AddressesRegistry per CDP instance — the on-chain entry point for resolving
+ * TroveManager, TroveNFT, StabilityPool, etc. for each debt token.
+ * Source: @mento-protocol/mento-sdk borrowRegistries (v3.2.6).
+ */
+export const CDP_REGISTRIES: Record<string, string> = {
+  GBPm: '0xB3136DBadB14Ab587FFa91545538126938Fe0C6E',
+  CHFm: '0xCa70801D91576d069190d1D4CFDDEbdc237A4537',
+  JPYm: '0x8f99Aac2FE09A1390617D4AcDD1519f775eE931A',
+};
+
+/**
+ * Minimal ABI for the AddressesRegistry contract — resolves per-instance addresses.
+ */
+export const ADDRESSES_REGISTRY_ABI = [
+  { type: 'function', name: 'troveManager', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
+  { type: 'function', name: 'troveNFT', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
+  { type: 'function', name: 'stabilityPool', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
+] as const;
 
 /**
  * Safety buffer (as a percentage) applied to trove debt when computing reserve-held overhead.
@@ -45,13 +65,27 @@ export const CDP_TROVE_OWNERS = [
 
 /**
  * CDP trove configurations.
- * GBPm is minted by depositing USDm as collateral in a Liquity-style trove on Celo.
+ * Each stablecoin is minted by depositing USDm as collateral in a Liquity-style trove on Celo.
  */
 export const CDP_TROVE_CONFIGS: CdpTroveConfig[] = [
   {
     stablecoin: 'GBPm',
     collateralToken: 'USDm',
     contractAddress: CDP_CONTRACTS.TROVE_MANAGER,
+    chain: Chain.CELO,
+    status: 'active',
+  },
+  {
+    stablecoin: 'JPYm',
+    collateralToken: 'USDm',
+    contractAddress: '', // resolved from registry at runtime
+    chain: Chain.CELO,
+    status: 'active',
+  },
+  {
+    stablecoin: 'CHFm',
+    collateralToken: 'USDm',
+    contractAddress: '', // resolved from registry at runtime
     chain: Chain.CELO,
     status: 'active',
   },

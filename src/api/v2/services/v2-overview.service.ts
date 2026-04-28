@@ -6,7 +6,8 @@ import { V2ReserveService } from './v2-reserve.service';
 import { V2PositionsService } from './v2-positions.service';
 import { ChainClientService } from '@common/services/chain-client.service';
 import { ExchangeRatesService } from '@common/services/exchange-rates.service';
-import { CDP_TROVE_CONFIGS, TROVE_MANAGER_ABI } from '../config/cdp.config';
+import { CDP_TROVE_CONFIGS, CDP_REGISTRIES, ADDRESSES_REGISTRY_ABI, TROVE_MANAGER_ABI } from '../config/cdp.config';
+import { getFiatTickerFromSymbol } from '@common/constants';
 import { formatUnits } from 'viem';
 
 @Injectable()
@@ -77,6 +78,36 @@ export class V2OverviewService {
     };
   }
 
+  /** Cache of resolved TroveManager addresses per stablecoin */
+  private resolvedTroveManagers = new Map<string, string>();
+
+  /**
+   * Resolve the TroveManager address for a CDP config — uses the hardcoded
+   * address if present, otherwise resolves from the on-chain registry.
+   */
+  private async resolveTroveManager(cfg: (typeof CDP_TROVE_CONFIGS)[number]): Promise<string> {
+    if (cfg.contractAddress) return cfg.contractAddress;
+
+    const cached = this.resolvedTroveManagers.get(cfg.stablecoin);
+    if (cached) return cached;
+
+    const registryAddress = CDP_REGISTRIES[cfg.stablecoin];
+    if (!registryAddress) {
+      throw new Error(`No CDP registry for ${cfg.stablecoin}`);
+    }
+
+    const address = await this.chainClientService.executeRateLimited<string>(cfg.chain, async (client) => {
+      return (client.readContract as any)({
+        address: registryAddress as `0x${string}`,
+        abi: ADDRESSES_REGISTRY_ABI,
+        functionName: 'troveManager',
+      });
+    });
+
+    this.resolvedTroveManagers.set(cfg.stablecoin, address);
+    return address;
+  }
+
   /**
    * Read system-wide CDP totals from TroveManager.getEntireBranchDebt/Coll.
    * This includes ALL troves (reserve + external) — shows how the stablecoin
@@ -86,7 +117,7 @@ export class V2OverviewService {
     const results = [];
 
     for (const cfg of CDP_TROVE_CONFIGS) {
-      if (cfg.status !== 'active' || !cfg.contractAddress) {
+      if (cfg.status !== 'active') {
         results.push({
           stablecoin: cfg.stablecoin,
           collateral_token: cfg.collateralToken,
@@ -101,6 +132,8 @@ export class V2OverviewService {
         continue;
       }
 
+      const troveManagerAddress = await this.resolveTroveManager(cfg);
+
       const { totalDebt, totalColl } = await this.chainClientService.executeRateLimited<{
         totalDebt: number;
         totalColl: number;
@@ -108,12 +141,12 @@ export class V2OverviewService {
         const readContract = client.readContract as any;
         const [debtRaw, collRaw] = await Promise.all([
           readContract({
-            address: cfg.contractAddress as `0x${string}`,
+            address: troveManagerAddress as `0x${string}`,
             abi: TROVE_MANAGER_ABI,
             functionName: 'getEntireBranchDebt',
           }),
           readContract({
-            address: cfg.contractAddress as `0x${string}`,
+            address: troveManagerAddress as `0x${string}`,
             abi: TROVE_MANAGER_ABI,
             functionName: 'getEntireBranchColl',
           }),
@@ -124,13 +157,14 @@ export class V2OverviewService {
         };
       });
 
-      // USDm collateral = 1:1 USD, GBPm debt needs GBP→USD
+      // USDm collateral = 1:1 USD; debt needs fiat→USD conversion
+      const fiatTicker = getFiatTickerFromSymbol(cfg.stablecoin);
       const collateralUsd = totalColl; // USDm ≈ USD
-      const debtUsd = await this.exchangeRatesService.convert(totalDebt, 'GBP', 'USD');
+      const debtUsd = await this.exchangeRatesService.convert(totalDebt, fiatTicker, 'USD');
       const ratio = debtUsd > 0 ? collateralUsd / debtUsd : 0;
 
       this.logger.log(
-        `CDP system totals: ${totalColl.toFixed(0)} USDm coll, ${totalDebt.toFixed(0)} GBPm debt, ratio ${ratio.toFixed(2)}`,
+        `CDP system totals [${cfg.stablecoin}]: ${totalColl.toFixed(0)} USDm coll, ${totalDebt.toFixed(0)} ${cfg.stablecoin} debt, ratio ${ratio.toFixed(2)}`,
       );
 
       results.push({

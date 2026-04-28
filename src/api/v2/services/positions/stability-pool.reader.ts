@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MulticallBatchService } from '../multicall-batch.service';
 import { getReserveAddressesByChain } from '../../config/reserve-addresses.config';
+import { CDP_REGISTRIES, ADDRESSES_REGISTRY_ABI } from '../../config/cdp.config';
 import { Chain } from '@types';
 import { formatUnits } from 'viem';
 
@@ -38,30 +39,69 @@ const STABILITY_POOL_ABI = [
 ] as const;
 
 /**
- * Stability pool configurations on Celo.
- * Each pool accepts deposits of a specific stablecoin and distributes
- * collateral from liquidated troves.
+ * Static stability pool configurations (non-CDP or legacy pools).
  */
-const STABILITY_POOLS = [
+const STATIC_STABILITY_POOLS = [
   {
     address: '0x2d5d7E2767c5493610caE84E0AB7F9D2CCE8C1A5',
     label: 'StabilityPool (USDm)',
     depositToken: 'USDm',
     collateralToken: 'CELO',
   },
-  {
-    address: '0x06346c0fAB682dBde9f245D2D84677592E8aaa15',
-    label: 'StabilityPool (GBPm)',
-    depositToken: 'GBPm',
-    collateralToken: 'USDm',
-  },
 ] as const;
+
+interface StabilityPoolConfig {
+  address: string;
+  label: string;
+  depositToken: string;
+  collateralToken: string;
+}
 
 @Injectable()
 export class StabilityPoolReader {
   private readonly logger = new Logger(StabilityPoolReader.name);
+  private resolvedPools: StabilityPoolConfig[] | null = null;
 
   constructor(private readonly multicallBatchService: MulticallBatchService) {}
+
+  /**
+   * Resolve stability pool addresses from CDP registries, combined with static pools.
+   * Cached after first call.
+   */
+  private async getStabilityPools(chain: Chain): Promise<StabilityPoolConfig[]> {
+    if (this.resolvedPools) return this.resolvedPools;
+
+    const pools: StabilityPoolConfig[] = [...STATIC_STABILITY_POOLS];
+
+    // Resolve stability pool addresses from CDP registries
+    const registryEntries = Object.entries(CDP_REGISTRIES);
+    if (registryEntries.length > 0) {
+      const calls = registryEntries.map(([, registryAddress]) => ({
+        address: registryAddress,
+        abi: [...ADDRESSES_REGISTRY_ABI],
+        functionName: 'stabilityPool',
+      }));
+
+      const results = await this.multicallBatchService.batchRead<string>(chain, calls);
+
+      for (let i = 0; i < registryEntries.length; i++) {
+        const [symbol] = registryEntries[i];
+        const poolAddress = results[i];
+        if (poolAddress) {
+          pools.push({
+            address: poolAddress,
+            label: `StabilityPool (${symbol})`,
+            depositToken: symbol,
+            collateralToken: 'USDm',
+          });
+          this.logger.log(`Resolved ${symbol} StabilityPool: ${poolAddress}`);
+        }
+      }
+    }
+
+    this.resolvedPools = pools;
+    return pools;
+  }
 
   /**
    * Read stability pool deposits and collateral gains for all reserve addresses on Celo.
@@ -71,8 +111,10 @@ export class StabilityPoolReader {
     const addresses = getReserveAddressesByChain(chain);
     if (addresses.length === 0) return [];
 
+    const stabilityPools = await this.getStabilityPools(chain);
+
     // Build multicall: for each (pool, address), read deposit + collateral gain
-    const calls = STABILITY_POOLS.flatMap((pool) =>
+    const calls = stabilityPools.flatMap((pool) =>
       addresses.flatMap((addr) => [
         {
           address: pool.address,
@@ -94,7 +136,7 @@ export class StabilityPoolReader {
     const positions: StabilityPoolPosition[] = [];
     let callIdx = 0;
 
-    for (const pool of STABILITY_POOLS) {
+    for (const pool of stabilityPools) {
       for (const addr of addresses) {
         const depositRaw = results[callIdx++];
         const collGainRaw = results[callIdx++];

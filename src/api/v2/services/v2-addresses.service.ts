@@ -1,41 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { RESERVE_ADDRESS_CONFIGS } from '@api/reserve/config/addresses.config';
-import { CDP_TROVE_CONFIGS } from '../config/cdp.config';
+import { getReserveAddressesByChain } from '../config/reserve-addresses.config';
+import { CDP_TROVE_CONFIGS, CDP_REGISTRIES } from '../config/cdp.config';
 import { V2AddressesResponseDto, V2NetworkAddressesDto, V2AddressCategoryDto } from '../dto/v2-addresses.dto';
 import { Chain } from '@types';
 
 @Injectable()
 export class V2AddressesService {
   getAddresses(): V2AddressesResponseDto {
-    // Group reserve addresses by chain, then by category
     const networkMap = new Map<Chain, Map<string, V2AddressCategoryDto>>();
+    const chainOrder = [Chain.CELO, Chain.ETHEREUM, Chain.MONAD];
 
-    for (const addr of RESERVE_ADDRESS_CONFIGS) {
-      if (!networkMap.has(addr.chain)) {
-        networkMap.set(addr.chain, new Map());
-      }
+    for (const chain of chainOrder) {
+      const addresses = getReserveAddressesByChain(chain);
+      if (addresses.length === 0) continue;
 
-      const categoryMap = networkMap.get(addr.chain)!;
-      const categoryKey = addr.category;
-
-      if (!categoryMap.has(categoryKey)) {
-        categoryMap.set(categoryKey, { category: categoryKey, addresses: [] });
-      }
+      const categoryMap = new Map<string, V2AddressCategoryDto>();
+      const categoryKey = 'Mento Reserve';
+      categoryMap.set(categoryKey, { category: categoryKey, addresses: [] });
 
       const group = categoryMap.get(categoryKey)!;
-      // Deduplicate by address
-      if (!group.addresses.some((a) => a.address === addr.address)) {
-        group.addresses.push({
-          address: addr.address,
-          label: addr.label ?? addr.address,
-          description: addr.description,
-        });
+      for (const addr of addresses) {
+        if (!group.addresses.some((a) => a.address.toLowerCase() === addr.address.toLowerCase())) {
+          group.addresses.push({ address: addr.address, label: addr.label });
+        }
       }
+
+      networkMap.set(chain, categoryMap);
     }
 
     // Add CDP contract addresses
     for (const cdp of CDP_TROVE_CONFIGS) {
-      if (!cdp.contractAddress) continue;
+      if (cdp.status !== 'active') continue;
+
+      const contractAddress = cdp.contractAddress || CDP_REGISTRIES[cdp.stablecoin];
+      if (!contractAddress) continue;
 
       if (!networkMap.has(cdp.chain)) {
         networkMap.set(cdp.chain, new Map());
@@ -48,18 +46,21 @@ export class V2AddressesService {
         categoryMap.set(categoryKey, { category: categoryKey, addresses: [] });
       }
 
+      const label = cdp.contractAddress ? `${cdp.stablecoin} TroveManager` : `${cdp.stablecoin} AddressesRegistry`;
+
       categoryMap.get(categoryKey)!.addresses.push({
-        address: cdp.contractAddress,
-        label: `${cdp.stablecoin} CDP`,
-        description: `CDP trove for minting ${cdp.stablecoin} with ${cdp.collateralToken} collateral`,
+        address: contractAddress,
+        label,
+        description: `CDP system for minting ${cdp.stablecoin} with ${cdp.collateralToken} collateral`,
       });
     }
 
-    // Convert to response shape
-    const networks: V2NetworkAddressesDto[] = Array.from(networkMap.entries()).map(([chain, categoryMap]) => ({
-      chain,
-      categories: Array.from(categoryMap.values()),
-    }));
+    const networks: V2NetworkAddressesDto[] = chainOrder
+      .filter((c) => networkMap.has(c))
+      .map((chain) => ({
+        chain,
+        categories: Array.from(networkMap.get(chain)!.values()),
+      }));
 
     return { networks };
   }
