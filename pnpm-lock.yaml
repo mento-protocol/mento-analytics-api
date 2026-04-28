@@ -28,8 +28,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0
       '@mento-protocol/mento-sdk':
-        specifier: 3.2.5
-        version: 3.2.5(typescript@5.7.2)
+        specifier: 3.2.6
+        version: 3.2.6(typescript@5.7.2)
       '@nestjs/cache-manager':
         specifier: ^2.3.0
         version: 2.3.0(@nestjs/common@10.4.20(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.4.11)(cache-manager@5.7.6)(rxjs@7.8.1)
@@ -504,8 +504,8 @@ packages:
   '@mento-protocol/contracts@0.4.0':
     resolution: {integrity: sha512-hzQWQBJeg1FflfiynBc2ma0QshaHzLFAn6fyqIBeSWYTqeBEQBgYs76zQ/qX2Eamo/Coa/5N3WMoUXnVGY/2rw==}
 
-  '@mento-protocol/mento-sdk@3.2.5':
-    resolution: {integrity: sha512-ckScM4iHuqb6EG8eOR/FjUR896z4GOqr2Z6EjRi5PBIpeG24Typz4rminMlMOcSWxybxjCuczrYnauO0F2TDMw==}
+  '@mento-protocol/mento-sdk@3.2.6':
+    resolution: {integrity: sha512-p5/qRTb3wZvoGBUxCCIVciyTAiDITeijubimpv/6AFfG6nJ/fMw0WzUzwooypCiNlh/RhVW8b5pd9QP7iU2N3w==}
     engines: {node: '>=18', pnpm: '>=9'}
 
   '@microsoft/tsdoc@0.15.1':
@@ -4119,7 +4119,7 @@ snapshots:
 
   '@mento-protocol/contracts@0.4.0': {}
 
-  '@mento-protocol/mento-sdk@3.2.5(typescript@5.7.2)':
+  '@mento-protocol/mento-sdk@3.2.6(typescript@5.7.2)':
     dependencies:
       viem: 2.24.2(typescript@5.7.2)
     transitivePeerDependencies:

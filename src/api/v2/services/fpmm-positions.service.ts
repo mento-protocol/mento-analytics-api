@@ -295,23 +295,31 @@ export class FpmmPositionsService {
   }
 
   /**
-   * Build a map of stablecoin contract addresses → symbols from the Mento SDK.
-   * Cached after first call.
+   * Build a map of stablecoin contract addresses → symbols from the Mento SDK
+   * across all initialized chains. Cached after first call.
    */
   private async getStablecoinAddresses(): Promise<Map<string, string>> {
     if (this.stablecoinAddresses) return this.stablecoinAddresses;
 
     const map = new Map<string, string>();
-    try {
-      const mento = this.mentoService.getMentoInstance();
-      const tokens = await mento.tokens.getStableTokens();
-      for (const t of tokens) {
-        map.set(t.address.toLowerCase(), t.symbol);
+    for (const chain of this.mentoService.getInitializedChains()) {
+      try {
+        const mento = this.mentoService.getMentoInstanceForChain(chain);
+        const tokens = await mento.tokens.getStableTokens();
+        for (const t of tokens) {
+          map.set(t.address.toLowerCase(), t.symbol);
+        }
+        this.logger.log(`Loaded ${tokens.length} stablecoin addresses from SDK for ${chain}`);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to load stablecoin addresses for ${chain}: ${msg}`);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to load stablecoin addresses from SDK: ${message}`);
     }
+
+    if (map.size === 0) {
+      throw new Error('Failed to load stablecoin addresses from SDK on any chain');
+    }
+
     this.stablecoinAddresses = map;
     return map;
   }

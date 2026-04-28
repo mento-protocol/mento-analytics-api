@@ -147,18 +147,25 @@ export class WalletBalanceReader {
     if (this.mentoStableMap) return this.mentoStableMap;
 
     const map = new Map<string, { symbol: string; decimals: number }>();
-    try {
-      const mento = this.mentoService.getMentoInstance();
-      const tokens = await mento.tokens.getStableTokens();
-      for (const t of tokens) {
-        map.set(t.address.toLowerCase(), { symbol: t.symbol, decimals: t.decimals });
+    for (const chain of this.mentoService.getInitializedChains()) {
+      try {
+        const mento = this.mentoService.getMentoInstanceForChain(chain);
+        const tokens = await mento.tokens.getStableTokens();
+        for (const t of tokens) {
+          map.set(t.address.toLowerCase(), { symbol: t.symbol, decimals: t.decimals });
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to load stablecoin addresses for ${chain}: ${msg}`);
       }
-      // Keep the legacy address-only cache in sync for other readers still using it.
-      await this.primitiveCacheService.setStablecoinAddresses(new Set(map.keys()));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to load stablecoin addresses from SDK: ${message}`);
     }
+
+    if (map.size === 0) {
+      throw new Error('Failed to load stablecoin addresses from SDK on any chain');
+    }
+
+    // Keep the legacy address-only cache in sync for other readers still using it.
+    await this.primitiveCacheService.setStablecoinAddresses(new Set(map.keys()));
     this.mentoStableMap = map;
     return map;
   }

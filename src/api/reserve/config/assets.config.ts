@@ -162,6 +162,18 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 18,
       address: '0x39bb4E0a204412bB98e821d25e7d955e69d40Fd1',
     },
+    JPYm: {
+      symbol: 'JPYm',
+      name: 'Mento Japanese Yen',
+      decimals: 18,
+      address: '0x22f6A6752800eAB67b84748FeFc3cC658384aF72',
+    },
+    CHFm: {
+      symbol: 'CHFm',
+      name: 'Mento Swiss Franc',
+      decimals: 18,
+      address: '0xF64e91fFEf7ef43aA314F0Bc2AC39f770797990C',
+    },
     USDC: {
       symbol: 'USDC',
       name: 'USD Coin',

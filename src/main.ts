@@ -20,6 +20,7 @@ async function bootstrap() {
     'https://mento.org',
     'https://www.mento.org',
     'https://staging.mento.org',
+    'https://reserve.mento.org',
     'https://mento-a4a24d.webflow.io', // Allow requests from the webflow staging URL
     'https://mento-analytics-api-12390052758.us-central1.run.app', // Allow requests from the swagger UI under /docs
   ];

@@ -70,8 +70,8 @@ export const STABLECOIN_BACKING_CONFIGS: StablecoinBackingConfig[] = [
   { symbol: 'GHSm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'NGNm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'ZARm', backing: 'reserve', networks: [Chain.CELO] },
-  { symbol: 'JPYm', backing: 'reserve', networks: [Chain.CELO] },
-  { symbol: 'CHFm', backing: 'reserve', networks: [Chain.CELO] },
+  { symbol: 'JPYm', backing: 'cdp', networks: [Chain.CELO], collateralToken: 'USDm' },
+  { symbol: 'CHFm', backing: 'cdp', networks: [Chain.CELO], collateralToken: 'USDm' },
   { symbol: 'CADm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'AUDm', backing: 'reserve', networks: [Chain.CELO] },
   {
