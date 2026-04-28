@@ -13,6 +13,7 @@ export class V2CollateralSourceDto {
   @ApiProperty() identifier: string;
   @ApiProperty() balance: string;
   @ApiProperty() usd_value: number;
+  @ApiProperty({ enum: ['hot', 'cold', 'ops'] }) custodian_type: string;
 }
 
 export class V2CollateralAssetDto {
@@ -24,8 +25,15 @@ export class V2CollateralAssetDto {
   @ApiProperty({ type: [V2CollateralSourceDto] }) sources: V2CollateralSourceDto[];
 }
 
+export class V2CustodianBreakdownDto {
+  @ApiProperty() hot_usd: number;
+  @ApiProperty() cold_usd: number;
+  @ApiProperty() ops_usd: number;
+}
+
 export class V2CollateralDto {
   @ApiProperty() total_usd: number;
+  @ApiProperty() by_custodian: V2CustodianBreakdownDto;
   @ApiProperty({ type: [V2CollateralAssetDto] }) assets: V2CollateralAssetDto[];
 }
 
