@@ -126,34 +126,9 @@ export const RESERVE_ADDRESSES: ReserveAddress[] = [
   },
 ];
 
-/**
- * Precomputed map of (chain + address lowercase) → disambiguated label.
- * Only adds a suffix when multiple addresses share the same label on the same chain.
- */
-const disambiguatedLabels: Map<string, string> = (() => {
-  // Count how many addresses share each (chain, label) pair
-  const labelCounts = new Map<string, number>();
-  for (const a of RESERVE_ADDRESSES) {
-    const key = `${a.chain}:${a.label}`;
-    labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
-  }
-
-  const map = new Map<string, string>();
-  for (const a of RESERVE_ADDRESSES) {
-    const key = `${a.chain}:${a.label}`;
-    const isDuplicate = (labelCounts.get(key) ?? 0) > 1;
-    const label = isDuplicate ? `${a.label} (${a.address.slice(0, 6)})` : a.label;
-    map.set(`${a.chain}:${a.address.toLowerCase()}`, label);
-  }
-  return map;
-})();
-
-/** Get all reserve addresses for a specific chain, with disambiguated labels */
+/** Get all reserve addresses for a specific chain */
 export function getReserveAddressesByChain(chain: Chain): ReserveAddress[] {
-  return RESERVE_ADDRESSES.filter((a) => a.chain === chain).map((a) => ({
-    ...a,
-    label: disambiguatedLabels.get(`${a.chain}:${a.address.toLowerCase()}`) ?? a.label,
-  }));
+  return RESERVE_ADDRESSES.filter((a) => a.chain === chain);
 }
 
 /** Check if an address is a reserve address (case-insensitive) on any chain */
@@ -162,16 +137,10 @@ export function isReserveAddress(address: string): boolean {
   return RESERVE_ADDRESSES.some((a) => a.address.toLowerCase() === lower);
 }
 
-/** Get the label for a reserve address (case-insensitive), or null if not found.
- *  If the address exists on multiple chains, returns the first match with disambiguation. */
+/** Get the label for a reserve address (case-insensitive), or null if not found. */
 export function getReserveAddressLabel(address: string): string | null {
   const lower = address.toLowerCase();
-  for (const a of RESERVE_ADDRESSES) {
-    if (a.address.toLowerCase() === lower) {
-      return disambiguatedLabels.get(`${a.chain}:${lower}`) ?? a.label;
-    }
-  }
-  return null;
+  return RESERVE_ADDRESSES.find((a) => a.address.toLowerCase() === lower)?.label ?? null;
 }
 
 /** Get the custodian type for a reserve address (case-insensitive). */
