@@ -109,8 +109,8 @@ const POOL_ABI = [
 @Injectable()
 export class FpmmPositionsService {
   private readonly logger = new Logger(FpmmPositionsService.name);
-  /** Cache of known stablecoin addresses (lowercase) → symbol */
-  private stablecoinAddresses: Map<string, string> | null = null;
+  /** Cache of known stablecoin addresses (lowercase) → { symbol, decimals } */
+  private stablecoinAddresses: Map<string, { symbol: string; decimals: number }> | null = null;
 
   constructor(
     private readonly chainClientService: ChainClientService,
@@ -201,7 +201,7 @@ export class FpmmPositionsService {
     holders: { address: string; label: string }[],
     isStrategyRegistered: boolean,
     isToken0Debt: boolean | undefined,
-    stableMap: Map<string, string>,
+    stableMap: Map<string, { symbol: string; decimals: number }>,
     chain: Chain,
   ): Promise<FpmmPosition[]> {
     // Read pool state in parallel
@@ -232,9 +232,10 @@ export class FpmmPositionsService {
 
     const t0Symbol = this.resolveSymbol(token0, chain, stableMap);
     const t1Symbol = this.resolveSymbol(token1, chain, stableMap);
-    // FPMM reserves are stored in 18-decimal fixed-point regardless of underlying token decimals
-    const r0 = Number(formatUnits(reserves[0], 18));
-    const r1 = Number(formatUnits(reserves[1], 18));
+    const t0Decimals = this.resolveDecimals(token0, chain, stableMap);
+    const t1Decimals = this.resolveDecimals(token1, chain, stableMap);
+    const r0 = Number(formatUnits(reserves[0], t0Decimals));
+    const r1 = Number(formatUnits(reserves[1], t1Decimals));
 
     // Check each holder for LP tokens
     const positions: FpmmPosition[] = [];
@@ -280,10 +281,14 @@ export class FpmmPositionsService {
    * then falls back to ASSETS_CONFIGS for non-stable tokens (USDC, AUSD, ...).
    * Final fallback is the truncated address.
    */
-  private resolveSymbol(address: string, chain: Chain, stableMap: Map<string, string>): string {
+  private resolveSymbol(
+    address: string,
+    chain: Chain,
+    stableMap: Map<string, { symbol: string; decimals: number }>,
+  ): string {
     const lower = address.toLowerCase();
     const stable = stableMap.get(lower);
-    if (stable) return stable;
+    if (stable) return stable.symbol;
 
     const chainAssets = ASSETS_CONFIGS[chain];
     if (chainAssets) {
@@ -295,19 +300,41 @@ export class FpmmPositionsService {
   }
 
   /**
-   * Build a map of stablecoin contract addresses → symbols from the Mento SDK
+   * Resolve the number of decimals for a token address.
+   * Checks stableMap first, then ASSETS_CONFIGS, defaults to 18.
+   */
+  private resolveDecimals(
+    address: string,
+    chain: Chain,
+    stableMap: Map<string, { symbol: string; decimals: number }>,
+  ): number {
+    const lower = address.toLowerCase();
+    const stable = stableMap.get(lower);
+    if (stable) return stable.decimals;
+
+    const chainAssets = ASSETS_CONFIGS[chain];
+    if (chainAssets) {
+      for (const asset of Object.values(chainAssets)) {
+        if (asset.address?.toLowerCase() === lower) return asset.decimals;
+      }
+    }
+    return 18;
+  }
+
+  /**
+   * Build a map of stablecoin contract addresses → { symbol, decimals } from the Mento SDK
    * across all initialized chains. Cached after first call.
    */
-  private async getStablecoinAddresses(): Promise<Map<string, string>> {
+  private async getStablecoinAddresses(): Promise<Map<string, { symbol: string; decimals: number }>> {
     if (this.stablecoinAddresses) return this.stablecoinAddresses;
 
-    const map = new Map<string, string>();
+    const map = new Map<string, { symbol: string; decimals: number }>();
     for (const chain of this.mentoService.getInitializedChains()) {
       try {
         const mento = this.mentoService.getMentoInstanceForChain(chain);
         const tokens = await mento.tokens.getStableTokens();
         for (const t of tokens) {
-          map.set(t.address.toLowerCase(), t.symbol);
+          map.set(t.address.toLowerCase(), { symbol: t.symbol, decimals: t.decimals });
         }
         this.logger.log(`Loaded ${tokens.length} stablecoin addresses from SDK for ${chain}`);
       } catch (error) {
