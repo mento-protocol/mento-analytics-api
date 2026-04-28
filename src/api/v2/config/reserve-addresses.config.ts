@@ -122,8 +122,8 @@ const disambiguatedLabels: Map<string, string> = (() => {
   const map = new Map<string, string>();
   for (const a of RESERVE_ADDRESSES) {
     const key = `${a.chain}:${a.label}`;
-    const label =
-      (labelCounts.get(key) ?? 0) > 1 ? `${a.label} (${a.address.slice(0, 6)})` : a.label;
+    const isDuplicate = (labelCounts.get(key) ?? 0) > 1;
+    const label = isDuplicate ? `${a.label} (${a.address.slice(0, 6)})` : a.label;
     map.set(`${a.chain}:${a.address.toLowerCase()}`, label);
   }
   return map;

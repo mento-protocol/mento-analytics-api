@@ -46,9 +46,7 @@ export class V2AddressesService {
         categoryMap.set(categoryKey, { category: categoryKey, addresses: [] });
       }
 
-      const label = cdp.contractAddress
-        ? `${cdp.stablecoin} TroveManager`
-        : `${cdp.stablecoin} AddressesRegistry`;
+      const label = cdp.contractAddress ? `${cdp.stablecoin} TroveManager` : `${cdp.stablecoin} AddressesRegistry`;
 
       categoryMap.get(categoryKey)!.addresses.push({
         address: contractAddress,
