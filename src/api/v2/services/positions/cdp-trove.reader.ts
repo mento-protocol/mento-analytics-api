@@ -110,7 +110,9 @@ export class CdpTroveReader {
       }
     }
 
-    this.logger.log(`CDP trove positions: ${allPositions.length} reserve-owned troves across ${activeConfigs.length} CDPs`);
+    this.logger.log(
+      `CDP trove positions: ${allPositions.length} reserve-owned troves across ${activeConfigs.length} CDPs`,
+    );
     return allPositions;
   }
 
