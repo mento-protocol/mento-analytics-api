@@ -21,7 +21,11 @@ export class V2AddressesService {
       const group = categoryMap.get(categoryKey)!;
       for (const addr of addresses) {
         if (!group.addresses.some((a) => a.address.toLowerCase() === addr.address.toLowerCase())) {
-          group.addresses.push({ address: addr.address, label: addr.label });
+          group.addresses.push({
+            address: addr.address,
+            label: addr.label,
+            custodian_type: addr.custodianType,
+          });
         }
       }
 
