@@ -70,8 +70,36 @@ export const STABLECOIN_BACKING_CONFIGS: StablecoinBackingConfig[] = [
   { symbol: 'GHSm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'NGNm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'ZARm', backing: 'reserve', networks: [Chain.CELO] },
-  { symbol: 'JPYm', backing: 'cdp', networks: [Chain.CELO], collateralToken: 'USDm' },
-  { symbol: 'CHFm', backing: 'cdp', networks: [Chain.CELO], collateralToken: 'USDm' },
+  {
+    symbol: 'JPYm',
+    backing: 'cdp',
+    networks: [Chain.CELO, Chain.MONAD],
+    collateralToken: 'USDm',
+    deployments: [
+      {
+        chain: Chain.MONAD,
+        address: '0x22f6A6752800eAB67b84748FeFc3cC658384aF72',
+        decimals: 18,
+        bridge: 'lockbox',
+        celoLockboxAddress: '0x7431419FE761e7da37587245c55a35E5a356c91B',
+      },
+    ],
+  },
+  {
+    symbol: 'CHFm',
+    backing: 'cdp',
+    networks: [Chain.CELO, Chain.MONAD],
+    collateralToken: 'USDm',
+    deployments: [
+      {
+        chain: Chain.MONAD,
+        address: '0xF64e91fFEf7ef43aA314F0Bc2AC39f770797990C',
+        decimals: 18,
+        bridge: 'lockbox',
+        celoLockboxAddress: '0xbbFBE2791722E93f27c5cE80e3725c8DD8d09697',
+      },
+    ],
+  },
   { symbol: 'CADm', backing: 'reserve', networks: [Chain.CELO] },
   { symbol: 'AUDm', backing: 'reserve', networks: [Chain.CELO] },
   {
