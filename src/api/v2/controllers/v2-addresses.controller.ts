@@ -14,7 +14,7 @@ export class V2AddressesController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get reserve addresses grouped by network and category' })
+  @ApiOperation({ summary: 'Get reserve addresses with chain and custodian metadata' })
   @ApiResponse({ status: 200, type: V2AddressesResponseDto })
   async getAddresses(): Promise<V2AddressesResponseDto> {
     return this.cacheWarmerService.getOrRevalidate<V2AddressesResponseDto>(V2_CACHE_KEYS.ADDRESSES, () =>

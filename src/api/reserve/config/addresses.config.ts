@@ -82,14 +82,6 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     description: 'Reserve assets held in the Aave protocol',
   },
   {
-    address: '0x619600F4ec13C38868841cB83100F611eCF94eE8',
-    chain: Chain.CELO,
-    category: AddressCategory.MENTO_RESERVE,
-    label: 'Falcon Finance Custodied Funds',
-    assets: ['CELO'],
-    description: 'Reserve assets custodied by Falcon Finance',
-  },
-  {
     address: '0xaa8299fc6a685b5f9ce9bda8d0b3ea3d54731976',
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,

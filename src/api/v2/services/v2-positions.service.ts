@@ -12,6 +12,7 @@ import { FpmmPositionsService, FpmmPosition } from './fpmm-positions.service';
 import { PrimitiveCacheService, STALE_WARNING_THRESHOLD_MS } from './primitive-cache.service';
 import { DataWarning } from '../dto/v2-meta.dto';
 import { getFiatTickerFromSymbol } from '@common/constants';
+import { getReserveAddressCustodianType } from '../config/reserve-addresses.config';
 import { Chain } from '@types';
 
 // --- Aggregated position types for the orchestrator output ---
@@ -33,6 +34,7 @@ export interface CollateralSource {
   identifier: string;
   balance: string;
   usd_value: number;
+  custodian_type: string;
 }
 
 export interface CollateralAssetSummary {
@@ -44,8 +46,15 @@ export interface CollateralAssetSummary {
   sources: CollateralSource[];
 }
 
+export interface CustodianBreakdown {
+  hot_usd: number;
+  cold_usd: number;
+  ops_usd: number;
+}
+
 export interface CollateralSummary {
   total_usd: number;
+  by_custodian: CustodianBreakdown;
   assets: CollateralAssetSummary[];
 }
 
@@ -430,6 +439,7 @@ export class V2PositionsService {
           identifier: p.address,
           balance: p.balance,
           usd_value: p.usd_value,
+          custodian_type: getReserveAddressCustodianType(p.address) ?? 'ops',
         },
         p.usd_value,
       );
@@ -448,6 +458,7 @@ export class V2PositionsService {
           identifier: p.address,
           balance: p.balance,
           usd_value: p.usd_value,
+          custodian_type: getReserveAddressCustodianType(p.address) ?? 'ops',
         },
         p.usd_value,
       );
@@ -457,6 +468,7 @@ export class V2PositionsService {
     for (const p of positions.univ3_positions) {
       const poolLabel = `UniV3 ${p.token0.symbol}/${p.token1.symbol} — ${p.owner_label}`;
       const poolId = `${p.pool_address}#${p.position_id}`;
+      const ct = getReserveAddressCustodianType(p.owner) ?? 'ops';
       const amount0 = Number(p.token0.amount);
       const amount1 = Number(p.token1.amount);
       if (amount0 > 0) {
@@ -467,6 +479,7 @@ export class V2PositionsService {
           identifier: poolId,
           balance: p.token0.amount,
           usd_value: usd0,
+          custodian_type: ct,
         });
       }
       if (amount1 > 0) {
@@ -477,6 +490,7 @@ export class V2PositionsService {
           identifier: poolId,
           balance: p.token1.amount,
           usd_value: usd1,
+          custodian_type: ct,
         });
       }
     }
@@ -490,6 +504,7 @@ export class V2PositionsService {
         identifier: p.pool_address,
         balance: p.collateral_token.amount.toString(),
         usd_value: usd,
+        custodian_type: getReserveAddressCustodianType(p.lp_holder) ?? 'ops',
       });
     }
 
@@ -507,6 +522,7 @@ export class V2PositionsService {
           identifier: `${p.pool_address}:${p.depositor}`,
           balance: p.collateral_gained,
           usd_value: p.collateral_gained_usd,
+          custodian_type: getReserveAddressCustodianType(p.depositor) ?? 'ops',
         },
         p.collateral_gained_usd,
       );
@@ -515,6 +531,16 @@ export class V2PositionsService {
     // Sort buckets by USD, sort each bucket's sources by USD, compute percentages
     const buckets = Array.from(byKey.values()).sort((a, b) => b.usdValue - a.usdValue);
     const totalUsd = buckets.reduce((sum, a) => sum + a.usdValue, 0);
+
+    // Compute custodian breakdown from all sources
+    const byCustodian: CustodianBreakdown = { hot_usd: 0, cold_usd: 0, ops_usd: 0 };
+    for (const b of buckets) {
+      for (const s of b.sources) {
+        if (s.custodian_type === 'hot') byCustodian.hot_usd += s.usd_value;
+        else if (s.custodian_type === 'cold') byCustodian.cold_usd += s.usd_value;
+        else byCustodian.ops_usd += s.usd_value;
+      }
+    }
 
     const assets: CollateralAssetSummary[] = buckets.map((b) => ({
       symbol: b.symbol,
@@ -525,7 +551,7 @@ export class V2PositionsService {
       sources: [...b.sources].sort((x, y) => y.usd_value - x.usd_value),
     }));
 
-    return { total_usd: totalUsd, assets };
+    return { total_usd: totalUsd, by_custodian: byCustodian, assets };
   }
 
   /**
