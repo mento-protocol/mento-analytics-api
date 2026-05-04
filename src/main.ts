@@ -42,10 +42,7 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      if (
-        allowedOrigins.includes(origin) ||
-        allowedOriginPatterns.some((pattern) => pattern.test(origin))
-      ) {
+      if (allowedOrigins.includes(origin) || allowedOriginPatterns.some((pattern) => pattern.test(origin))) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS policy`), false);
