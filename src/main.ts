@@ -27,7 +27,7 @@ async function bootstrap() {
 
   // Dynamic patterns for preview/staging deployments
   const allowedOriginPatterns = [
-    /^https:\/\/.*\.vercel\.app$/, // Vercel preview deployments
+    /^https:\/\/.*-mentolabs\.vercel\.app$/, // Vercel preview deployments (MentoLabs org)
   ];
 
   // Add localhost for development if NODE_ENV is development
