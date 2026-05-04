@@ -25,6 +25,11 @@ async function bootstrap() {
     'https://mento-analytics-api-12390052758.us-central1.run.app', // Allow requests from the swagger UI under /docs
   ];
 
+  // Dynamic patterns for preview/staging deployments
+  const allowedOriginPatterns = [
+    /^https:\/\/.*\.vercel\.app$/, // Vercel preview deployments
+  ];
+
   // Add localhost for development if NODE_ENV is development
   if (process.env.NODE_ENV === 'development') {
     allowedOrigins.push(`http://localhost:${process.env.PORT || 8080}`);
@@ -37,7 +42,10 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        allowedOriginPatterns.some((pattern) => pattern.test(origin))
+      ) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS policy`), false);
