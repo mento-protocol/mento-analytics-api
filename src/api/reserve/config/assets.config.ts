@@ -135,6 +135,12 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 6,
       address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     },
+    AUSD: {
+      symbol: 'AUSD',
+      name: 'Agora USD',
+      decimals: 6,
+      address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
+    },
   },
   [Chain.BITCOIN]: {
     BTC: {
