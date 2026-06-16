@@ -118,6 +118,13 @@ export class ExchangeRatesService {
    * Get exchange rate for a specific currency
    */
   async getRate(currency: string): Promise<number> {
+    if (!currency) {
+      const error = new Error(`Invalid currency for rate lookup: ${currency}`);
+      this.logger.error(error.message);
+      Sentry.captureException(error, { level: 'error' });
+      throw error;
+    }
+
     const rates = await withRetry(() => this.fetchRates(), 'Failed to fetch exchange rates', {
       ...RETRY_CONFIGS.EXTERNAL_API,
       logger: this.logger,
@@ -138,6 +145,13 @@ export class ExchangeRatesService {
    * Convert amount from one currency to another via USD
    */
   async convert(amount: number, from: string, to: string): Promise<number> {
+    if (!from || !to) {
+      const error = new Error(`Invalid currency for conversion: from=${from}, to=${to}`);
+      this.logger.error(error.message);
+      Sentry.captureException(error, { level: 'error' });
+      throw error;
+    }
+
     const rates = await withRetry(() => this.fetchRates(), 'Failed to fetch exchange rates', {
       ...RETRY_CONFIGS.EXTERNAL_API,
       logger: this.logger,
