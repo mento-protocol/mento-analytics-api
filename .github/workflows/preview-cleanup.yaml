@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
+      contents: read
       id-token: write
       pull-requests: write
       deployments: write
@@ -126,6 +126,11 @@ jobs:
             } catch (error) {
               if (error.status === 404) {
                 console.log(`ℹ️ GitHub environment ${environmentName} not found (may have been already deleted)`);
+              } else if (error.status === 403 && error.message === 'Resource not accessible by integration') {
+                core.warning(
+                  `GitHub token cannot delete ${environmentName}; continuing because the Cloud Run preview service was already cleaned up. ` +
+                  'The environments delete endpoint requires repository administration permission, which GITHUB_TOKEN cannot request.'
+                );
               } else {
                 console.error(`❌ Failed to delete GitHub environment ${environmentName}:`, error.message);
                 throw error;
