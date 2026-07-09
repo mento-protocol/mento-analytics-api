@@ -147,10 +147,11 @@ The Mento Analytics API is automatically deployed to [Google Cloud Run](https://
 ### Production Deployment
 
 1. When code is pushed or merged to the `main` branch, a CI/CD pipeline is triggered
-2. The pipeline builds a Docker container using the [Dockerfile](./Dockerfile)
-3. The container is pushed to the [Google Artifact Registry](https://console.cloud.google.com/artifacts?referrer=search&project=mento-prod)
-4. The new container is deployed to [Cloud Run](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?project=mento-prod), replacing the previous version
-5. Deployment status can be monitored in [Google Cloud Build](https://console.cloud.google.com/cloud-build/builds?project=mento-prod)
+2. If Docker-relevant files changed (`Dockerfile`, package files, lockfile, `src/**`, or `tsconfig.json`), the pipeline builds a Docker container using the [Dockerfile](./Dockerfile)
+3. New containers are pushed to the [Google Artifact Registry](https://console.cloud.google.com/artifacts?referrer=search&project=mento-prod) with both the commit SHA tag and `latest`
+4. If only deployment/runtime metadata changed, the pipeline redeploys the existing `latest` image instead of rebuilding
+5. The selected container is deployed to [Cloud Run](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?project=mento-prod), replacing the previous version
+6. Deployment status can be monitored in [Google Cloud Build](https://console.cloud.google.com/cloud-build/builds?project=mento-prod)
 
 ### Preview Deployments
 
