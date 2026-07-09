@@ -81,8 +81,18 @@ jobs:
             IMAGE_TAG="${IMAGE_REPOSITORY}:${SHA_LOWER}"
             echo "Docker image will be tagged as: $IMAGE_TAG"
           else
-            IMAGE_TAG="$LATEST_IMAGE_TAG"
-            echo "Using existing Docker image: $IMAGE_TAG"
+            IMAGE_TAG=$(gcloud run services describe "${SERVICE_NAME}" \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --platform=managed \
+              --format="value(spec.template.spec.containers[0].image)")
+
+            if [ -z "$IMAGE_TAG" ]; then
+              echo "No active Cloud Run image found; falling back to $LATEST_IMAGE_TAG"
+              IMAGE_TAG="$LATEST_IMAGE_TAG"
+            else
+              echo "Redeploying currently active Cloud Run image: $IMAGE_TAG"
+            fi
           fi
 
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
