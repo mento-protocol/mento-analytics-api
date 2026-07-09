@@ -147,10 +147,10 @@ The Mento Analytics API is automatically deployed to [Google Cloud Run](https://
 ### Production Deployment
 
 1. When code is pushed or merged to the `main` branch, a CI/CD pipeline is triggered
-2. Production deployment jobs are serialized and queued so pending `main` deploys are not replaced by newer pushes
+2. Production deployment jobs are serialized and queued; each run rechecks the current `main` head before publishing so stale queued runs cannot deploy or retag after newer commits
 3. If Docker-relevant files changed (`Dockerfile`, package files, lockfile, `src/**`, or `tsconfig.json`), the pipeline builds a Docker container using the [Dockerfile](./Dockerfile) and pushes it to the [Google Artifact Registry](https://console.cloud.google.com/artifacts?referrer=search&project=mento-prod) with the commit SHA tag
-4. If only deployment/runtime metadata changed, the pipeline redeploys the image currently running in Cloud Run instead of rebuilding
-5. The selected container is deployed to [Cloud Run](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?project=mento-prod), replacing the previous version
+4. If only deployment/runtime metadata changed, the pipeline resolves the single Cloud Run revision currently receiving traffic and redeploys that revision's image instead of rebuilding; traffic splits fail fast because there is no single safe image to reuse
+5. The selected container is deployed to [Cloud Run](https://console.cloud.google.com/run/detail/us-central1/mento-analytics-api/observability/metrics?project=mento-prod), replacing the previous version and routing traffic to the newly deployed revision
 6. After a newly built image deploys successfully, the pipeline advances the mutable `latest` tag to that commit SHA image
 7. Deployment status can be monitored in [Google Cloud Build](https://console.cloud.google.com/cloud-build/builds?project=mento-prod)
 
