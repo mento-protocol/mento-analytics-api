@@ -6,6 +6,10 @@ on:
 
 permissions: {} # Restrict default permissions; override at job level
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 env:
   GCP_PROJECT_ID: mento-prod
   GCP_REGION: us-central1
@@ -99,9 +103,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE_TAG }}
-            ${{ env.LATEST_IMAGE_TAG }}
+          tags: ${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -147,6 +149,15 @@ jobs:
           else
             echo "✅ Deployment completed successfully"
           fi
+
+      - name: Advance latest Docker tag
+        if: steps.docker-changes.outputs.docker == 'true'
+        run: |
+          echo "Advancing ${{ env.LATEST_IMAGE_TAG }} to successfully deployed image: ${{ env.IMAGE_TAG }}"
+          gcloud artifacts docker tags add \
+            "${{ env.IMAGE_TAG }}" \
+            "${{ env.LATEST_IMAGE_TAG }}" \
+            --quiet
 
       - name: Set service URL
         run: |
