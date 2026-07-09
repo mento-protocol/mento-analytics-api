@@ -8,7 +8,7 @@ permissions: {} # Restrict default permissions; override at job level
 
 concurrency:
   group: production-deploy
-  cancel-in-progress: false
+  queue: max
 
 env:
   GCP_PROJECT_ID: mento-prod
