@@ -51,18 +51,6 @@ jobs:
       - name: Build application
         run: pnpm run build
 
-      - name: Check for Docker changes
-        id: docker-changes
-        uses: dorny/paths-filter@v2
-        with:
-          filters: |
-            docker:
-              - 'Dockerfile'
-              - 'package*.json'
-              - 'pnpm-lock.yaml'
-              - 'src/**'
-              - 'tsconfig.json'
-
       - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -89,24 +77,26 @@ jobs:
             echo "Production deploy is current for origin/main: $GITHUB_SHA"
           fi
 
-      - name: Set Docker image tag
+      - name: Select Docker image
         if: env.SKIP_STALE_DEPLOY != 'true'
         shell: bash
         run: |
           IMAGE_REPOSITORY="us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}"
           LATEST_IMAGE_TAG="${IMAGE_REPOSITORY}:latest"
+          SHA_LOWER=$(echo "${GITHUB_SHA}" | tr '[:upper:]' '[:lower:]')
+          COMMIT_IMAGE_TAG="${IMAGE_REPOSITORY}:${SHA_LOWER}"
+          SHOULD_BUILD_IMAGE=true
+          SERVING_REVISION=""
+          SERVING_IMAGE_TAG=""
+          DEPLOYED_COMMIT_SHA=""
 
-          if [ "${{ steps.docker-changes.outputs.docker }}" == "true" ]; then
-            SHA_LOWER=$(echo "${GITHUB_SHA}" | tr '[:upper:]' '[:lower:]')
-            IMAGE_TAG="${IMAGE_REPOSITORY}:${SHA_LOWER}"
-            echo "Docker image will be tagged as: $IMAGE_TAG"
-          else
-            SERVICE_JSON=$(gcloud run services describe "${SERVICE_NAME}" \
-              --project="${GCP_PROJECT_ID}" \
-              --region="${GCP_REGION}" \
-              --platform=managed \
-              --format=json)
+          SERVICE_JSON=$(gcloud run services describe "${SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --platform=managed \
+            --format=json 2>/dev/null || true)
 
+          if [ -n "$SERVICE_JSON" ]; then
             mapfile -t SERVING_REVISIONS < <(jq -r '
               .status.latestReadyRevisionName as $latestReadyRevision |
               [
@@ -124,8 +114,49 @@ jobs:
               | .[]
             ' <<< "$SERVICE_JSON")
 
-            if [ "${#SERVING_REVISIONS[@]}" -ne 1 ]; then
-              echo "Metadata-only deploy expected exactly one Cloud Run revision receiving traffic; found ${#SERVING_REVISIONS[@]}."
+            if [ "${#SERVING_REVISIONS[@]}" -eq 1 ]; then
+              SERVING_REVISION="${SERVING_REVISIONS[0]}"
+              REVISION_JSON=$(gcloud run revisions describe "$SERVING_REVISION" \
+                --project="${GCP_PROJECT_ID}" \
+                --region="${GCP_REGION}" \
+                --platform=managed \
+                --format=json)
+              SERVING_IMAGE_TAG=$(jq -r '.spec.containers[0].image // ""' <<< "$REVISION_JSON")
+              DEPLOYED_COMMIT_SHA=$(jq -r '.metadata.labels["commit-sha"] // ""' <<< "$REVISION_JSON")
+              echo "Current serving revision is ${SERVING_REVISION} from commit ${DEPLOYED_COMMIT_SHA:-unknown}"
+            else
+              echo "Found ${#SERVING_REVISIONS[@]} Cloud Run revisions receiving traffic."
+              echo "A metadata-only deploy requires exactly one serving revision to reuse safely."
+            fi
+          else
+            echo "Cloud Run service ${SERVICE_NAME} was not found; building the initial production image."
+          fi
+
+          if [ -n "$DEPLOYED_COMMIT_SHA" ] && git cat-file -e "${DEPLOYED_COMMIT_SHA}^{commit}" 2>/dev/null; then
+            mapfile -t DOCKER_CHANGES < <(git diff --name-only "$DEPLOYED_COMMIT_SHA" "$GITHUB_SHA" -- \
+              Dockerfile \
+              'package*.json' \
+              pnpm-lock.yaml \
+              src \
+              tsconfig.json)
+
+            if [ "${#DOCKER_CHANGES[@]}" -eq 0 ]; then
+              SHOULD_BUILD_IMAGE=false
+              echo "No Docker-relevant changes since serving commit ${DEPLOYED_COMMIT_SHA}; reusing the serving image."
+            else
+              echo "Docker-relevant changes since serving commit ${DEPLOYED_COMMIT_SHA}:"
+              printf '  %s\n' "${DOCKER_CHANGES[@]}"
+            fi
+          else
+            echo "Could not verify the serving commit in git history; building a fresh image for ${GITHUB_SHA}."
+          fi
+
+          if [ "$SHOULD_BUILD_IMAGE" == "true" ]; then
+            IMAGE_TAG="$COMMIT_IMAGE_TAG"
+            echo "Docker image will be built and tagged as: $IMAGE_TAG"
+          else
+            if [ -z "$SERVING_REVISION" ] || [ -z "$SERVING_IMAGE_TAG" ]; then
+              echo "Metadata-only deploy expected exactly one serving Cloud Run revision with a resolvable image."
               echo "Current serving traffic:"
               jq -r '
                 .status.latestReadyRevisionName as $latestReadyRevision |
@@ -148,35 +179,27 @@ jobs:
               exit 1
             fi
 
-            SERVING_REVISION="${SERVING_REVISIONS[0]}"
-            IMAGE_TAG=$(gcloud run revisions describe "$SERVING_REVISION" \
-              --project="${GCP_PROJECT_ID}" \
-              --region="${GCP_REGION}" \
-              --platform=managed \
-              --format="value(spec.containers[0].image)")
-
-            if [ -z "$IMAGE_TAG" ]; then
-              echo "Could not resolve image for serving Cloud Run revision: $SERVING_REVISION"
-              exit 1
-            fi
-
+            IMAGE_TAG="$SERVING_IMAGE_TAG"
             echo "Redeploying image from serving Cloud Run revision ${SERVING_REVISION}: $IMAGE_TAG"
           fi
 
-          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
-          echo "LATEST_IMAGE_TAG=$LATEST_IMAGE_TAG" >> "$GITHUB_ENV"
+          {
+            echo "IMAGE_TAG=$IMAGE_TAG"
+            echo "LATEST_IMAGE_TAG=$LATEST_IMAGE_TAG"
+            echo "SHOULD_BUILD_IMAGE=$SHOULD_BUILD_IMAGE"
+          } >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
-        if: env.SKIP_STALE_DEPLOY != 'true' && steps.docker-changes.outputs.docker == 'true'
+        if: env.SKIP_STALE_DEPLOY != 'true' && env.SHOULD_BUILD_IMAGE == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Configure Docker for GCR
-        if: env.SKIP_STALE_DEPLOY != 'true' && steps.docker-changes.outputs.docker == 'true'
+        if: env.SKIP_STALE_DEPLOY != 'true' && env.SHOULD_BUILD_IMAGE == 'true'
         run: |
           gcloud auth configure-docker us-central1-docker.pkg.dev
 
       - name: Build and push Docker image
-        if: env.SKIP_STALE_DEPLOY != 'true' && steps.docker-changes.outputs.docker == 'true'
+        if: env.SKIP_STALE_DEPLOY != 'true' && env.SHOULD_BUILD_IMAGE == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -265,8 +288,18 @@ jobs:
             echo "Production deploy remains current after Cloud Build: $GITHUB_SHA"
           fi
 
+      - name: Route traffic to deployed revision
+        if: env.SKIP_STALE_DEPLOY != 'true' && env.SKIP_DEPLOY_FINALIZATION != 'true'
+        run: |
+          echo "Routing 100% of production traffic to the latest ready Cloud Run revision"
+          gcloud run services update-traffic "${SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --to-latest \
+            --quiet
+
       - name: Advance latest Docker tag
-        if: env.SKIP_STALE_DEPLOY != 'true' && env.SKIP_DEPLOY_FINALIZATION != 'true' && steps.docker-changes.outputs.docker == 'true'
+        if: env.SKIP_STALE_DEPLOY != 'true' && env.SKIP_DEPLOY_FINALIZATION != 'true' && env.SHOULD_BUILD_IMAGE == 'true'
         run: |
           echo "Advancing ${{ env.LATEST_IMAGE_TAG }} to successfully deployed image: ${{ env.IMAGE_TAG }}"
           gcloud artifacts docker tags add \

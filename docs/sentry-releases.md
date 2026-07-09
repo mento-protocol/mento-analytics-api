@@ -76,18 +76,15 @@ The deployment process now uses a hybrid approach:
 
 **GitHub Actions**:
 
-1. Builds the Docker image with the commit SHA as the release version
-2. Pushes the image to Artifact Registry
-3. Triggers Cloud Build for deployment
+1. Compares the current commit with the commit label on the Cloud Run revision currently receiving traffic
+2. Builds and pushes a commit-SHA image only when Docker-relevant files changed since that serving revision
+3. Triggers Cloud Build for a no-traffic deployment, rechecks `main`, then routes traffic to the latest ready revision only if the run is still current
+4. Creates the Sentry release and marks it deployed only after traffic is routed
 
 **Cloud Build**:
 
-1. Deploys the pre-built image to Cloud Run with the RELEASE_VERSION environment variable
-2. Creates Sentry release and marks deployment (only after successful deployment):
-   - Creates a new release using the commit SHA
-   - Uploads source maps to Sentry
-   - Associates commits with the release (if repo integration is configured)
-   - Marks the release as deployed to production
+1. Deploys the selected image to Cloud Run with the RELEASE_VERSION environment variable
+2. Leaves the new revision without traffic so GitHub Actions can perform the final staleness check before routing
 
 **Important**: Sentry releases are created AFTER the deployment succeeds. This prevents creating "phantom" releases for failed deployments.
 
