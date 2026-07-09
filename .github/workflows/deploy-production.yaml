@@ -108,7 +108,18 @@ jobs:
               --format=json)
 
             mapfile -t SERVING_REVISIONS < <(jq -r '
-              [.status.traffic[]? | select((.percent // 0) > 0) | .revisionName // empty]
+              .status.latestReadyRevisionName as $latestReadyRevision |
+              [
+                .status.traffic[]?
+                | select((.percent // 0) > 0)
+                | if ((.revisionName // "") != "") then
+                    .revisionName
+                  elif (.latestRevision == true and ($latestReadyRevision // "") != "") then
+                    $latestReadyRevision
+                  else
+                    empty
+                  end
+              ]
               | unique
               | .[]
             ' <<< "$SERVICE_JSON")
@@ -117,11 +128,20 @@ jobs:
               echo "Metadata-only deploy expected exactly one Cloud Run revision receiving traffic; found ${#SERVING_REVISIONS[@]}."
               echo "Current serving traffic:"
               jq -r '
+                .status.latestReadyRevisionName as $latestReadyRevision |
                 [.status.traffic[]? | select((.percent // 0) > 0)]
                 | if length == 0 then
                     "  (no traffic entries with percent > 0)"
                   else
-                    .[] | "  \(.revisionName // "unknown-revision"): \(.percent)%"
+                    .[]
+                    | "  \(
+                        .revisionName //
+                        (if .latestRevision == true then
+                          "latestRevision:" + ($latestReadyRevision // "missing-latestReadyRevisionName")
+                        else
+                          "unknown-revision"
+                        end)
+                      ): \(.percent)%"
                   end
               ' <<< "$SERVICE_JSON"
               echo "Refusing to guess which serving image to redeploy."
