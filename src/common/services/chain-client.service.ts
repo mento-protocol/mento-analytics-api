@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { createPublicClient, webSocket, http, PublicClient, WebSocketTransportConfig } from 'viem';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@types';
-import { celo, mainnet } from 'viem/chains';
+import { celo, mainnet, polygon } from 'viem/chains';
 import { Logger } from '@nestjs/common';
 import pLimit from 'p-limit';
 
@@ -67,11 +67,27 @@ export class ChainClientService {
       this.logger.warn('MONAD_RPC_URL is not set — Monad chain support disabled');
     }
 
+    // Polygon client — uses viem's `polygon` chain def (id 137, native POL, multicall3 built-in).
+    const polygonRpcUrl = this.config.get('POLYGON_RPC_URL');
+    if (polygonRpcUrl) {
+      const polygonClient = createPublicClient({
+        chain: polygon,
+        transport: this.createTransport(polygonRpcUrl),
+      });
+      this.clients.set(Chain.POLYGON, polygonClient as PublicClient);
+      this.logger.log('Polygon RPC client initialized');
+    } else {
+      this.logger.warn('POLYGON_RPC_URL is not set — Polygon chain support disabled');
+    }
+
     // Initialize rate limiters (5 concurrent requests per chain)
     this.rpcLimiters.set(Chain.CELO, pLimit(5));
     this.rpcLimiters.set(Chain.ETHEREUM, pLimit(5));
     if (monadRpcUrl) {
       this.rpcLimiters.set(Chain.MONAD, pLimit(5));
+    }
+    if (polygonRpcUrl) {
+      this.rpcLimiters.set(Chain.POLYGON, pLimit(5));
     }
 
     this.logger.log('RPC clients initialized with enhanced WebSocket configuration');

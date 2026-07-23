@@ -199,4 +199,18 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
     },
   },
+  [Chain.POLYGON]: {
+    USDC: {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+      address: '0x3c499c542cEF5E3811e1192ce70d8cc03d5c3359', // Circle native USDC on Polygon PoS
+    },
+    USDT: {
+      symbol: 'USDT',
+      name: 'USD Tether',
+      decimals: 6,
+      address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+    },
+  },
 };
