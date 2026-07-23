@@ -212,5 +212,19 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 6,
       address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
     },
+    // Mento stables on Polygon (deterministic addresses, same as Monad). Needed so the
+    // FPMM reader resolves + prices their legs; they count as reserve-held, not collateral.
+    USDm: {
+      symbol: 'USDm',
+      name: 'Mento Dollar',
+      decimals: 18,
+      address: '0xBC69212B8E4d445b2307C9D32dD68E2A4Df00115',
+    },
+    EURm: {
+      symbol: 'EURm',
+      name: 'Mento Euro',
+      decimals: 18,
+      address: '0x4D502d735B4C574B487Ed641ae87cEaE884731C7',
+    },
   },
 };
