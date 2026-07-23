@@ -49,6 +49,12 @@ const FPMM_CONTRACTS: Partial<Record<Chain, { factory: string; liquidityStrategy
     factory: '0xa849b475FE5a4B5C9C3280152c7a1945b907613b',
     liquidityStrategy: '0xa0fB8b16ce6AF3634fF9F3f4F40E49E1C1ae4f0B',
   },
+  // Same deterministic CREATE2 addresses as Celo/Monad — verified deployed on Polygon,
+  // deployedFPMMAddresses() returns the reserve's USDC/USDm and EURm/USDm pools.
+  [Chain.POLYGON]: {
+    factory: '0xa849b475FE5a4B5C9C3280152c7a1945b907613b',
+    liquidityStrategy: '0xa0fB8b16ce6AF3634fF9F3f4F40E49E1C1ae4f0B',
+  },
 };
 
 // LP holders are derived from the canonical RESERVE_ADDRESSES list at call time —
