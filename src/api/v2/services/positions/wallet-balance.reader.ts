@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MentoService } from '@common/services/mento.service';
+import { ChainClientService } from '@common/services/chain-client.service';
 import { MulticallBatchService } from '../multicall-batch.service';
 import { PrimitiveCacheService } from '../primitive-cache.service';
 import { getReserveAddressesByChain } from '../../config/reserve-addresses.config';
@@ -40,6 +41,7 @@ export class WalletBalanceReader {
     private readonly multicallBatchService: MulticallBatchService,
     private readonly mentoService: MentoService,
     private readonly primitiveCacheService: PrimitiveCacheService,
+    private readonly chainClientService: ChainClientService,
   ) {}
 
   async readPositions(chain: Chain): Promise<WalletBalancePosition[]> {
@@ -134,6 +136,39 @@ export class WalletBalanceReader {
         usd_value: 0,
         is_mento_stable: isMentoStable,
       });
+    }
+
+    // Native (address-less) assets, e.g. ETH on Ethereum. balanceOf/multicall cannot
+    // read native balances, so fetch per address via getBalance. These flow into
+    // collateral and are priced by symbol (CMC) in getTokenPrice — matching v1, which
+    // counted native ETH that v2 previously dropped.
+    const nativeAssets = Object.values(chainAssets).filter((a) => !a.address);
+    for (const na of nativeAssets) {
+      for (const addr of addresses) {
+        let raw: bigint;
+        try {
+          // Cast to any to avoid viem's excessively-deep getBalance type inference
+          // (same pattern as MulticallBatchService with readContract/multicall).
+          raw = await this.chainClientService.executeRateLimited<bigint>(chain, (client) =>
+            (client.getBalance as any)({ address: addr.address as `0x${string}` }),
+          );
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          this.logger.warn(`Native balance failed for ${na.symbol} at ${addr.label} on ${chain}: ${msg}`);
+          continue;
+        }
+        if (raw === 0n) continue;
+        positions.push({
+          address: addr.address,
+          label: addr.label,
+          chain,
+          token: na.symbol,
+          token_address: null,
+          balance: formatUnits(raw, na.decimals),
+          usd_value: 0,
+          is_mento_stable: false,
+        });
+      }
     }
 
     const cachedCount = callPlan.filter((p) => p.cached !== null).length;

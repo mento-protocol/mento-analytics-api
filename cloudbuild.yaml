@@ -49,7 +49,7 @@ steps:
           --quiet \
           --no-traffic \
           --set-env-vars="$$ENV_VARS" \
-          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-prod:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-prod:latest,CELO_RPC_URL=celo-rpc-url-prod:latest,ETH_RPC_URL=eth-rpc-url-prod:latest,MONAD_RPC_URL=monad-rpc-url-prod:latest"
+          --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-prod:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-prod:latest,CELO_RPC_URL=celo-rpc-url-prod:latest,ETH_RPC_URL=eth-rpc-url-prod:latest,MONAD_RPC_URL=monad-rpc-url-prod:latest,POLYGON_RPC_URL=polygon-rpc-url-prod:latest"
 
 # Tags for this build
 tags:

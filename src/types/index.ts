@@ -8,6 +8,7 @@ export enum Chain {
   ETHEREUM = 'ethereum',
   BITCOIN = 'bitcoin',
   MONAD = 'monad',
+  POLYGON = 'polygon',
 }
 
 /**

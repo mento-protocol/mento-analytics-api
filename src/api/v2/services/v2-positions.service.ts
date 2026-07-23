@@ -176,16 +176,23 @@ export class V2PositionsService {
 
     // Phase 2: ETH + Monad in parallel
     t = Date.now();
-    const [ethWallet, monadWallet, monadFpmm] = await Promise.all([
+    const [ethWallet, monadWallet, monadFpmm, polygonWallet, polygonFpmm] = await Promise.all([
       read('eth-wallet', 'ETH wallet balances', () => this.walletBalanceReader.readPositions(Chain.ETHEREUM), []),
       read('monad-wallet', 'Monad wallet balances', () => this.walletBalanceReader.readPositions(Chain.MONAD), []),
       read('monad-fpmm', 'Monad FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.MONAD), []),
+      read(
+        'polygon-wallet',
+        'Polygon wallet balances',
+        () => this.walletBalanceReader.readPositions(Chain.POLYGON),
+        [],
+      ),
+      read('polygon-fpmm', 'Polygon FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.POLYGON), []),
     ]);
-    time('Phase 2 (ETH+Monad)', t);
+    time('Phase 2 (ETH+Monad+Polygon)', t);
 
-    const walletBalances = [...celoWallet, ...ethWallet, ...monadWallet];
+    const walletBalances = [...celoWallet, ...ethWallet, ...monadWallet, ...polygonWallet];
     const aaveDeposits = celoAave;
-    const fpmmPositions = [...celoFpmm, ...monadFpmm];
+    const fpmmPositions = [...celoFpmm, ...monadFpmm, ...polygonFpmm];
     const allPositions: AllPositions = {
       wallet_balances: walletBalances,
       aave_deposits: aaveDeposits,
@@ -655,7 +662,7 @@ export class V2PositionsService {
    * Used by v2-stablecoins.service for supply decomposition.
    */
   async getFpmmReserveHeldSupply(): Promise<Record<string, number>> {
-    const chains = [Chain.CELO, Chain.MONAD];
+    const chains = [Chain.CELO, Chain.MONAD, Chain.POLYGON];
     const result: Record<string, number> = {};
 
     for (const chain of chains) {
@@ -674,7 +681,7 @@ export class V2PositionsService {
    * Used by v2-reserve.service for collateral enrichment.
    */
   async getFpmmCollateral(): Promise<Record<string, number>> {
-    const chains = [Chain.CELO, Chain.MONAD];
+    const chains = [Chain.CELO, Chain.MONAD, Chain.POLYGON];
     const result: Record<string, number> = {};
 
     for (const chain of chains) {

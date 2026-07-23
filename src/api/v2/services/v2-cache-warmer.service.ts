@@ -285,7 +285,7 @@ export class V2CacheWarmerService implements OnModuleInit {
       await this.loadStablecoinAddresses();
 
       // Pre-warm FPMM pool lists — getPositions() caches the discovered pools
-      for (const chain of [Chain.CELO, Chain.MONAD]) {
+      for (const chain of [Chain.CELO, Chain.MONAD, Chain.POLYGON]) {
         try {
           await this.fpmmPositionsService.getPositions(chain);
         } catch (e) {
