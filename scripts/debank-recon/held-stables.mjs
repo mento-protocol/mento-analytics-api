@@ -9,7 +9,10 @@
 
 import { debank, mentoApi, getMentoStableAddresses, isMentoStableSym, lc, usd, DEBANK_KEY } from './lib.mjs';
 
-if (!DEBANK_KEY) { console.error('Missing DEBANK_ACCESS_KEY'); process.exit(1); }
+if (!DEBANK_KEY) {
+  console.error('Missing DEBANK_ACCESS_KEY');
+  process.exit(1);
+}
 
 // Every reserve-controlled (address, debank-chain) pair we know of, including the two
 // the v1/v2 configs don't fully track (0x4255 on celo, rebalancer 0xaa82 on monad).
@@ -30,13 +33,17 @@ let grand = 0;
 const rows = [];
 for (const [addr, chains] of TARGETS) {
   for (const ch of chains) {
-    let tokens = [], protos = [];
+    let tokens = [],
+      protos = [];
     try {
       [tokens, protos] = await Promise.all([
         debank(`/v1/user/token_list?id=${addr}&chain_id=${ch}&is_all=true`),
         debank(`/v1/user/complex_protocol_list?id=${addr}&chain_id=${ch}`),
       ]);
-    } catch (e) { console.log(`  ! ${addr}/${ch}: ${e.message}`); continue; }
+    } catch (e) {
+      console.log(`  ! ${addr}/${ch}: ${e.message}`);
+      continue;
+    }
 
     // wallet own-stables (is_wallet true, incl. aTokens which report is_wallet null -> caught below)
     for (const t of tokens) {
@@ -69,9 +76,13 @@ for (const [addr, chains] of TARGETS) {
 
 rows.sort((a, b) => b.usd - a.usd);
 console.log('\nReserve-held Mento stables measured independently (DeBank, all reserve addresses):\n');
-console.log(`  ${'ADDRESS'.padEnd(12)} ${'CHAIN'.padEnd(6)} ${'TOKEN'.padEnd(10)} ${'SOURCE'.padEnd(18)} ${'USD'.padStart(12)}`);
+console.log(
+  `  ${'ADDRESS'.padEnd(12)} ${'CHAIN'.padEnd(6)} ${'TOKEN'.padEnd(10)} ${'SOURCE'.padEnd(18)} ${'USD'.padStart(12)}`,
+);
 for (const r of rows)
-  console.log(`  ${(r.addr.slice(0, 10)).padEnd(12)} ${r.ch.padEnd(6)} ${String(r.sym).slice(0, 10).padEnd(10)} ${r.src.padEnd(18)} ${usd(r.usd).padStart(12)}`);
+  console.log(
+    `  ${r.addr.slice(0, 10).padEnd(12)} ${r.ch.padEnd(6)} ${String(r.sym).slice(0, 10).padEnd(10)} ${r.src.padEnd(18)} ${usd(r.usd).padStart(12)}`,
+  );
 
 // group by chain
 const byChain = {};

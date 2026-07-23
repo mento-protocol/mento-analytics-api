@@ -1,8 +1,7 @@
 // Shared helpers for the DeBank <> Analytics-API reserve reconciliation scripts.
 // Zero-dependency, Node >= 22 (global fetch). ESM.
 
-export const API_BASE =
-  process.env.MENTO_API_BASE || 'https://mento-analytics-api-12390052758.us-central1.run.app';
+export const API_BASE = process.env.MENTO_API_BASE || 'https://mento-analytics-api-12390052758.us-central1.run.app';
 export const DEBANK_BASE = 'https://pro-openapi.debank.com';
 export const DEBANK_KEY = process.env.DEBANK_ACCESS_KEY || '';
 
@@ -13,9 +12,7 @@ export const API_CHAIN_TO_DEBANK = {
   monad: 'monad',
   bitcoin: 'btc',
 };
-export const DEBANK_TO_API_CHAIN = Object.fromEntries(
-  Object.entries(API_CHAIN_TO_DEBANK).map(([a, d]) => [d, a]),
-);
+export const DEBANK_TO_API_CHAIN = Object.fromEntries(Object.entries(API_CHAIN_TO_DEBANK).map(([a, d]) => [d, a]));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -58,8 +55,36 @@ export const usd = (n) => `$${(n || 0).toLocaleString('en-US', { maximumFraction
 // token — Aave aTokens (aCelcUSD), LP legs (FPMM-USDm/EURm), etc.
 export const MENTO_STABLE_SYMS = new Set(
   [
-    'cUSD','cEUR','cREAL','cKES','cCOP','cGHS','cGBP','cZAR','cCAD','cAUD','cCHF','cNGN','cJPY','PUSO','eXOF',
-    'USDm','EURm','BRLm','XOFm','KESm','PHPm','COPm','GHSm','GBPm','ZARm','CADm','AUDm','CHFm','NGNm','JPYm',
+    'cUSD',
+    'cEUR',
+    'cREAL',
+    'cKES',
+    'cCOP',
+    'cGHS',
+    'cGBP',
+    'cZAR',
+    'cCAD',
+    'cAUD',
+    'cCHF',
+    'cNGN',
+    'cJPY',
+    'PUSO',
+    'eXOF',
+    'USDm',
+    'EURm',
+    'BRLm',
+    'XOFm',
+    'KESm',
+    'PHPm',
+    'COPm',
+    'GHSm',
+    'GBPm',
+    'ZARm',
+    'CADm',
+    'AUDm',
+    'CHFm',
+    'NGNm',
+    'JPYm',
   ].map(normSym),
 );
 

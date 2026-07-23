@@ -36,7 +36,7 @@ report. `MENTO_API_BASE` env overrides the API host (default is the prod Cloud R
 - **DeBank double-counts removed** — native + ERC-20 twins (CELO shows as both `celo`
   and `0x471e…`) are deduped by canonical address; `is_wallet=false` vault/aToken/LP
   tokens are handled only in the protocol section, never counted as wallet gaps.
-- **API over-statements surfaced** — where the API's hourly cache is *higher* than
+- **API over-statements surfaced** — where the API's hourly cache is _higher_ than
   on-chain (stale balance on the actively-trading rebalancer bot), shown as `API HIGH`.
 
 ## Snapshot findings (2026-07-23)
@@ -44,14 +44,14 @@ report. `MENTO_API_BASE` env overrides the API host (default is the prod Cloud R
 API reported **0.834** collateralization ($12.32M reserve / $14.77M stables) — apparently
 under-collateralized. Reconciliation shows this is a **data/config gap, not a real shortfall**:
 
-| Missing collateral | Chain | Address | ~USD | Cause |
-|---|---|---|---|---|
-| **AUSD** | ethereum | `0xD3D2…37E1` Operational | **4.40M** | AUSD not configured on any ETH address |
-| **USDT** | ethereum | `0xd069…cC1E` Custody | **1.22M** | USDT missing from this address's asset list |
-| USDT/USDC/axlUSDC | celo | `0x4255…3806` ReserveV2 | 0.26M | address only tracked on Monad, not Celo |
-| EURC | ethereum | `0xaa82…1976` Rebalancer | 0.05M | EURC missing from asset list |
-| AUSD | ethereum | `0xd069…cC1E` Custody | 0.01M | — |
-| USDT0/AUSD | monad | `0xaa82…1976` Rebalancer | ~0.02M | rebalancer not tracked on Monad |
+| Missing collateral | Chain    | Address                   | ~USD      | Cause                                       |
+| ------------------ | -------- | ------------------------- | --------- | ------------------------------------------- |
+| **AUSD**           | ethereum | `0xD3D2…37E1` Operational | **4.40M** | AUSD not configured on any ETH address      |
+| **USDT**           | ethereum | `0xd069…cC1E` Custody     | **1.22M** | USDT missing from this address's asset list |
+| USDT/USDC/axlUSDC  | celo     | `0x4255…3806` ReserveV2   | 0.26M     | address only tracked on Monad, not Celo     |
+| EURC               | ethereum | `0xaa82…1976` Rebalancer  | 0.05M     | EURC missing from asset list                |
+| AUSD               | ethereum | `0xd069…cC1E` Custody     | 0.01M     | —                                           |
+| USDT0/AUSD         | monad    | `0xaa82…1976` Rebalancer  | ~0.02M    | rebalancer not tracked on Monad             |
 
 **Adjusted reserve ≈ $18.1M → collateralization ≈ 1.23×** (over-collateralized).
 

@@ -46,7 +46,15 @@ if (!DEBANK_KEY) {
 }
 
 const H = (s) => `\n${'='.repeat(80)}\n${s}\n${'='.repeat(80)}`;
-const report = { generatedAt: new Date().toISOString(), minFlagUsd: MIN_FLAG, chainCoverage: [], walletGaps: [], apiOverstatements: [], protocols: [], totals: {} };
+const report = {
+  generatedAt: new Date().toISOString(),
+  minFlagUsd: MIN_FLAG,
+  chainCoverage: [],
+  walletGaps: [],
+  apiOverstatements: [],
+  protocols: [],
+  totals: {},
+};
 
 // Protocols whose positions the API already accounts for (or that report a vault
 // underlying held as a wrapper token) -> advisory "likely already counted".
@@ -67,22 +75,42 @@ let coverageGap = 0;
 for (const [addr, apiChains] of byAddr) {
   const trackedDb = new Set([...apiChains].map((c) => API_CHAIN_TO_DEBANK[c]));
   let tb;
-  try { tb = await debank(`/v1/user/total_balance?id=${addr}`); }
-  catch (e) { console.log(`  ! ${addr} total_balance failed: ${e.message}`); continue; }
+  try {
+    tb = await debank(`/v1/user/total_balance?id=${addr}`);
+  } catch (e) {
+    console.log(`  ! ${addr} total_balance failed: ${e.message}`);
+    continue;
+  }
   const chains = (tb.chain_list || []).filter((c) => (c.usd_value || 0) > 1).sort((a, b) => b.usd_value - a.usd_value);
   console.log(`\n  ${addr}  [API: ${[...apiChains].join(',')}]  DeBank net worth ${usd(tb.total_usd_value)}`);
   for (const c of chains) {
     const tracked = trackedDb.has(c.id);
-    console.log(`      ${tracked ? 'tracked    ' : '>> UNTRACKED'} ${(DEBANK_TO_API_CHAIN[c.id] || c.id).padEnd(9)} ${usd(c.usd_value)}`);
+    console.log(
+      `      ${tracked ? 'tracked    ' : '>> UNTRACKED'} ${(DEBANK_TO_API_CHAIN[c.id] || c.id).padEnd(9)} ${usd(c.usd_value)}`,
+    );
     if (!tracked && c.usd_value >= MIN_FLAG) {
       // Break the untracked chain into non-own-stable value.
-      let real = 0, own = 0;
+      let real = 0,
+        own = 0;
       try {
         const toks = await debank(`/v1/user/token_list?id=${addr}&chain_id=${c.id}&is_all=true`);
-        for (const t of toks) { const v = tokenValue(t); if (v < 1 || isSpam(t)) continue; if (isOwnStable(t)) own += v; else real += v; }
-      } catch { /* ignore */ }
+        for (const t of toks) {
+          const v = tokenValue(t);
+          if (v < 1 || isSpam(t)) continue;
+          if (isOwnStable(t)) own += v;
+          else real += v;
+        }
+      } catch {
+        /* ignore */
+      }
       coverageGap += real;
-      report.chainCoverage.push({ address: addr, chain: c.id, totalUsd: c.usd_value, realCollateralUsd: real, ownStableUsd: own });
+      report.chainCoverage.push({
+        address: addr,
+        chain: c.id,
+        totalUsd: c.usd_value,
+        realCollateralUsd: real,
+        ownStableUsd: own,
+      });
       console.log(`                     -> real collateral ${usd(real)} | own-stables ${usd(own)}`);
     }
   }
@@ -93,19 +121,25 @@ report.totals.coverageRealCollateralUsd = coverageGap;
 // CHECK 2 + 3 - per (address, chain): wallet-token gaps + protocol advisory
 // ---------------------------------------------------------------------------
 console.log(H('CHECK 2 - WALLET-TOKEN GAPS (real tokens DeBank sees that the API does not count)'));
-let missingTotal = 0, overTotal = 0;
+let missingTotal = 0,
+  overTotal = 0;
 const protoAdvisory = [];
 for (const [key, p] of byPair) {
   if (!p.dbChain) continue;
-  let tokens = [], protocols = [];
+  let tokens = [],
+    protocols = [];
   try {
     [tokens, protocols] = await Promise.all([
       debank(`/v1/user/token_list?id=${p.address}&chain_id=${p.dbChain}&is_all=true`),
       debank(`/v1/user/complex_protocol_list?id=${p.address}&chain_id=${p.dbChain}`),
     ]);
-  } catch (e) { console.log(`  ! ${key} DeBank fetch failed: ${e.message}`); continue; }
+  } catch (e) {
+    console.log(`  ! ${key} DeBank fetch failed: ${e.message}`);
+    continue;
+  }
 
-  const gaps = [], over = [];
+  const gaps = [],
+    over = [];
   const seen = new Set();
   for (const t of tokens) {
     const v = tokenValue(t);
@@ -133,7 +167,14 @@ for (const [key, p] of byPair) {
     const pname = pr.name || pr.id;
     let net = 0;
     for (const it of pr.portfolio_item_list || []) net += it.stats?.net_usd_value || 0;
-    if (Math.abs(net) >= MIN_FLAG) protoAdvisory.push({ chain: p.chain, address: p.address, protocol: pname, netUsd: net, likelyCounted: ALREADY_COUNTED_PROTO.test(pname) });
+    if (Math.abs(net) >= MIN_FLAG)
+      protoAdvisory.push({
+        chain: p.chain,
+        address: p.address,
+        protocol: pname,
+        netUsd: net,
+        likelyCounted: ALREADY_COUNTED_PROTO.test(pname),
+      });
   }
 
   if (gaps.length || over.length) {
@@ -144,7 +185,9 @@ for (const [key, p] of byPair) {
       report.walletGaps.push({ chain: p.chain, address: p.address, ...g });
     }
     for (const o of over.sort((a, b) => b.diff - a.diff)) {
-      console.log(`     ~~ API HIGH ${o.sym.padEnd(12)} API ${usd(o.apiUsd)} vs DeBank ${usd(o.dbUsd)}  (API +${usd(o.diff)}, likely stale)`);
+      console.log(
+        `     ~~ API HIGH ${o.sym.padEnd(12)} API ${usd(o.apiUsd)} vs DeBank ${usd(o.dbUsd)}  (API +${usd(o.diff)}, likely stale)`,
+      );
       overTotal += o.diff;
       report.apiOverstatements.push({ chain: p.chain, address: p.address, ...o });
     }
@@ -154,9 +197,13 @@ report.totals.walletGapUsd = missingTotal;
 report.totals.apiOverstatementUsd = overTotal;
 report.protocols = protoAdvisory;
 
-console.log(H('CHECK 3 - PROTOCOL POSITIONS (advisory; "likely counted" = duplicates an API calculator or vault wrapper)'));
+console.log(
+  H('CHECK 3 - PROTOCOL POSITIONS (advisory; "likely counted" = duplicates an API calculator or vault wrapper)'),
+);
 for (const a of protoAdvisory.sort((x, y) => y.netUsd - x.netUsd))
-  console.log(`  ${a.likelyCounted ? 'likely-counted' : 'REVIEW        '}  ${a.chain}/${a.address.slice(0, 8)}  ${a.protocol.padEnd(14)} net ${usd(a.netUsd)}`);
+  console.log(
+    `  ${a.likelyCounted ? 'likely-counted' : 'REVIEW        '}  ${a.chain}/${a.address.slice(0, 8)}  ${a.protocol.padEnd(14)} net ${usd(a.netUsd)}`,
+  );
 
 // ---------------------------------------------------------------------------
 console.log(H('SUMMARY'));
@@ -172,11 +219,16 @@ console.log(`  Missing on untracked chains (real):    ${usd(coverageGap).padStar
 console.log(`  API over-statement (stale cache):      ${('-' + usd(overTotal)).padStart(14)}`);
 console.log(`  ---`);
 console.log(`  Adjusted reserve value:                ${usd(adjReserve)}`);
-console.log(`  Adjusted collateralization:            ${(adjReserve / apiStats.total_outstanding_stables_usd).toFixed(4)}`);
+console.log(
+  `  Adjusted collateralization:            ${(adjReserve / apiStats.total_outstanding_stables_usd).toFixed(4)}`,
+);
 report.totals.apiReserveUsd = apiStats.total_reserve_value_usd;
 report.totals.outstandingStablesUsd = apiStats.total_outstanding_stables_usd;
 report.totals.apiRatio = apiStats.collateralization_ratio;
 report.totals.adjustedReserveUsd = adjReserve;
 report.totals.adjustedRatio = adjReserve / apiStats.total_outstanding_stables_usd;
 
-if (jsonOut) { fs.writeFileSync(jsonOut, JSON.stringify(report, null, 2)); console.log(`\n  Wrote ${jsonOut}`); }
+if (jsonOut) {
+  fs.writeFileSync(jsonOut, JSON.stringify(report, null, 2));
+  console.log(`\n  Wrote ${jsonOut}`);
+}

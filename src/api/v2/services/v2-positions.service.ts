@@ -180,7 +180,12 @@ export class V2PositionsService {
       read('eth-wallet', 'ETH wallet balances', () => this.walletBalanceReader.readPositions(Chain.ETHEREUM), []),
       read('monad-wallet', 'Monad wallet balances', () => this.walletBalanceReader.readPositions(Chain.MONAD), []),
       read('monad-fpmm', 'Monad FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.MONAD), []),
-      read('polygon-wallet', 'Polygon wallet balances', () => this.walletBalanceReader.readPositions(Chain.POLYGON), []),
+      read(
+        'polygon-wallet',
+        'Polygon wallet balances',
+        () => this.walletBalanceReader.readPositions(Chain.POLYGON),
+        [],
+      ),
       read('polygon-fpmm', 'Polygon FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.POLYGON), []),
     ]);
     time('Phase 2 (ETH+Monad+Polygon)', t);
