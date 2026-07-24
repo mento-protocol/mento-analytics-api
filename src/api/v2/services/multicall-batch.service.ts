@@ -19,6 +19,11 @@ const MAX_BATCH_SIZE = 30;
 /** Delay between batches to avoid rate limits (ms) */
 const INTER_BATCH_DELAY = 100;
 
+/** How many extra passes to retry results that came back null (transient RPC / 429). */
+const MAX_NULL_RETRIES = 2;
+/** Base backoff between null-retry passes (ms), scaled by attempt number. */
+const NULL_RETRY_DELAY = 300;
+
 /**
  * Wraps viem's multicall() to batch multiple readContract calls into single
  * RPC requests. Chunks large batches, serializes per-chain, and falls back
@@ -38,7 +43,38 @@ export class MulticallBatchService {
   async batchRead<T = unknown>(chain: Chain, calls: MulticallReadCall[]): Promise<(T | null)[]> {
     if (calls.length === 0) return [];
 
-    // Chunk into manageable batches
+    const results = await this.runChunks<T>(chain, calls);
+
+    // Retry only the calls that came back null. A transient RPC hiccup or a 429
+    // rate-limit shouldn't silently drop a data point (e.g. a large reserve balance)
+    // and poison the cached result — retry the failed subset with backoff.
+    for (let attempt = 1; attempt <= MAX_NULL_RETRIES; attempt++) {
+      const nullIdx: number[] = [];
+      for (let i = 0; i < results.length; i++) if (results[i] === null) nullIdx.push(i);
+      if (nullIdx.length === 0) break;
+
+      await new Promise((r) => setTimeout(r, NULL_RETRY_DELAY * attempt));
+      const retry = await this.runChunks<T>(
+        chain,
+        nullIdx.map((i) => calls[i]),
+      );
+      let recovered = 0;
+      nullIdx.forEach((i, k) => {
+        if (retry[k] !== null) {
+          results[i] = retry[k];
+          recovered++;
+        }
+      });
+      this.logger.debug(
+        `Null-retry ${attempt} on ${chain}: recovered ${recovered}/${nullIdx.length}, ${nullIdx.length - recovered} still null`,
+      );
+    }
+
+    return results;
+  }
+
+  /** Chunk a call list and execute each chunk via multicall (with per-chunk fallback). */
+  private async runChunks<T>(chain: Chain, calls: MulticallReadCall[]): Promise<(T | null)[]> {
     const chunks: MulticallReadCall[][] = [];
     for (let i = 0; i < calls.length; i += MAX_BATCH_SIZE) {
       chunks.push(calls.slice(i, i + MAX_BATCH_SIZE));

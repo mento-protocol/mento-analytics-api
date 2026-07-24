@@ -11,6 +11,7 @@ import { Chain } from '@types';
  */
 export const PRIMITIVE_TTL = {
   BALANCE: 10 * 60 * 1000, // 10 minutes
+  BALANCE_LKG: 24 * 60 * 60 * 1000, // 24 hours — last-known-good balance, survives short-TTL expiry
   POOL_RESERVES: 10 * 60 * 1000, // 10 minutes
   STRUCTURAL: 30 * 60 * 1000, // 30 minutes
   STABLECOIN_LIST: 60 * 60 * 1000, // 1 hour
@@ -79,7 +80,21 @@ export class PrimitiveCacheService {
   async setBalance(chain: Chain, token: string, holder: string, value: string): Promise<void> {
     const key = primitiveKey('balance', chain, token.toLowerCase(), holder.toLowerCase());
     await this.cacheService.set(key, value, PRIMITIVE_TTL.BALANCE);
+    // Also retain a long-lived last-known-good copy. When a later read fails, the
+    // reader falls back to this instead of dropping the balance entirely.
+    const lkgKey = primitiveKey('balance-lkg', chain, token.toLowerCase(), holder.toLowerCase());
+    await this.cacheService.set(lkgKey, value, PRIMITIVE_TTL.BALANCE_LKG);
     this.logger.debug(`Cached balance ${chain}:${token.slice(0, 10)}:${holder.slice(0, 10)}`);
+  }
+
+  /**
+   * Last-known-good balance (24h TTL). Fallback for when a fresh read fails so a
+   * transient RPC/rate-limit blip doesn't drop a reserve asset from the response.
+   */
+  async getLastGoodBalance(chain: Chain, token: string, holder: string): Promise<string | null> {
+    const key = primitiveKey('balance-lkg', chain, token.toLowerCase(), holder.toLowerCase());
+    const cached = await this.cacheService.get<string>(key);
+    return cached ?? null;
   }
 
   // ---------------------------------------------------------------------------
