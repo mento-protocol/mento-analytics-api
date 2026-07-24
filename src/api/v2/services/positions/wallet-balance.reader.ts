@@ -5,8 +5,12 @@ import { MulticallBatchService } from '../multicall-batch.service';
 import { PrimitiveCacheService } from '../primitive-cache.service';
 import { getReserveAddressesByChain } from '../../config/reserve-addresses.config';
 import { ASSETS_CONFIGS } from '@api/reserve/config/assets.config';
+import { DataWarning } from '../../dto/v2-meta.dto';
 import { Chain } from '@types';
 import { formatUnits } from 'viem';
+
+/** Token identifier used for native (address-less) balances in the primitive cache. */
+const NATIVE_TOKEN_KEY = 'native';
 
 export interface WalletBalancePosition {
   address: string;
@@ -44,9 +48,12 @@ export class WalletBalanceReader {
     private readonly chainClientService: ChainClientService,
   ) {}
 
-  async readPositions(chain: Chain): Promise<WalletBalancePosition[]> {
+  async readPositions(chain: Chain, warnings?: DataWarning[]): Promise<WalletBalancePosition[]> {
     const addresses = getReserveAddressesByChain(chain);
     if (addresses.length === 0) return [];
+
+    // How many balances were served from the last-known-good fallback this pass.
+    let staleCount = 0;
 
     const stableMap = await this.getMentoStableMap();
 
@@ -111,12 +118,23 @@ export class WalletBalanceReader {
       } else {
         const raw = rpcResults[rpcIdx++];
         if (raw == null) {
-          this.logger.warn(`Multicall returned null for ${token.symbol} at ${addr.label} on ${chain}, skipping`);
-          continue;
+          // Fresh read failed even after retries — fall back to the last-known-good
+          // value so a transient blip doesn't drop the asset. Self-heals next cycle.
+          const lkg = await this.primitiveCacheService.getLastGoodBalance(chain, token.address!, addr.address);
+          if (lkg == null) {
+            this.logger.warn(
+              `No fresh or last-good balance for ${token.symbol} at ${addr.label} on ${chain}, skipping`,
+            );
+            continue;
+          }
+          this.logger.warn(`Stale balance for ${token.symbol} at ${addr.label} on ${chain} — using last-known-good`);
+          rawStr = lkg;
+          staleCount++;
+        } else {
+          rawStr = raw.toString();
+          // Write to primitive cache (fresh 10-min + long-lived last-known-good)
+          await this.primitiveCacheService.setBalance(chain, token.address!, addr.address, rawStr);
         }
-        rawStr = raw.toString();
-        // Write to primitive cache
-        await this.primitiveCacheService.setBalance(chain, token.address!, addr.address, rawStr);
       }
 
       if (rawStr === '0') continue;
@@ -145,30 +163,46 @@ export class WalletBalanceReader {
     const nativeAssets = Object.values(chainAssets).filter((a) => !a.address);
     for (const na of nativeAssets) {
       for (const addr of addresses) {
-        let raw: bigint;
+        let rawStr: string;
         try {
           // Cast to any to avoid viem's excessively-deep getBalance type inference
           // (same pattern as MulticallBatchService with readContract/multicall).
-          raw = await this.chainClientService.executeRateLimited<bigint>(chain, (client) =>
+          const raw = await this.chainClientService.executeRateLimited<bigint>(chain, (client) =>
             (client.getBalance as any)({ address: addr.address as `0x${string}` }),
           );
+          rawStr = raw.toString();
+          await this.primitiveCacheService.setBalance(chain, NATIVE_TOKEN_KEY, addr.address, rawStr);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          this.logger.warn(`Native balance failed for ${na.symbol} at ${addr.label} on ${chain}: ${msg}`);
-          continue;
+          const lkg = await this.primitiveCacheService.getLastGoodBalance(chain, NATIVE_TOKEN_KEY, addr.address);
+          if (lkg == null) {
+            this.logger.warn(`Native balance failed for ${na.symbol} at ${addr.label} on ${chain}: ${msg}`);
+            continue;
+          }
+          this.logger.warn(`Stale native ${na.symbol} at ${addr.label} on ${chain} — using last-known-good`);
+          rawStr = lkg;
+          staleCount++;
         }
-        if (raw === 0n) continue;
+        if (rawStr === '0') continue;
         positions.push({
           address: addr.address,
           label: addr.label,
           chain,
           token: na.symbol,
           token_address: null,
-          balance: formatUnits(raw, na.decimals),
+          balance: formatUnits(BigInt(rawStr), na.decimals),
           usd_value: 0,
           is_mento_stable: false,
         });
       }
+    }
+
+    if (staleCount > 0) {
+      this.logger.warn(`${chain}: ${staleCount} wallet balance(s) served from last-known-good cache`);
+      warnings?.push({
+        source: `${chain}-wallet`,
+        message: `${staleCount} balance(s) served from last-known-good cache (fresh read failed)`,
+      });
     }
 
     const cachedCount = callPlan.filter((p) => p.cached !== null).length;

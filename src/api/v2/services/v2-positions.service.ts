@@ -137,7 +137,7 @@ export class V2PositionsService {
     const celoWallet = await read(
       'celo-wallet',
       'Celo wallet balances',
-      () => this.walletBalanceReader.readPositions(Chain.CELO),
+      () => this.walletBalanceReader.readPositions(Chain.CELO, warnings),
       [],
     );
     time('Celo wallets', t);
@@ -177,13 +177,23 @@ export class V2PositionsService {
     // Phase 2: ETH + Monad in parallel
     t = Date.now();
     const [ethWallet, monadWallet, monadFpmm, polygonWallet, polygonFpmm] = await Promise.all([
-      read('eth-wallet', 'ETH wallet balances', () => this.walletBalanceReader.readPositions(Chain.ETHEREUM), []),
-      read('monad-wallet', 'Monad wallet balances', () => this.walletBalanceReader.readPositions(Chain.MONAD), []),
+      read(
+        'eth-wallet',
+        'ETH wallet balances',
+        () => this.walletBalanceReader.readPositions(Chain.ETHEREUM, warnings),
+        [],
+      ),
+      read(
+        'monad-wallet',
+        'Monad wallet balances',
+        () => this.walletBalanceReader.readPositions(Chain.MONAD, warnings),
+        [],
+      ),
       read('monad-fpmm', 'Monad FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.MONAD), []),
       read(
         'polygon-wallet',
         'Polygon wallet balances',
-        () => this.walletBalanceReader.readPositions(Chain.POLYGON),
+        () => this.walletBalanceReader.readPositions(Chain.POLYGON, warnings),
         [],
       ),
       read('polygon-fpmm', 'Polygon FPMM positions', () => this.fpmmPositionsService.getPositions(Chain.POLYGON), []),
