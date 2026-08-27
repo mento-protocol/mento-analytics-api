@@ -92,6 +92,13 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       decimals: 6,
       address: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c',
     },
+    EUROP: {
+      symbol: 'EUROP',
+      name: 'Schuman EURØP',
+      decimals: 6,
+      address: '0x888883b5F5D21fb10Dfeb70e8f9722B9FB0E5E51',
+      rateSymbol: 'EURC',
+    },
     EURA: {
       symbol: 'EURA',
       name: 'EURA',
@@ -211,6 +218,13 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       name: 'USD Tether',
       decimals: 6,
       address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+    },
+    EUROP: {
+      symbol: 'EUROP',
+      name: 'Schuman EURØP',
+      decimals: 6,
+      address: '0x888883b5F5D21fb10Dfeb70e8f9722B9FB0E5E51',
+      rateSymbol: 'EURC',
     },
     // Mento stables on Polygon (deterministic addresses, same as Monad). Needed so the
     // FPMM reader resolves + prices their legs; they count as reserve-held, not collateral.

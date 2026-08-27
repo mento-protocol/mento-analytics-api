@@ -111,6 +111,7 @@ export const ASSET_SYMBOLS = {
   WBTC: 'WBTC',
   stETH: 'stETH',
   EURC: 'EURC',
+  EUROP: 'EUROP',
   ETH: 'ETH',
   USDGLO: 'USDGLO',
   WETH: 'WETH',
