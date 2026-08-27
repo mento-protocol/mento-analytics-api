@@ -8,6 +8,7 @@ import { ReserveBalanceService } from './services/reserve-balance.service';
 import { ReserveValueService } from './services/reserve-value.service';
 import { CeloBalanceFetcher, EthereumBalanceFetcher } from './services/balance-fetchers';
 import { MonadBalanceFetcher } from './services/balance-fetchers/monad.balance-fetcher';
+import { PolygonBalanceFetcher } from './services/balance-fetchers/polygon.balance-fetcher';
 import { BALANCE_FETCHERS } from './constants/injection-tokens';
 import { StablecoinsModule } from '../stablecoins/stablecoins.module';
 
@@ -22,6 +23,7 @@ import { StablecoinsModule } from '../stablecoins/stablecoins.module';
     CeloBalanceFetcher,
     EthereumBalanceFetcher,
     MonadBalanceFetcher,
+    PolygonBalanceFetcher,
     {
       provide: BALANCE_FETCHERS,
       useFactory: (
@@ -29,8 +31,15 @@ import { StablecoinsModule } from '../stablecoins/stablecoins.module';
         celoFetcher: CeloBalanceFetcher,
         ethereumFetcher: EthereumBalanceFetcher,
         monadFetcher: MonadBalanceFetcher,
-      ) => [bitcoinFetcher, celoFetcher, ethereumFetcher, monadFetcher],
-      inject: [BitcoinBalanceFetcher, CeloBalanceFetcher, EthereumBalanceFetcher, MonadBalanceFetcher],
+        polygonFetcher: PolygonBalanceFetcher,
+      ) => [bitcoinFetcher, celoFetcher, ethereumFetcher, monadFetcher, polygonFetcher],
+      inject: [
+        BitcoinBalanceFetcher,
+        CeloBalanceFetcher,
+        EthereumBalanceFetcher,
+        MonadBalanceFetcher,
+        PolygonBalanceFetcher,
+      ],
     },
   ],
   exports: [ReserveService],

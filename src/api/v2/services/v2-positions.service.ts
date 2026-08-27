@@ -366,7 +366,7 @@ export class V2PositionsService {
     // sUSDS and sDAI are yield-bearing — fall through to DeFiLlama/CMC pricing
 
     // EUR-pegged tokens
-    const eurPegged = ['EURC', 'axlEUROC', 'EURA', 'stEUR'];
+    const eurPegged = ['EURC', 'EUROP', 'axlEUROC', 'EURA', 'stEUR'];
     if (eurPegged.includes(symbol)) {
       return await this.exchangeRatesService.convert(1, 'EUR', 'USD');
     }
