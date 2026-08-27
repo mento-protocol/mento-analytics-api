@@ -55,7 +55,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento V3 Liquidity Reserve',
     assets: ['EUROP'],
-    description: 'Mento ReserveV2 contract holding reserve assets on Polygon',
+    description: 'Mento Reserve contract holding reserve assets on Polygon',
   },
   {
     address: '0x87647780180B8f55980C7D3fFeFe08a9B29e9aE1',
