@@ -199,6 +199,7 @@ jobs:
           gcloud auth configure-docker us-central1-docker.pkg.dev
 
       - name: Build and push Docker image
+        id: build
         if: env.SKIP_STALE_DEPLOY != 'true' && env.SHOULD_BUILD_IMAGE == 'true'
         uses: docker/build-push-action@v5
         with:
@@ -300,12 +301,37 @@ jobs:
 
       - name: Advance latest Docker tag
         if: env.SKIP_STALE_DEPLOY != 'true' && env.SKIP_DEPLOY_FINALIZATION != 'true' && env.SHOULD_BUILD_IMAGE == 'true'
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          echo "Advancing ${{ env.LATEST_IMAGE_TAG }} to successfully deployed image: ${{ env.IMAGE_TAG }}"
-          gcloud artifacts docker tags add \
-            "${{ env.IMAGE_TAG }}" \
-            "${{ env.LATEST_IMAGE_TAG }}" \
+          echo "Advancing ${{ env.LATEST_IMAGE_TAG }} to successfully deployed image: ${{ env.IMAGE_TAG }} (${IMAGE_DIGEST})"
+
+          if [ -z "$IMAGE_DIGEST" ]; then
+            echo "Build step did not report an image digest; cannot advance latest tag"
+            exit 1
+          fi
+
+          # `gcloud artifacts docker tags add` deletes and recreates an existing tag, which needs
+          # artifactregistry.tags.delete (not in roles/artifactregistry.writer). Move the tag in place.
+          TAG_ARGS=(
+            --project="${GCP_PROJECT_ID}"
+            --location="${GCP_REGION}"
+            --repository=cloud-run-source-deploy
+            --package="${SERVICE_NAME}"
+            --version="${IMAGE_DIGEST}"
             --quiet
+          )
+
+          if ! UPDATE_OUTPUT=$(gcloud artifacts tags update latest "${TAG_ARGS[@]}" 2>&1); then
+            echo "$UPDATE_OUTPUT"
+            if ! grep -q "NOT_FOUND" <<< "$UPDATE_OUTPUT"; then
+              exit 1
+            fi
+            echo "latest tag does not exist yet; creating it"
+            gcloud artifacts tags create latest "${TAG_ARGS[@]}"
+          else
+            echo "$UPDATE_OUTPUT"
+          fi
 
       - name: Set service URL
         if: env.SKIP_STALE_DEPLOY != 'true' && env.SKIP_DEPLOY_FINALIZATION != 'true'
