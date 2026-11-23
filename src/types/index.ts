@@ -43,8 +43,9 @@ export enum AddressCategory {
  * @param decimals - The number of decimals of the asset.
  * @param address - Nullable address of the asset. Null is an indication of a chain native asset such as ETH or BTC.
  * @param rateSymbol - The symbol of the asset used to calculate the price from CoinMarketCap. e.g. EURC for stEUR.
- * @param isVault - Whether this is an ERC-4626 vault token. If true, maxWithdraw() is used instead of balanceOf().
+ * @param isVault - Whether v1 reads ERC-4626 vault balances (maxWithdraw and balanceOf). Shares are used for valuation.
  * @param useDefiLlamaPrice - If true, uses DeFiLlama for price instead of CMC. Requires address to be set.
+ * @param defiLlamaId - Optional DeFiLlama price ID override (chain:address), used with useDefiLlamaPrice.
  */
 export interface AssetConfig {
   symbol: AssetSymbol;
@@ -54,6 +55,7 @@ export interface AssetConfig {
   rateSymbol?: AssetSymbol;
   isVault?: boolean;
   useDefiLlamaPrice?: boolean;
+  defiLlamaId?: string;
 }
 
 /**
@@ -117,6 +119,7 @@ export const ASSET_SYMBOLS = {
   WETH: 'WETH',
   sDAI: 'sDAI',
   sUSDS: 'sUSDS',
+  sfrxUSD: 'sfrxUSD',
   USDS: 'USDS',
   stEUR: 'stEUR',
   axlEUROC: 'axlEUROC',

@@ -80,6 +80,9 @@ steps:
 
         # Deploy the service (this command handles both create and update)
         # Use preview-specific secrets that are shared across all preview deployments
+        # The app only listens after CacheWarmerService finishes its initial warm-up,
+        # which can take several minutes on a cold preview. Cloud Run's default TCP
+        # startup probe gives up after 240s, so allow up to 10 minutes (60 x 10s).
         gcloud run deploy "$$SERVICE_NAME" \
           --platform=${_PLATFORM} \
           --image="${_IMAGE_TAG}" \
@@ -88,6 +91,7 @@ steps:
           --project=${_PROJECT_ID} \
           --allow-unauthenticated \
           --timeout=300 \
+          --startup-probe=tcpSocket.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=60 \
           --set-env-vars="$$ENV_VARS" \
           --set-secrets="EXCHANGE_RATES_API_KEY=exchange-rates-api-key-preview:latest,COINMARKETCAP_API_KEY=coinmarketcap-api-key-preview:latest,CELO_RPC_URL=celo-rpc-url-preview:latest,ETH_RPC_URL=eth-rpc-url-preview:latest,MONAD_RPC_URL=monad-rpc-url-preview:latest,POLYGON_RPC_URL=polygon-rpc-url-preview:latest"
 
@@ -114,4 +118,5 @@ steps:
 tags:
   - preview-deployment
 
-timeout: 300s
+# Covers the 10-minute startup probe window above plus env setup and URL lookup.
+timeout: 900s
