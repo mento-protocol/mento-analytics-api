@@ -19,7 +19,7 @@ export class ReserveValueService {
     let price = 0;
     try {
       if (assetConfig.useDefiLlamaPrice && assetConfig.address) {
-        const defiLlamaId = `${chain}:${assetConfig.address}`;
+        const defiLlamaId = assetConfig.defiLlamaId ?? `${chain}:${assetConfig.address}`;
         price = await this.defiLlamaPriceFetcher.getPrice(defiLlamaId);
       } else {
         const rateSymbol = assetConfig.rateSymbol ?? assetConfig.symbol;

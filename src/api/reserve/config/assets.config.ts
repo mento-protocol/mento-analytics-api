@@ -65,6 +65,17 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       rateSymbol: 'EURC',
       isVault: true,
     },
+    // The Celo OFT represents vault shares but does not implement ERC-4626.
+    sfrxUSD: {
+      symbol: 'sfrxUSD',
+      name: 'Staked Frax USD',
+      decimals: 18,
+      address: '0x00000000fD8C4B8A413A06821456801295921a71',
+      useDefiLlamaPrice: true,
+      defiLlamaId: 'ethereum:0xcf62f905562626cfcdd2261162a51fd02fc9c5b6',
+      walletHolders: ['0x87647780180B8f55980C7D3fFeFe08a9B29e9aE1', '0xD3D2e5c5Af667DA817b2D752d86c8f40c22137E1'],
+      includeZeroBalance: true,
+    },
     axlEUROC: {
       symbol: 'axlEUROC',
       name: 'Axelar Wrapped EUROC',
@@ -123,6 +134,17 @@ export const ASSETS_CONFIGS: Record<Chain, Partial<Record<AssetSymbol, AssetConf
       address: '0xa3931d71877c0e7a3148cb7eb4463524fec27fbd',
       isVault: true,
       useDefiLlamaPrice: true,
+    },
+    sfrxUSD: {
+      symbol: 'sfrxUSD',
+      name: 'Staked Frax USD',
+      decimals: 18,
+      address: '0xcf62f905562626cfcdd2261162a51fd02fc9c5b6',
+      isVault: true,
+      useDefiLlamaPrice: true,
+      defiLlamaId: 'ethereum:0xcf62f905562626cfcdd2261162a51fd02fc9c5b6',
+      walletHolders: ['0xd0697f70E79476195B742d5aFAb14BE50f98CC1E', '0xD3D2e5c5Af667DA817b2D752d86c8f40c22137E1'],
+      includeZeroBalance: true,
     },
     USDS: {
       symbol: 'USDS',

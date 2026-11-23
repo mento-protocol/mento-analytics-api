@@ -363,7 +363,7 @@ export class V2PositionsService {
     // True 1:1 USD-pegged stablecoins (NOT yield-bearing vault tokens)
     const usdPegged = ['USDC', 'axlUSDC', 'USDT', 'USDT0', 'USDGLO', 'USDS', 'AUSD'];
     if (usdPegged.includes(symbol)) return 1;
-    // sUSDS and sDAI are yield-bearing — fall through to DeFiLlama/CMC pricing
+    // sUSDS, sDAI and sfrxUSD are yield-bearing — fall through to DeFiLlama/CMC pricing
 
     // EUR-pegged tokens
     const eurPegged = ['EURC', 'EUROP', 'axlEUROC', 'EURA', 'stEUR'];
@@ -380,8 +380,8 @@ export class V2PositionsService {
 
     if (assetConfig.useDefiLlamaPrice && assetConfig.address) {
       const chain = this.findAssetChain(symbol);
-      const chainSlug = chain === Chain.ETHEREUM ? 'ethereum' : chain === Chain.CELO ? 'celo' : chain;
-      const price = await this.defiLlamaPriceFetcher.getPrice(`${chainSlug}:${assetConfig.address}`);
+      const defiLlamaId = assetConfig.defiLlamaId ?? `${chain}:${assetConfig.address}`;
+      const price = await this.defiLlamaPriceFetcher.getPrice(defiLlamaId);
       if (price == null) {
         throw new Error(`Missing DeFiLlama price for ${symbol}`);
       }

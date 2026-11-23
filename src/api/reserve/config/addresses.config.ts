@@ -30,7 +30,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Reserve Custody Multisig',
-    assets: ['CELO', 'USDGLO', 'USDC', 'stEUR'],
+    assets: ['CELO', 'USDGLO', 'USDC', 'stEUR', 'sfrxUSD'],
     description: `A reserve owned multisig holding assets on Celo`,
   },
   {
@@ -46,7 +46,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Reserve Custody Multisig',
-    assets: ['ETH', 'WBTC', 'stETH', 'EURC', 'EUROP', 'USDC', 'sUSDS'],
+    assets: ['ETH', 'WBTC', 'stETH', 'EURC', 'EUROP', 'USDC', 'sUSDS', 'sfrxUSD'],
     description: 'Main Mento reserve holding collateral assets on Ethereum',
   },
   {
@@ -78,7 +78,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.CELO,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Operational Multisig',
-    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH', 'USDGLO'],
+    assets: ['CELO', 'USDC', 'USDT', 'axlEUROC', 'axlUSDC', 'WETH', 'USDGLO', 'sfrxUSD'],
     description: 'Holds reserve assets for rebalancing purposes',
   },
   {
@@ -86,7 +86,7 @@ export const RESERVE_ADDRESS_CONFIGS: ReserveAddressConfig[] = [
     chain: Chain.ETHEREUM,
     category: AddressCategory.MENTO_RESERVE,
     label: 'Mento Operational Multisig',
-    assets: ['USDC', 'USDT', 'ETH', 'stETH', 'EURA', 'EURC', 'EUROP'],
+    assets: ['USDC', 'USDT', 'ETH', 'stETH', 'EURA', 'EURC', 'EUROP', 'sfrxUSD'],
     description: 'Holds reserve assets for rebalancing purposes',
   },
   {
