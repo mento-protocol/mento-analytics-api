@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Chain } from '@types';
 import { ASSETS_CONFIGS } from '@api/reserve/config/assets.config';
 import { RESERVE_ADDRESS_CONFIGS } from '@api/reserve/config/addresses.config';
+import { getReserveAddressesByChain } from '@api/v2/config/reserve-addresses.config';
 import { ReserveBalanceService } from '@api/reserve/services/reserve-balance.service';
 import { ReserveValueService } from '@api/reserve/services/reserve-value.service';
 import { CeloBalanceFetcher } from '@api/reserve/services/balance-fetchers/celo.balance-fetcher';
@@ -73,7 +74,7 @@ describe('sfrxUSD share valuation', () => {
     },
   );
 
-  it.each([0n, 2n * 10n ** 18n])('v2 reads exactly four holders and values shares (%s) once per chain', async (raw) => {
+  it.each([0n, 2n * 10n ** 18n])('v2 reads every reserve wallet and values shares (%s) once', async (raw) => {
     const { cmc, llama } = prices();
     const calls: { chain: Chain; token: string; holder: string; method: string }[] = [];
     const primitive = {
@@ -123,30 +124,41 @@ describe('sfrxUSD share valuation', () => {
       primitive as any,
     );
     const response = await new V2ReserveService(service).getReserve();
-    const expectedPairs = [
-      'celo:0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
-      'celo:0xd3d2e5c5af667da817b2d752d86c8f40c22137e1',
-      'ethereum:0xd0697f70e79476195b742d5afab14be50f98cc1e',
-      'ethereum:0xd3d2e5c5af667da817b2d752d86c8f40c22137e1',
-    ].sort();
-    expect(calls.map((c) => `${c.chain}:${c.holder.toLowerCase()}`).sort()).toEqual(expectedPairs);
+    const reserveWallets = [Chain.CELO, Chain.ETHEREUM]
+      .flatMap((chain) => getReserveAddressesByChain(chain).map(({ address }) => `${chain}:${address.toLowerCase()}`))
+      .sort();
+    expect(reserveWallets).toEqual(
+      expect.arrayContaining([
+        'celo:0x87647780180b8f55980c7d3ffefe08a9b29e9ae1',
+        'celo:0xd3d2e5c5af667da817b2d752d86c8f40c22137e1',
+        'ethereum:0xd0697f70e79476195b742d5afab14be50f98cc1e',
+        'ethereum:0xd3d2e5c5af667da817b2d752d86c8f40c22137e1',
+      ]),
+    );
+    // Each reserve wallet is read once per chain, with balanceOf, like every other asset.
+    expect(calls.map((c) => `${c.chain}:${c.holder.toLowerCase()}`).sort()).toEqual(reserveWallets);
     expect(calls.every((c) => c.method === 'balanceOf')).toBe(true);
     const wallets = response.positions.wallet_balances.filter((p) => p.token === 'sfrxUSD');
-    expect(wallets.map((p) => `${p.chain}:${p.address.toLowerCase()}`).sort()).toEqual(expectedPairs);
-    for (const wallet of wallets) {
-      expect(wallet.balance).toBe(raw === 0n ? '0' : '2');
-      expect(wallet.usd_value).toBeCloseTo(raw === 0n ? 0 : 2 * PRICE);
-      expect(wallet.is_mento_stable).toBe(false);
+    const sfrxUsdAssets = response.collateral.assets.filter((a) => a.symbol === 'sfrxUSD');
+    if (raw === 0n) {
+      // Zero balances stay hidden, as for every other asset.
+      expect(wallets).toEqual([]);
+      expect(sfrxUsdAssets).toEqual([]);
+      expect(response.collateral.total_usd).toBeCloseTo(0);
+      expect(llama.getPrice).not.toHaveBeenCalled();
+    } else {
+      expect(wallets.map((p) => `${p.chain}:${p.address.toLowerCase()}`).sort()).toEqual(reserveWallets);
+      for (const wallet of wallets) {
+        expect(wallet.balance).toBe('2');
+        expect(wallet.usd_value).toBeCloseTo(2 * PRICE);
+        expect(wallet.is_mento_stable).toBe(false);
+      }
+      expect(sfrxUsdAssets).toHaveLength(2);
+      expect(response.collateral.total_usd).toBeCloseTo(reserveWallets.length * 2 * PRICE);
+      expect(llama.getPrice).toHaveBeenCalledExactlyOnceWith(PRICE_ID);
     }
-    expect(response.collateral.assets.filter((a) => a.symbol === 'sfrxUSD')).toHaveLength(2);
-    expect(response.collateral.total_usd).toBeCloseTo(raw === 0n ? 0 : 8 * PRICE);
     expect(response.reserve_held_supply.total_usd).toBe(0);
     expect(response.meta?.warnings ?? []).toEqual([]);
     expect(cmc.getPrice).not.toHaveBeenCalled();
-    if (raw !== 0n) {
-      expect(llama.getPrice).toHaveBeenCalledExactlyOnceWith(PRICE_ID);
-    } else {
-      expect(llama.getPrice).not.toHaveBeenCalled();
-    }
   });
 });

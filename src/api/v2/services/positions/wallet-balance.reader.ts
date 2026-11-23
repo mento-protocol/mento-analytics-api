@@ -6,7 +6,7 @@ import { PrimitiveCacheService } from '../primitive-cache.service';
 import { getReserveAddressesByChain } from '../../config/reserve-addresses.config';
 import { ASSETS_CONFIGS } from '@api/reserve/config/assets.config';
 import { DataWarning } from '../../dto/v2-meta.dto';
-import { AssetConfig, Chain } from '@types';
+import { Chain } from '@types';
 import { formatUnits } from 'viem';
 
 /** Token identifier used for native (address-less) balances in the primitive cache. */
@@ -33,10 +33,7 @@ const ERC20_BALANCE_ABI = [
   },
 ] as const;
 
-type TokenSpec = { symbol: string; address: string; decimals: number } & Pick<
-  AssetConfig,
-  'walletHolders' | 'includeZeroBalance'
->;
+type TokenSpec = { symbol: string; address: string; decimals: number };
 
 @Injectable()
 export class WalletBalanceReader {
@@ -73,7 +70,7 @@ export class WalletBalanceReader {
       const lower = a.address.toLowerCase();
       if (seen.has(lower)) continue;
       seen.add(lower);
-      tokens.push({ ...a, address: a.address });
+      tokens.push({ symbol: a.symbol, address: a.address, decimals: a.decimals });
     }
     if (chain === Chain.CELO) {
       for (const [addr, info] of stableMap) {
@@ -88,9 +85,6 @@ export class WalletBalanceReader {
     const callPlan: { addrIdx: number; tokenIdx: number; cached: string | null }[] = [];
     for (let ai = 0; ai < addresses.length; ai++) {
       for (let ti = 0; ti < tokens.length; ti++) {
-        const holders = tokens[ti].walletHolders;
-        if (holders && !holders.some((holder) => holder.toLowerCase() === addresses[ai].address.toLowerCase()))
-          continue;
         const cached = await this.primitiveCacheService.getBalance(chain, tokens[ti].address!, addresses[ai].address);
         callPlan.push({ addrIdx: ai, tokenIdx: ti, cached });
       }
@@ -143,7 +137,7 @@ export class WalletBalanceReader {
         }
       }
 
-      if (rawStr === '0' && !token.includeZeroBalance) continue;
+      if (rawStr === '0') continue;
 
       const balance = formatUnits(BigInt(rawStr), token.decimals);
       // Mento stable by address (Celo canonical deployment) OR by symbol pattern
@@ -169,12 +163,6 @@ export class WalletBalanceReader {
     const nativeAssets = Object.values(chainAssets).filter((a) => !a.address);
     for (const na of nativeAssets) {
       for (const addr of addresses) {
-        if (
-          na.walletHolders &&
-          !na.walletHolders.some((holder) => holder.toLowerCase() === addr.address.toLowerCase())
-        ) {
-          continue;
-        }
         let rawStr: string;
         try {
           // Cast to any to avoid viem's excessively-deep getBalance type inference
@@ -195,7 +183,7 @@ export class WalletBalanceReader {
           rawStr = lkg;
           staleCount++;
         }
-        if (rawStr === '0' && !na.includeZeroBalance) continue;
+        if (rawStr === '0') continue;
         positions.push({
           address: addr.address,
           label: addr.label,
@@ -219,7 +207,7 @@ export class WalletBalanceReader {
 
     const cachedCount = callPlan.filter((p) => p.cached !== null).length;
     this.logger.log(
-      `Wallet balances on ${chain}: ${positions.length} positions (${cachedCount} cached, ${uncachedIndices.length} RPC)`,
+      `Wallet balances on ${chain}: ${positions.length} non-zero (${cachedCount} cached, ${uncachedIndices.length} RPC)`,
     );
     return positions;
   }
